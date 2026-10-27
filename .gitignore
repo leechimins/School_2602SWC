@@ -1,0 +1,40 @@
+# AI Agent Files (공개 저장소에 포함 금지 — 로컬 워크스페이스 루트에서 관리)
+.claude/
+.agents/
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+TODO.md
+
+# Environment & Secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Dependencies
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Build
+dist/
+build/
+out/
+target/
+*.class
+
+# Logs
+*.log
+
+# IDE
+.vscode/
+.idea/
+
+# OS Temporary Files
+.DS_Store
+Thumbs.db
+Desktop.ini
