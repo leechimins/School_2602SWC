@@ -7,20 +7,17 @@
 ## 1. 브랜치 전략 (Branch Strategy)
 
 ```
-main                  → 대회 제출용 안정 버전
-develop               → 기본 통합 개발 브랜치
-feature/이름-기능명   → 기능 개발용 브랜치
-fix/이름-내용         → 버그 수정용 브랜치
-docs/이름-내용        → 문서 작업용 브랜치
+main                  → 유일한 기본 브랜치 (항상 시연 가능한 상태, PR로만 병합)
+Orca/MMDD-작업키워드  → 작업 브랜치 (Orca 워크트리에서 생성, 예: Orca/1028-login-screen)
 ```
 
-- `main` 및 `develop` 브랜치에는 직접 push하지 않으며, **PR(Pull Request)을 통해서만 병합**합니다.
-- 새 작업 시작 단계:
-  1. `develop` 브랜치에서 최신 상태로 **Fetch → Pull**
-  2. `develop`을 기준으로 새 작업 브랜치 생성 (예: `feature/jimin-login`)
-  3. 로컬 작업 및 기능 구현
-  4. 로컬 커밋 후 원격 저장소로 **Push**
-  5. GitHub에서 PR 생성 후 리뷰 요청
+- `main`에는 직접 push하지 않으며, 작업 브랜치에서 **PR(Pull Request)을 통해서만 병합**합니다.
+- 작업 순서:
+  1. `main`을 최신 상태로 **Pull**
+  2. `main`을 기준으로 작업 브랜치(워크트리) 생성
+  3. 작업 브랜치에서 구현 및 작은 단위 커밋
+  4. 원격으로 **Push** 후 `main` 대상 PR 생성
+  5. 확인 후 병합(Merge commit), 병합된 브랜치는 자동 삭제
 
 ---
 
@@ -47,7 +44,7 @@ docs/이름-내용        → 문서 작업용 브랜치
 
 ## 3. Pull Request (PR) 규칙
 
-- 모든 작업은 `develop` 브랜치를 타겟으로 PR을 생성합니다. 제출 시점에 `develop` → `main`으로 병합합니다.
+- 모든 작업은 `main` 브랜치를 타겟으로 PR을 생성합니다.
 - PR 본문에 이슈 해결 상태를 명시합니다:
   - 이슈 완료 시: `Close #이슈번호` (머지 시 해당 이슈 자동 종료)
   - 연관/진행 중 표시: `Related to #이슈번호`
