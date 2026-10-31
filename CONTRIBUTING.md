@@ -40,6 +40,7 @@ docs/<내용>      → 문서 작업 (예: docs/run-guide)
 | 📂 | `DOCS` | README / 문서 작성 및 수정 | `📂DOCS: 실행 방법 안내 갱신 (#5)` |
 | 📦 | `CHORE` | 설정, 의존성, 폴더 구조 변경 등 관리 작업 | `📦CHORE: 린터 설정 추가` |
 | 🧪 | `TEST` | 테스트 코드 추가 및 수정 | `🧪TEST: 불편 점수 계산 단위 테스트 추가 (#30)` |
+| 🔀 | `MERGE` | 작업 브랜치를 `main`에 병합 (`--no-ff`) | `🔀MERGE: feature/todo-board — 할 일 화면 (#12)` |
 
 > 💡 이슈 번호 앞에는 반드시 `#`을 붙여야 GitHub 이슈와 자동 연결됩니다. 연관 이슈가 없으면 생략할 수 있습니다.  
 > 커밋 템플릿 사용: `git config commit.template .github/commit_template.txt`
