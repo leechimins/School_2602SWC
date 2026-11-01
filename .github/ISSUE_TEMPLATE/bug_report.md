@@ -1,7 +1,7 @@
 ---
 name: "🐛 버그 리포트 (Bug Report)"
 about: "프로젝트 내에서 발견된 오류나 문제를 제안합니다."
-title: "[FIX] "
+title: "[FIX][FE] "
 labels: ["bug"]
 assignees: ""
 ---

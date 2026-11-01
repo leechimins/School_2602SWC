@@ -62,18 +62,20 @@ docs/<내용>      → 문서 작업 (예: docs/run-guide)
 ## 4. 이슈 관리
 
 - 버그 발견 또는 신규 구현 항목은 GitHub **Issues**에 등록합니다 (`.github/ISSUE_TEMPLATE` 사용).
-- 제목 앞에 영역을 붙입니다: `[FEAT][FE] 회의안 확인 화면`, `[FIX][BE] 위험 판정 중복`.
+- 제목 앞에 종류와 영역(`[FE]`·`[BE]`·`[DOCS]`)을 붙입니다: `[FEAT][FE] 회의안 확인 화면`, `[FIX][BE] 위험 판정 중복`.
 - 라벨(`bug` / `feature`)과 담당자(Assignee)를 지정합니다.
 
 ---
 
 ## 5. 코딩 컨벤션 (Coding Convention)
 
-### 5.1 프론트엔드 (`frontend/`, React)
-- 컴포넌트 파일과 이름은 `PascalCase`(`MeetingProposal.jsx`), 훅은 `use`로 시작합니다(`useTodos`).
+### 5.1 프론트엔드 (`frontend/`, React + TypeScript)
+- 컴포넌트 파일과 이름은 `PascalCase`(`MeetingProposal.tsx`), 훅은 `use`로 시작합니다(`useTodos`).
 - 화면 단위는 `pages/`, 여러 화면에서 쓰는 요소(할 일 행, 위험 카드, 다시 묻기 창 등)는 `components/`에 둡니다.
 - 서버 호출은 `api/` 한 곳에서만 합니다. 백엔드가 준비되기 전과 시연 중 장애에 대비해, 같은 함수가 목 데이터를 돌려줄 수 있게 만듭니다.
 - 색·간격·글자 크기는 CSS 변수(디자인 토큰)로만 씁니다. 값을 컴포넌트에 직접 적지 않습니다.
+- TypeScript는 `strict`로 씁니다. 백엔드와 주고받는 데이터 모양은 `types/`에 모으고, `any`는 피합니다(꼭 필요하면 `unknown`과 이유 주석).
+- 현재 시각은 `useClock()`으로만 얻습니다(`new Date()` 직접 호출 금지). 시연용 시계가 앱 전체에 한 번에 적용되게 하기 위해서입니다.
 
 ### 5.2 백엔드 (`backend/`)
 > 스택 확정 후 언어별 규칙(네이밍, 포맷터, 린터)을 추가합니다.

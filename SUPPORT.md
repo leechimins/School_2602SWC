@@ -8,9 +8,9 @@
 
 | 영역 | 환경 |
 | :--- | :--- |
-| 프론트엔드 (`frontend/`) | React (Node.js 버전은 프로젝트 생성 시 기입) |
+| 프론트엔드 (`frontend/`) | React + TypeScript (Vite), Node.js 24 LTS |
 | 백엔드 (`backend/`) | (스택 확정 후 기입) |
-| 시연 | 노트북 브라우저(Chrome)에서 휴대폰 폭으로 실행 |
+| 시연 | 노트북 한 대의 Chrome에서 `/demo` 페이지: 휴대폰 화면 2개 + 시연 장치 |
 
 ---
 
@@ -23,6 +23,7 @@ npm install
 npm run dev
 ```
 - 백엔드 없이도 목 데이터로 모든 화면이 열립니다. (전환 방법은 프로젝트 생성 시 기입)
+- 시연 당일에는 개발 서버 대신 빌드본으로 띄웁니다: `npm run build` 후 `npm run preview`
 
 ### 백엔드
 - (스택 확정 후 기입)
