@@ -8,3 +8,4 @@
 # 📂DOCS     : README.md 작성, 문서 작업
 # 📦CHORE    : 설정, 의존성, 폴더 구조 변경 등 관리 작업
 # 🧪TEST     : 테스트 코드 추가 및 수정
+# 🔀MERGE    : 작업 브랜치를 main에 병합 (--no-ff)
