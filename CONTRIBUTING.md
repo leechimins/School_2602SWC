@@ -61,9 +61,9 @@ docs/<내용>      → 문서 작업 (예: docs/run-guide)
 
 ## 4. 이슈 관리
 
-- 버그 발견 또는 신규 구현 항목은 GitHub **Issues**에 등록합니다 (`.github/ISSUE_TEMPLATE` 사용).
+- 만들 기능과 고칠 버그는 GitHub **Issues**에 하나의 템플릿(`.github/ISSUE_TEMPLATE/feature_request.md`)으로 등록합니다.
 - 제목 앞에 종류와 영역(`[FE]`·`[BE]`·`[DOCS]`)을 붙입니다: `[FEAT][FE] 회의안 확인 화면`, `[FIX][BE] 알림 카드 중복`.
-- 라벨(`bug` / `feature`)과 담당자(Assignee)를 지정합니다.
+- 담당자(Assignee)를 지정합니다. 버그는 라벨을 `bug`로 바꿉니다.
 
 ---
 
