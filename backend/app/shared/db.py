@@ -7,10 +7,11 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Iterator
 
 from dotenv import load_dotenv
 from sqlalchemy import Engine, text
-from sqlmodel import SQLModel, create_engine
+from sqlmodel import Session, SQLModel, create_engine
 
 load_dotenv()
 
@@ -42,6 +43,15 @@ def engine() -> Engine:
     if _engine is None:
         _engine = make_engine(_require("DATABASE_URL"))
     return _engine
+
+
+def session_dep() -> Iterator[Session]:
+    """FastAPI 의존성. 요청 하나에 세션 하나.
+
+    테스트는 이걸 app.dependency_overrides로 갈아서 teamagent_test를 쓴다.
+    """
+    with Session(engine()) as db:
+        yield db
 
 
 def register_models() -> None:
