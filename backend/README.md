@@ -9,7 +9,24 @@ API 서버와 에이전트(회의 시간 조율, 회의록 요약, 할 일 추�
 
 ## 지금 무엇이 들어 있나
 
-**테이블 17개와 시연 시드까지입니다.** API는 아직 `/health` 하나뿐이고, 조율 엔진은 다음입니다.
+**테이블 17개 + 시연 시드 + 온보딩 API까지입니다.** 조율 엔진은 다음입니다.
+
+### 도는 엔드포인트
+
+| method | path | 하는 일 |
+|---|---|---|
+| GET | `/api/v1/health` | DB가 붙는지까지 같이 봅니다 |
+| POST | `/api/v1/sessions` | **로그인.** 이름을 보내면 그 사람이 됩니다 |
+| DELETE | `/api/v1/sessions` | 로그아웃 |
+| POST | `/api/v1/me/onboarding/interpret` | 온보딩 네 답을 받아 **저장**하고 저장된 값을 돌려줍니다 |
+| GET | `/api/v1/me/preferences` | 내 조건 화면과 조율이 읽습니다 |
+| PATCH | `/api/v1/me/preferences` | 내 조건 화면의 편집. **보낸 키만** 반영 |
+
+`http://localhost:8000/api/v1/docs`에서 다 눌러 볼 수 있습니다.
+
+**로그인은 아직 비밀번호가 없습니다.** 이름을 보내면 그 사람이 됩니다 — 인증이 아니라 사용자 선택입니다. Room 도메인이라 원래 레인 B 것인데 `/me/*`가 사용자 없이는 아예 돌지 않아서 A가 먼저 깔았습니다. `user` 테이블은 건드리지 않았고, 비밀번호를 붙일 자리는 `app/shared/auth.py`의 `login()` 안에 주석으로 적어 뒀습니다.
+
+**에러 모양이 명세에 맞춰져 있습니다.** `main.py`의 예외 처리기 둘이 FastAPI 기본값(`{"detail": ...}`, 검사 실패는 422)을 `{"code", "field", "message"}` + 400으로 바꿉니다. `message`는 화면에 그대로 띄울 한국어 한 줄입니다.
 
 | 폴더 | 테이블 | 담당 |
 |---|---|---|
@@ -168,14 +185,18 @@ python -m tools.reset_db
 ```
 backend/
   app/
-    main.py              FastAPI 앱 (지금은 health만)
+    main.py              FastAPI 앱, 쿠키 서명, 에러 모양
     shared/              둘이 같이 읽는 것
       base.py            시각 다루는 규칙, 열 만드는 도우미
       enums.py           열거값 전부
-      db.py              접속, 테이블 생성, reset_schema
+      db.py              접속, 테이블 생성, reset_schema, 세션 의존성
+      auth.py            로그인·로그아웃, current_user_id
       demo_clock.py      시연 시계 — "지금"은 전부 여기서 읽는다
       models.py          user · room · membership  ← 레인 B 것
-    me/models.py         preference · schedule_item
+    me/
+      models.py          preference · schedule_item
+      schemas.py         입력·출력 모델 (table=True가 없는 것들)
+      router.py          온보딩·내 조건 엔드포인트
     meeting/models.py    조율 8개
     notice/models.py     알림 3개
     demo/models.py       demo_state
@@ -185,6 +206,8 @@ backend/
   tests/
     test_models.py       제약이 실제로 물리는지
     test_seed.py         시드가 시연 전제를 만족하는지
+    test_schemas.py      시각 피커가 분으로 바뀌는지 (DB 없이)
+    test_me_api.py       온보딩을 실제 요청으로 끝까지
   db-설계.md             테이블 22개 설계 (레인 B 것 포함)
 ```
 
