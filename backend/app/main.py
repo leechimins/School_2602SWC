@@ -15,6 +15,7 @@ from sqlalchemy import text
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.me.router import router as me_router
+from app.meeting.router import router as meeting_router
 from app.shared.auth import router as auth_router
 from app.shared.db import engine
 
@@ -42,6 +43,7 @@ app.add_middleware(
 
 app.include_router(auth_router, prefix=API_PREFIX)
 app.include_router(me_router, prefix=API_PREFIX)
+app.include_router(meeting_router, prefix=API_PREFIX)
 
 
 # 에러 모양을 명세에 맞춘다 — {"code": ..., "message": 화면에 그대로 띄울 한 줄}.
