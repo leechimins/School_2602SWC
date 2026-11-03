@@ -7,11 +7,10 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Iterator
 
 from dotenv import load_dotenv
 from sqlalchemy import Engine, text
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import SQLModel, create_engine
 
 load_dotenv()
 
@@ -63,17 +62,12 @@ def create_all(target: Engine | None = None) -> None:
     SQLModel.metadata.create_all(target or engine())
 
 
-def drop_all(target: Engine | None = None) -> None:
-    register_models()
-    SQLModel.metadata.drop_all(target or engine())
-
-
 def reset_schema(target: Engine | None = None) -> None:
-    """DB를 빈 상태로 되돌린다. drop_all보다 이쪽을 쓴다.
+    """DB를 빈 상태로 되돌린다.
 
-    drop_all은 지금 모델에 있는 테이블만 지운다. 그래서 모델에서 테이블을
-    빼면(11/3의 scheduling_note) 그 테이블이 DB에 남아 FK로 다른 테이블을
-    붙잡고, DROP TABLE이 실패해 reset이 아예 막힌다.
+    SQLModel.metadata.drop_all을 쓰지 않는다. 그건 지금 모델에 있는 테이블만
+    지우므로, 모델에서 테이블을 빼면(11/3의 scheduling_note) 그 테이블이 DB에
+    남아 FK로 다른 테이블을 붙잡고 DROP TABLE이 실패해 reset이 아예 막힌다.
 
     스키마를 통째로 지우면 모델에 없는 것까지 사라지므로 그 일이 없다.
     마이그레이션 도구를 안 쓰기로 한 선택(db-설계.md §0)이 성립하려면
@@ -83,9 +77,3 @@ def reset_schema(target: Engine | None = None) -> None:
     with eng.begin() as conn:
         conn.execute(text("DROP SCHEMA public CASCADE"))
         conn.execute(text("CREATE SCHEMA public"))
-
-
-def get_session() -> Iterator[Session]:
-    """FastAPI 의존성."""
-    with Session(engine()) as session:
-        yield session

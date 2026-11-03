@@ -40,9 +40,3 @@ def _db_status() -> str:
 @app.get(f"{API_PREFIX}/health")
 def health() -> dict[str, str]:
     return {"status": "ok", "db": _db_status()}
-
-
-@app.get("/health")
-def health_bare() -> dict[str, str]:
-    """배포 플랫폼이 보통 이 경로를 찌른다."""
-    return health()

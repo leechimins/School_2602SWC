@@ -198,7 +198,7 @@ class Meeting(SQLModel, table=True):
         ),
         # 확정 시각은 확정된 뒤에만 있다.
         CheckConstraint(
-            "(status = 'proposed' AND confirmed_at IS NULL) OR status <> 'proposed'",
+            "status <> 'proposed' OR confirmed_at IS NULL",
             name="ck_meeting_confirmed_at",
         ),
     )
