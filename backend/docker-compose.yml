@@ -1,0 +1,23 @@
+services:
+  db:
+    image: postgres:16
+    container_name: teamagent-db
+    environment:
+      POSTGRES_USER: teamagent
+      POSTGRES_PASSWORD: teamagent
+      POSTGRES_DB: teamagent
+      TZ: Asia/Seoul
+      PGTZ: Asia/Seoul
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/init-test-db.sql:/docker-entrypoint-initdb.d/init-test-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U teamagent -d teamagent"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  pgdata:
