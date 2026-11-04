@@ -20,15 +20,21 @@ from sqlmodel import Session
 from app.demo.models import DemoState
 from app.me.models import Preference, ScheduleItem
 from app.meeting.models import Meeting, MeetingResponse, YieldEntry
+from app.minutes.models import Minutes, MinutesItem, Task, TranscriptSegment
 from app.shared.base import KST
 from app.shared.enums import (
     Daypart,
     MeetingStatus,
+    MinutesItemKind,
+    MinutesStatus,
     Mode,
     Recurrence,
     ResponseState,
     ScheduleKind,
     ScheduleSource,
+    TaskOrigin,
+    TaskState,
+    TranscriptMode,
 )
 from app.shared.models import Membership, Room, User
 
@@ -242,4 +248,145 @@ def seed(session: Session) -> None:
         ]
     )
 
+    _seed_minutes_and_tasks(session, room, second, jisu, minji, hyunwoo, seoyeon)
+
     session.commit()
+
+
+def _seed_minutes_and_tasks(
+    session: Session,
+    room: Room,
+    meeting: Meeting,
+    jisu: User,
+    minji: User,
+    hyunwoo: User,
+    seoyeon: User,
+) -> None:
+    """레인 B 시드. 지난 회의(10/31)의 회의록과 그 회의에서 나온 할 일.
+
+    기준 시점은 시연 시계의 오늘, 2026-11-10이다. 기한이 그보다 앞서고
+    끝나지 않은 할 일이 하나 있어야 늦음 뱃지가 보이고, 담당자 없는 할
+    일이 있어야 "담당자 없음" 묶음이 보인다.
+    """
+    held = at(2026, 10, 31, 12)  # 회의가 끝난 시각 이후로 모든 기록을 찍는다
+
+    # --- 원문 ---
+    lines = [
+        (jisu, "오늘은 중간 발표 자료를 누가 어디까지 맡을지 정하죠."),
+        (minji, "발표는 제가 할게요. 슬라이드 초안은 다음 주 목요일까지 가능해요."),
+        (hyunwoo, "저는 프로토타입 화면을 구현할게요. 알바 때문에 평일 저녁은 어려워요."),
+        (seoyeon, "디자인 시안은 제가 볼게요. 발표 대본은 아직 맡을 사람이 없어요."),
+        (jisu, "사용자 인터뷰 정리는 제가 이번 주말까지 끝낼게요."),
+        (None, "리허설 일정은 다음 회의에서 다시 이야기해요."),
+    ]
+    session.add_all(
+        [
+            TranscriptSegment(
+                meeting_id=meeting.id,
+                seq=seq,
+                speaker_user_id=speaker.id if speaker else None,
+                text=text,
+                created_at=held,
+            )
+            for seq, (speaker, text) in enumerate(lines)
+        ]
+    )
+    meeting.transcript_mode = TranscriptMode.MANUAL
+
+    # --- 회의록 ---
+    minutes = Minutes(
+        meeting_id=meeting.id,
+        headline="중간 발표 자료를 역할별로 나눔",
+        status=MinutesStatus.DONE,
+        created_at=held,
+    )
+    session.add(minutes)
+    session.flush()
+
+    items = [
+        (MinutesItemKind.DECISION, "발표는 민지, 프로토타입 구현은 현우가 맡는다."),
+        (MinutesItemKind.DECISION, "사용자 인터뷰 정리는 지수가 이번 주말까지 끝낸다."),
+        (MinutesItemKind.DISCUSSION, "현우는 평일 저녁 알바가 있어 회의는 낮이 낫다."),
+        (MinutesItemKind.PENDING, "발표 대본을 누가 쓸지 정하지 못했다."),
+        (MinutesItemKind.PENDING, "최종 발표 리허설 일정."),
+    ]
+    session.add_all(
+        [
+            MinutesItem(minutes_id=minutes.id, kind=kind, seq=seq, text=text)
+            for seq, (kind, text) in enumerate(items)
+        ]
+    )
+
+    # --- 확정된 할 일 ---
+    def confirmed(title, due, assignee, state, *, by, origin=TaskOrigin.AI, src=meeting):
+        return Task(
+            room_id=room.id,
+            meeting_id=src.id if src else None,
+            title=title,
+            due_date=due,
+            assignee_user_id=assignee.id if assignee else None,
+            state=state,
+            origin=origin,
+            confirmed=True,
+            confirmed_by=by.id,
+            confirmed_at=held,
+            created_at=held,
+        )
+
+    session.add_all(
+        [
+            # 기한(11/8)이 오늘(11/10)보다 앞서고 끝나지 않았다 → 늦음
+            confirmed(
+                "사용자 인터뷰 정리", date(2026, 11, 8), jisu, TaskState.DOING, by=jisu
+            ),
+            confirmed(
+                "발표 슬라이드 초안", date(2026, 11, 13), minji, TaskState.TODO, by=jisu
+            ),
+            confirmed(
+                "프로토타입 화면 구현",
+                date(2026, 11, 15),
+                hyunwoo,
+                TaskState.BLOCKED,
+                by=jisu,
+            ),
+            confirmed(
+                "참고 사례 조사", date(2026, 11, 5), jisu, TaskState.DONE, by=jisu
+            ),
+            # 담당자 없음은 오류가 아니라 정상 시작 상태다
+            confirmed("발표 대본 작성", date(2026, 11, 17), None, TaskState.TODO, by=jisu),
+            # 직접 추가한 할 일. 출처 회의가 없다.
+            confirmed(
+                "대면 회의 장소 예약",
+                date(2026, 11, 12),
+                jisu,
+                TaskState.TODO,
+                by=jisu,
+                origin=TaskOrigin.MANUAL,
+                src=None,
+            ),
+        ]
+    )
+
+    # --- 확정 전 제안(AI 제안). 할 일 목록에는 나오지 않는다 ---
+    def proposal(title, due, assignee=None):
+        return Task(
+            room_id=room.id,
+            meeting_id=meeting.id,
+            title=title,
+            due_date=due,
+            assignee_user_id=assignee.id if assignee else None,
+            state=TaskState.TODO,
+            origin=TaskOrigin.AI,
+            confirmed=False,
+            created_at=held,
+        )
+
+    session.add_all(
+        [
+            # 회의록에 "제가 볼게요"가 분명해서 담당자가 채워진 제안
+            proposal("디자인 시안 정리", date(2026, 11, 14), seoyeon),
+            # 담당자가 불분명해 비어 있는 제안
+            proposal("최종 발표 리허설 일정 잡기", date(2026, 11, 18)),
+            proposal("시연 영상 촬영 계획", None),
+        ]
+    )

@@ -12,12 +12,17 @@ from collections.abc import Iterator
 
 import pytest
 from dotenv import load_dotenv
+from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 from sqlmodel import Session
 
-from app.shared.db import create_all, make_engine, reset_schema
+from app.main import app
+from app.shared.db import create_all, make_engine, reset_schema, session_dep
+from tools.seed import seed
 
 load_dotenv()
+
+API = "/api/v1"
 
 
 @pytest.fixture(scope="session")
@@ -42,3 +47,39 @@ def session(test_engine: Engine) -> Iterator[Session]:
     create_all(test_engine)
     with Session(test_engine) as db:
         yield db
+
+
+# ── API 테스트 공용 (레인 B) ─────────────────────────────────────────
+# 레인 A의 테스트 파일은 같은 이름의 client를 파일 안에 따로 갖고 있다.
+# pytest는 파일 안의 픽스처를 conftest보다 먼저 쓰므로 서로 부딪치지 않는다.
+
+
+@pytest.fixture
+def client(session: Session) -> Iterator[TestClient]:
+    """라우터가 테스트 DB를 쓰게 바꿔치기한다.
+
+    같은 세션을 넘기는 이유: 테스트가 만든 행을 요청이 봐야 하고, 요청이
+    저장한 행을 테스트가 봐야 한다.
+    """
+    app.dependency_overrides[session_dep] = lambda: session
+    with TestClient(app) as c:
+        yield c
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def login(client: TestClient):
+    """이름으로 로그인하는 함수. 쿠키는 client가 들고 있는다."""
+
+    def _login(name: str = "지수") -> None:
+        res = client.post(f"{API}/sessions", json={"name": name})
+        assert res.status_code == 201, res.text
+
+    return _login
+
+
+@pytest.fixture
+def seeded(session: Session) -> Session:
+    """시연 시드가 들어간 DB. 팀원 4명과 방, 회의록, 할 일이 있다."""
+    seed(session)
+    return session
