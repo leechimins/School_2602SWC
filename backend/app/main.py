@@ -16,10 +16,22 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from app.me.router import router as me_router
 from app.meeting.router import router as meeting_router
+from app.notice.router import router as notice_router
 from app.shared.auth import router as auth_router
-from app.shared.db import engine
+from app.shared.db import engine, register_models
 
 API_PREFIX = "/api/v1"
+
+# 테이블을 "만들지"는 않는다. 모델 클래스를 metadata에 등록만 한다.
+#
+# 이게 없으면 도메인을 넘는 FK가 풀리지 않는다. notification.task_id는
+# app/minutes/models.py(레인 B)의 task를 가리키는데, 라우터들은 각자 자기
+# 도메인 모델만 import하므로 app.minutes.models를 아무도 끌어오지 않는다.
+# 그러면 알림에 쓰기를 하는 순간 NoReferencedTableError로 터진다.
+#
+# DB를 건드리지 않으므로(import뿐) 배포에서 사고가 날 일은 없다. 테이블을
+# 만드는 것은 그대로 tools/reset_db.py만 한다.
+register_models()
 
 app = FastAPI(
     title="팀플 에이전트",
@@ -44,6 +56,7 @@ app.add_middleware(
 app.include_router(auth_router, prefix=API_PREFIX)
 app.include_router(me_router, prefix=API_PREFIX)
 app.include_router(meeting_router, prefix=API_PREFIX)
+app.include_router(notice_router, prefix=API_PREFIX)
 
 
 # 에러 모양을 명세에 맞춘다 — {"code": ..., "message": 화면에 그대로 띄울 한 줄}.
