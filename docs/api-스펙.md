@@ -46,8 +46,10 @@
 | 400 | `INVALID_INPUT` | 입력 형식 오류 (`field`로 어느 칸인지) |
 | 403 | `FORBIDDEN` | 권한 없음 |
 | 403 | `NOT_ASSIGNEE` | 담당자가 아닌 사람이 할 일 상태를 바꾸려 함 |
+| 401 | `UNAUTHENTICATED` | 로그인 안 함 |
 | 404 | `NOT_FOUND` | 없는 자원 |
 | 409 | `ALREADY_CONFIRMED` | 이미 확정된 것을 또 확정 |
+| 409 | `ALREADY_RUNNING` | 이미 도는 조율이 있는데 또 시작 |
 | 503 | `AGENT_TIMEOUT` | AI 실패·시간 초과 → 다시 하기 |
 
 ### 기술 스택
@@ -81,14 +83,14 @@
 | Notice | 웹 푸시 끄기 | DELETE | `/me/push-subscription` | A | Low | “ | 미착수 | 미착수 |
 | Meeting | 조율 시작하기 | POST | `/rooms/{room_id}/schedulings` | A | High | 팀장만. 회의 길이 30분 단위 | 미착수 | 미착수 |
 | Meeting | 지금까지의 조율 보기 | GET | `/rooms/{room_id}/schedulings/{id}` | A | High | 재진입용. 쌓인 발언을 한 번에 | 미착수 | 미착수 |
-| Meeting | 조율 발언 받기 | GET | `/rooms/{room_id}/schedulings/{id}/stream` | A | High | SSE. 1.6초마다 하나씩. 스피너 금지 | 미착수 | 미착수 |
-| Meeting | 후보 중 팀이 고르기 | POST | `/rooms/{room_id}/schedulings/{id}/pick` | A | Medium | 3라운드 안에 합의 실패했을 때 | 미착수 | 미착수 |
+| Meeting | 조율 발언 받기 | GET | `/rooms/{room_id}/schedulings/{id}/stream` | A | High | SSE. 1.6초마다 하나씩. 스피너 금지. 끝에 `event: done`으로 `status` 전달 | **완료** | 미착수 |
+| Meeting | ~~후보 중 팀이 고르기~~ | ~~POST~~ | ~~`/rooms/{room_id}/schedulings/{id}/pick`~~ | A | — | **빗금 11/5**: 사람이 고르는 단계를 없앴습니다. 3라운드 실패·전원 가능한 시간 없음 둘 다 판단 에이전트가 불편·양보 점수로 정하고 **바로 확정**합니다 | 안 만듦 | 안 만듦 |
 | Meeting | 기간 넓혀 다시 조율 | POST | `/rooms/{room_id}/schedulings/{id}/widen` | A | Medium | 새 scheduling_id를 받음 | 미착수 | 미착수 |
 | Meeting | 불참안 받아들이기 | POST | `/rooms/{room_id}/schedulings/{id}/accept-absent` | A | Medium | 전원 가능한 시간이 없을 때 | 미착수 | 미착수 |
 | Meeting | 거절 뒤 다시 조율 | POST | `/rooms/{room_id}/schedulings/{id}/rerun` | A | Medium | 권한 미정 — 팀원도 되는지 | 미착수 | 미착수 |
 | Meeting | 회의안 목록 보기 | GET | `/rooms/{room_id}/proposals` | A | Medium | 지난 것 포함 | 미착수 | 미착수 |
 | Meeting | 회의안 보기 | GET | `/rooms/{room_id}/proposals/{id}` | A | High | 차선책 빠짐. 보는 사람마다 내용이 다름 | 미착수 | 미착수 |
-| Meeting | 수락·거절하기 | POST | `/rooms/{room_id}/proposals/{id}/respond` | A | High | 피드백 한 줄 함께. 전원 수락 시 자동 확정 | 미착수 | 미착수 |
+| Meeting | 수락·거절하기 | POST | `/rooms/{room_id}/proposals/{id}/respond` | A | High | 피드백 한 줄 함께. 전원 수락 시 자동 확정. **조정된 회의(`settled`)는 이미 확정이라 피드백만 받습니다** | 미착수 | 미착수 |
 | Meeting | 선호 변경 되돌리기 | POST | `/me/preference-changes/{id}/undo` | A | Medium | 말없이 바꾸면 안 되므로 필요 | 미착수 | 미착수 |
 | Meeting | 일정 보기(회의 관리) | GET | `/rooms/{room_id}/schedule` | A | High | 회의 관리로 바뀜 (전 timeline). 조율 중도 자리 잡음 | 미착수 | 미착수 |
 | Record | 회의록 목록 보기 | GET | `/rooms/{room_id}/meetings` | B | High | 주제 한 줄이 보여야 나중에 찾음 | 미착수 | 미착수 |
