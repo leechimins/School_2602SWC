@@ -29,6 +29,15 @@ from app.shared.enums import (
 )
 
 
+# 한 방에 도는 조율이 하나뿐임을 지키는 부분 인덱스의 이름.
+#
+# 상수로 뺀 이유: 라우터가 이 이름으로 "방금 깨진 제약이 이것인지"를 판단해
+# 409를 돌려준다(meeting/router.py). 두 곳에 글자로 적어 두면 이름을 바꿀 때
+# 한쪽만 바뀌고, 그러면 팀장이 버튼을 두 번 눌렀을 때 안내 문구 대신 500이
+# 나간다. 같은 상수를 보게 해서 둘이 같이 움직이게 한다.
+RUNNING_SCHEDULING_INDEX = "ix_one_running_scheduling_per_room"
+
+
 class Scheduling(SQLModel, table=True):
     """조율 한 번. 팀장이 연다."""
 
@@ -46,7 +55,7 @@ class Scheduling(SQLModel, table=True):
         # 일은 쉽게 일어나고, 그러면 발언이 두 줄기로 섞여 핵심 화면이 망가진다.
         # Postgres 부분 인덱스라 running이 아닌 행은 몇 개든 상관없다.
         Index(
-            "ix_one_running_scheduling_per_room",
+            RUNNING_SCHEDULING_INDEX,
             "room_id",
             unique=True,
             postgresql_where=text("status = 'running'"),
