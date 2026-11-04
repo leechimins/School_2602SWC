@@ -36,10 +36,9 @@ class Notification(SQLModel, table=True):
 
     kind: NotificationKind = enum_text(length=20)
 
-    # FK를 아직 안 걸었다. task는 B(Task 도메인) 테이블이고 지금 없어서,
-    # 걸면 create_all이 돌지 않는다. B의 모델이 들어오면
-    # foreign_key="task.id", ondelete="CASCADE"를 붙인다.
-    task_id: int | None = Field(default=None, index=True)
+    task_id: int | None = Field(
+        default=None, foreign_key="task.id", ondelete="CASCADE", index=True
+    )
     meeting_id: int | None = Field(
         default=None, foreign_key="meeting.id", ondelete="CASCADE"
     )
