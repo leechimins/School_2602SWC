@@ -27,17 +27,37 @@ class Mode(StrEnum):
     ANY = "any"
 
 
-class SchedulingStatus(StrEnum):
-    """조율의 상태. 화면 세 갈래와 1:1이다.
+class SchedulingPhase(StrEnum):
+    """조율이 어느 단계의 후보를 보고 있나.
 
-    agreed    → 회의 일정 조율 확인 화면
-    needs_pick → 3라운드 안에 합의 실패, 후보 2~3개를 사람이 고른다
-    no_common  → 전원 가능한 시간이 없다, 1명 불참안
+    all     → 전원 가능한 후보로 최대 3라운드
+    absent  → 거기서 합의가 안 되면, 한 명이 못 오는 후보로 다시 3라운드
+
+    라운드 번호는 단계마다 1부터 다시 센다. 그래서 round_no의
+    CHECK(1~3)을 넓히지 않아도 되고, 브리프의 "라운드 구분: 몇 번째인지,
+    최대 3"도 그대로 맞는다.
+    """
+
+    ALL = "all"
+    ABSENT = "absent"
+
+
+class SchedulingStatus(StrEnum):
+    """조율의 상태. 끝났을 때의 값 셋이 화면 세 갈래와 1:1이다.
+
+    running    → 라운드를 도는 중
+    agreed     → 전원이 올 수 있는 안으로 합의
+    no_common  → 합의했지만 한 명이 못 오는 안이다. 화면이 불참자를 보여 준다
+    failed     → 두 단계 모두 3라운드 안에 합의 실패. 팀장이 기간을 넓혀야 한다
+
+    needs_pick(사람이 후보를 고르는 단계)을 11/4에 없앴다. 3라운드 실패 시
+    사람에게 넘기는 대신 에이전트가 1명 불참 단계로 계속 돈다 — 시연에서
+    사람이 고를 때까지 기다리는 자리를 만들지 않으려는 선택이다.
+    명세의 POST /schedulings/{id}/pick도 함께 사라진다.
     """
 
     RUNNING = "running"
     AGREED = "agreed"
-    NEEDS_PICK = "needs_pick"
     NO_COMMON = "no_common"
     FAILED = "failed"
 

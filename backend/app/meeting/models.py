@@ -23,6 +23,7 @@ from app.shared.enums import (
     MeetingStatus,
     Mode,
     ResponseState,
+    SchedulingPhase,
     SchedulingStatus,
     SpeakerKind,
     TranscriptMode,
@@ -92,6 +93,7 @@ class CandidateSlot(SQLModel, table=True):
     __table_args__ = (
         CheckConstraint("start_at < end_at", name="ck_candidate_range"),
         CheckConstraint("round_no BETWEEN 1 AND 3", name="ck_candidate_round"),
+        CheckConstraint(in_check("phase", SchedulingPhase), name="ck_candidate_phase"),
     )
 
     id: int | None = Field(default=None, primary_key=True)
@@ -102,6 +104,9 @@ class CandidateSlot(SQLModel, table=True):
     start_at: datetime = ts()  # 분은 0 또는 30
     end_at: datetime = ts()
     total_cost: float  # 팀 전체 불편 합
+    # 전원 가능한 후보인가, 한 명이 못 오는 후보인가. 조율 시작 때 둘 다
+    # 만들어 두고, all에서 합의가 안 되면 absent 쪽을 꺼내 쓴다.
+    phase: SchedulingPhase = enum_text(length=8)
     round_no: int
     proposed: bool = Field(default=False)  # 판단 에이전트가 실제로 제안했나
     # 1명 불참안이면 빠지는 사람. 전원 가능한 시간이 없을 때만 찬다.
@@ -156,6 +161,7 @@ class Utterance(SQLModel, table=True):
         UniqueConstraint("scheduling_id", "seq", name="uq_utterance_seq"),
         CheckConstraint(in_check("speaker_kind", SpeakerKind), name="ck_utt_speaker"),
         CheckConstraint("round_no BETWEEN 1 AND 3", name="ck_utt_round"),
+        CheckConstraint(in_check("phase", SchedulingPhase), name="ck_utt_phase"),
         # 팀원 에이전트는 누구인지가 있어야 하고, 판단 에이전트는 없어야 한다.
         CheckConstraint(
             "(speaker_kind = 'member' AND speaker_user_id IS NOT NULL) "
@@ -169,6 +175,10 @@ class Utterance(SQLModel, table=True):
         foreign_key="scheduling.id", ondelete="CASCADE", index=True
     )
 
+    # 화면이 "— 1라운드 —"를 단계마다 다시 세려면 어느 단계의 발언인지가
+    # 있어야 한다. 단계가 바뀌는 자리에 "전원이 되는 시간이 없어 한 명이
+    # 빠지는 안으로 넘어갑니다"를 끼워 넣는 것도 이 값으로 안다.
+    phase: SchedulingPhase = enum_text(length=8)
     round_no: int
     seq: int  # 화면에 나올 순서
     speaker_kind: SpeakerKind = enum_text(length=8)

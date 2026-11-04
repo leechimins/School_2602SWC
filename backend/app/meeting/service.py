@@ -25,7 +25,7 @@ from app.meeting.scorer import (
     unavailable_count,
 )
 from app.meeting.slots import Busy, expand_busy, find_candidates, group_by_user
-from app.shared.enums import MeetingStatus, SchedulingStatus
+from app.shared.enums import MeetingStatus, SchedulingPhase, SchedulingStatus
 from app.shared.models import Membership
 
 # 한 라운드에 저장하는 후보 개수.
@@ -44,10 +44,11 @@ def start_scheduling(
     started_by: int,
     body: SchedulingStartIn,
 ) -> Scheduling:
-    """조율을 열고 1라운드 후보까지 만든다.
+    """조율을 열고 두 단계의 후보를 만든다.
 
-    status를 running으로 두고 끝낸다. 후보가 하나도 안 나오면 no_common이다
-    — 억지로 기간을 넓히지 않는다. 넓히는 것은 팀장이 widen으로 하는
+    status를 running으로 두고 끝낸다. 끝 상태는 라운드 루프가 정한다.
+
+    억지로 기간을 넓히지 않는다. 넓히는 것은 팀장이 widen으로 하는
     선택이고, 서버가 몰래 하면 "왜 이 시간이죠"에 답할 수 없다.
     """
     scheduling = Scheduling(
@@ -92,24 +93,39 @@ def start_scheduling(
     usable = [pair for pair in scored if unavailable_count(pair[1]) <= 1]
     ordered = pick_order(usable, yield_totals)
 
-    for (start_at, end_at), costs in ordered[:CANDIDATES_PER_ROUND]:
-        _save_candidate(db, scheduling.id, start_at, end_at, costs)
+    # 두 단계를 한꺼번에 만들어 둔다. all에서 3라운드 안에 합의가 안 되면
+    # 라운드 루프가 absent 쪽을 꺼내 쓴다 — 그때 다시 계산하지 않는다.
+    everyone = [p for p in ordered if unavailable_count(p[1]) == 0]
+    one_out = [p for p in ordered if unavailable_count(p[1]) == 1]
+    # 팀장이 못 오는 후보는 맨 뒤로. "팀장은 최대한 포함"이 11/4의 결정이다.
+    # 안정 정렬이라 같은 묶음 안의 불편 순서는 그대로 남는다.
+    one_out.sort(key=lambda pair: _absentee_is(pair[1], started_by))
 
-    # 전원 가능한 후보가 하나도 없으면 no_common이다(db-설계.md §6-5). 후보가
-    # 아예 없을 때만이 아니다 — 한 명이 못 오는 후보만 남은 것도 "전원 가능한
-    # 시간이 없음"이고, 그때 화면은 1명 불참안으로 가야 한다. pick_order가
-    # 못 오는 사람 수 순으로 세워 두므로 맨 앞 것만 보면 된다.
-    if not ordered or unavailable_count(ordered[0][1]) > 0:
-        scheduling.status = SchedulingStatus.NO_COMMON
+    for phase, pairs in (
+        (SchedulingPhase.ALL, everyone),
+        (SchedulingPhase.ABSENT, one_out),
+    ):
+        for (start_at, end_at), costs in pairs[:CANDIDATES_PER_ROUND]:
+            _save_candidate(db, scheduling.id, phase, start_at, end_at, costs)
+
+    # 양쪽 다 비면 라운드를 돌 것이 없다. 괜히 스트림을 열게 하지 않는다.
+    # 그 밖의 끝 상태(agreed · no_common · failed)는 라운드 루프가 정한다.
+    if not everyone and not one_out:
+        scheduling.status = SchedulingStatus.FAILED
 
     db.commit()
     db.refresh(scheduling)
     return scheduling
 
 
+def _absentee_is(costs: Sequence[Cost], user_id: int) -> bool:
+    return any(c.user_id == user_id and not c.available for c in costs)
+
+
 def _save_candidate(
     db: Session,
     scheduling_id: int,
+    phase: SchedulingPhase,
     start_at: object,
     end_at: object,
     costs: Sequence[Cost],
@@ -125,6 +141,7 @@ def _save_candidate(
         start_at=start_at,  # type: ignore[arg-type]
         end_at=end_at,  # type: ignore[arg-type]
         total_cost=total_cost(costs),
+        phase=phase,
         round_no=1,
         proposed=False,  # 판단 에이전트가 실제로 제안하면 true가 된다
         absentee_user_id=unavailable[0] if len(unavailable) == 1 else None,

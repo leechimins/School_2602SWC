@@ -195,14 +195,23 @@ YIELD_WEIGHT_STEP = 0.25
 YIELD_WEIGHT_CAP = 4
 
 
-def yield_weighted_cost(costs: Sequence[Cost], yield_totals: dict[int, int]) -> float:
+def yield_weighted_cost(
+    costs: Sequence[Cost], yield_totals: Mapping[int, int]
+) -> float:
     """후보를 고를 때 쓰는 값. 낮은 쪽이 먼저다.
 
     브리프: "현우는 지난 두 번의 회의에서 많이 맞춰 줬어요. 이번엔 현우
     쪽을 먼저 챙겨…" — 그 판단이 이 한 줄이다.
+
+    **안 오는 사람은 세지 않는다.** 1명 불참안에서 그 사람의 5점까지 더하면
+    후보마다 불참자가 다를 때 그 5점이 차이를 덮어 버린다. 못 오는 사람에게
+    그 시간은 불편한 게 아니라 그냥 해당이 없다 — 재어야 할 것은 "오는
+    사람들이 얼마나 불편한가"다.
     """
     total = 0.0
     for cost in costs:
+        if not cost.available:
+            continue
         earned = min(yield_totals.get(cost.user_id, 0), YIELD_WEIGHT_CAP)
         total += cost.score * (1 + YIELD_WEIGHT_STEP * earned)
     return total
@@ -210,7 +219,7 @@ def yield_weighted_cost(costs: Sequence[Cost], yield_totals: dict[int, int]) -> 
 
 def pick_order(
     scored: Sequence[tuple[tuple[datetime, datetime], list[Cost]]],
-    yield_totals: dict[int, int],
+    yield_totals: Mapping[int, int],
 ) -> list[tuple[tuple[datetime, datetime], list[Cost]]]:
     """후보를 제안할 순서로 늘어놓는다.
 

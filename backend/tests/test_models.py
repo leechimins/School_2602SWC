@@ -34,6 +34,7 @@ from app.shared.enums import (
     MeetingStatus,
     Mode,
     ResponseState,
+    SchedulingPhase,
     SchedulingStatus,
     SpeakerKind,
     TaskOrigin,
@@ -112,6 +113,7 @@ def test_불편_점수는_1에서_5를_벗어나면_거부된다(session: Sessio
         start_at=at(2026, 11, 12, 16),
         end_at=at(2026, 11, 12, 18),
         total_cost=4.0,
+        phase=SchedulingPhase.ALL,
         round_no=1,
     )
     session.add(slot)
@@ -194,6 +196,7 @@ def test_판단_에이전트_발언에는_사람이_붙지_않는다(session: Se
 
     session.add(
         Utterance(
+            phase=SchedulingPhase.ALL,
             scheduling_id=scheduling.id,
             round_no=1,
             seq=1,
