@@ -13,8 +13,8 @@ from collections.abc import Iterator
 import pytest
 from dotenv import load_dotenv
 from fastapi.testclient import TestClient
-from sqlalchemy import Engine
-from sqlmodel import Session
+from sqlalchemy import Engine, text
+from sqlmodel import Session, SQLModel
 
 from app.main import app
 from app.shared.db import create_all, make_engine, reset_schema, session_dep
@@ -35,17 +35,32 @@ def test_engine() -> Engine:
     return make_engine(url)
 
 
-@pytest.fixture
-def session(test_engine: Engine) -> Iterator[Session]:
-    """매 테스트마다 테이블을 다시 만든다.
-
-    테스트가 제약 위반을 일부러 일으키므로 트랜잭션이 더러워진다. 롤백으로
-    버티는 대신 통째로 다시 만드는 쪽이 읽기 쉽다 — 테이블이 22개뿐이라
-    충분히 빠르다.
-    """
+@pytest.fixture(scope="session")
+def schema(test_engine: Engine) -> Engine:
+    """테이블은 세션에 한 번만 만든다."""
     reset_schema(test_engine)
     create_all(test_engine)
-    with Session(test_engine) as db:
+    return test_engine
+
+
+@pytest.fixture
+def session(schema: Engine) -> Iterator[Session]:
+    """매 테스트마다 행만 비운다. 테이블은 그대로 둔다.
+
+    테스트가 제약 위반을 일부러 일으켜 트랜잭션이 더러워지므로 롤백으로
+    버티지 않는다. 그렇다고 테스트마다 스키마를 드롭하면 안 된다 — psycopg가
+    서버에 준비해 둔 구문이 사라진 테이블을 가리켜서, 테스트가 많아질수록
+    relation does not exist와 already exists가 뒤섞여 터진다. 11/5에 그걸로
+    40건이 났다.
+
+    TRUNCATE는 테이블을 남기므로 그 일이 없고, DDL 23개가 한 문장으로 줄어
+    훨씬 빠르다. RESTART IDENTITY로 id를 1부터 다시 세어 room/1을 가정하는
+    테스트가 그대로 돈다.
+    """
+    with schema.begin() as conn:
+        tables = ", ".join(f'"{name}"' for name in SQLModel.metadata.tables)
+        conn.execute(text(f"TRUNCATE TABLE {tables} RESTART IDENTITY CASCADE"))
+    with Session(schema) as db:
         yield db
 
 
