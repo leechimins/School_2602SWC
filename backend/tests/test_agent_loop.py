@@ -3,6 +3,9 @@
 여기서 보는 것은 "에이전트가 어떤 시간을 고르는가"다. 그 판단은 점수가
 하고 모델은 말만 쓴다 — 그래서 모델 없이 전부 테스트할 수 있고, 그게
 리허설과 본 시연이 같은 답을 낸다는 보장이기도 하다.
+
+흐름(브리프 11/5): 팀원이 각자 원하는 시간을 어필 → 판단이 그중에서 고름
+→ 수락·거절. 3라운드 안에 안 되면 판단이 전체에서 정하고 **바로 확정**한다.
 """
 
 from __future__ import annotations
@@ -20,6 +23,7 @@ from app.meeting.models import (
     Scheduling,
     SlotCost,
     Utterance,
+    YieldEntry,
 )
 from app.shared.base import KST
 from app.shared.enums import (
@@ -50,6 +54,7 @@ class 팀:
 
 @pytest.fixture
 def 방(session: Session) -> 팀:
+    """팀장 지수(양보 0) + 팀원 현우(양보 3)."""
     지수, 현우 = User(name="지수"), User(name="현우")
     session.add_all([지수, 현우])
     session.flush()
@@ -95,7 +100,6 @@ def _후보(
     scheduling: Scheduling,
     *,
     hour: int,
-    phase: SchedulingPhase = SchedulingPhase.ALL,
     점수: dict[int, int],
     못_오는_사람: int | None = None,
 ) -> CandidateSlot:
@@ -105,7 +109,9 @@ def _후보(
         start_at=MON.replace(hour=hour),
         end_at=MON.replace(hour=hour + 2),
         total_cost=float(sum(점수.values())),
-        phase=phase,
+        phase=(
+            SchedulingPhase.ABSENT if 못_오는_사람 else SchedulingPhase.ALL
+        ),
         round_no=1,
         absentee_user_id=못_오는_사람,
     )
@@ -118,14 +124,37 @@ def _후보(
                 user_id=user_id,
                 score=score,
                 available=user_id != 못_오는_사람,
-                reason="알바와 겹칩니다" if user_id == 못_오는_사람 else "비어 있는 시간입니다",
+                reason=(
+                    "알바와 겹칩니다"
+                    if user_id == 못_오는_사람
+                    else "비어 있는 시간입니다"
+                ),
             )
         )
     session.commit()
     return slot
 
 
-# ── 수락·거절은 점수가 정한다 ────────────────────────────────────────
+# ── 라운드는 어필에서 시작한다 ──────────────────────────────────────
+
+
+def test_팀원이_먼저_원하는_시간을_말한다(session: Session, 방: 팀) -> None:
+    """브리프 11/5: 판단이 아니라 팀원이 먼저 말한다."""
+    s = _조율(session, 방)
+    _후보(session, s, hour=14, 점수={방.지수.id: 1, 방.현우.id: 3})  # type: ignore[dict-item]
+
+    발언 = list(run_rounds(session, s))
+
+    assert 발언[0].speaker_kind == SpeakerKind.MEMBER
+    assert "제일 좋아요" in 발언[0].text
+    # 어필 둘 → 판단 하나 → 반응 둘
+    assert [u.speaker_kind for u in 발언] == [
+        SpeakerKind.MEMBER,
+        SpeakerKind.MEMBER,
+        SpeakerKind.JUDGE,
+        SpeakerKind.MEMBER,
+        SpeakerKind.MEMBER,
+    ]
 
 
 def test_전원이_조금_이하면_1라운드에_합의한다(session: Session, 방: 팀) -> None:
@@ -136,19 +165,15 @@ def test_전원이_조금_이하면_1라운드에_합의한다(session: Session,
 
     assert s.status == SchedulingStatus.AGREED
     assert s.rounds_used == 1
-    # 판단 1개 + 팀원 2개
-    assert len(발언) == 3
-    assert 발언[0].speaker_kind == SpeakerKind.JUDGE
-    assert [u.seq for u in 발언] == [1, 2, 3]
+    assert [u.seq for u in 발언] == list(range(1, len(발언) + 1))
 
 
-def test_많이_불편한_사람이_있으면_다음_후보로_넘어간다(
+def test_많이_불편한_사람이_있으면_다음_라운드로_간다(
     session: Session, 방: 팀
 ) -> None:
     """4점이 거절선이다. 브리프의 괜찮음/조금/많이와 1:1이다."""
     assert REJECT_AT == 4
     s = _조율(session, 방)
-    # 거절당할 쪽을 더 싸게 둔다 — 후보는 total_cost가 싼 것부터 꺼낸다.
     _후보(session, s, hour=10, 점수={방.지수.id: 1, 방.현우.id: REJECT_AT})  # type: ignore[dict-item]
     편한것 = _후보(session, s, hour=16, 점수={방.지수.id: 3, 방.현우.id: 3})  # type: ignore[dict-item]
 
@@ -156,58 +181,31 @@ def test_많이_불편한_사람이_있으면_다음_후보로_넘어간다(
 
     assert s.status == SchedulingStatus.AGREED
     assert s.rounds_used == 2
-    meeting = session.exec(select(Meeting)).one()
-    assert meeting.start_at == 편한것.start_at
+    assert session.exec(select(Meeting)).one().start_at == 편한것.start_at
 
 
-def test_세_라운드_안에_안_되면_부재_단계로_넘어간다(
-    session: Session, 방: 팀
-) -> None:
+def test_거절당한_후보에도_제안_표시가_남는다(session: Session, 방: 팀) -> None:
+    """시연에서 "왜 이 시간이죠"에 열어 보여 줄 근거다.
+
+    둘 다 누군가 거절하게 둬서 라운드를 두 번 돌게 한다.
+    """
     s = _조율(session, 방)
-    for hour in (10, 12, 14):
-        _후보(session, s, hour=hour, 점수={방.지수.id: 1, 방.현우.id: 5})  # type: ignore[dict-item]
-    _후보(
-        session,
-        s,
-        hour=18,
-        phase=SchedulingPhase.ABSENT,
-        점수={방.지수.id: 1, 방.현우.id: 5},  # type: ignore[dict-item]
-        못_오는_사람=방.현우.id,
-    )
-
-    발언 = list(run_rounds(session, s))
-
-    # 전원 가능한 안으로는 합의하지 못했고, 한 명 빠지는 안으로 합의했다.
-    assert s.status == SchedulingStatus.NO_COMMON
-    단계들 = [u.phase for u in 발언]
-    assert SchedulingPhase.ALL in 단계들
-    assert SchedulingPhase.ABSENT in 단계들
-    # 라운드 번호는 단계마다 1부터 다시 센다.
-    assert [u.round_no for u in 발언 if u.phase == SchedulingPhase.ABSENT] == [1, 1, 1]
-
-
-def test_둘_다_실패하면_failed다(session: Session, 방: 팀) -> None:
-    s = _조율(session, 방)
-    for hour in (10, 12, 14):
-        _후보(session, s, hour=hour, 점수={방.지수.id: 5, 방.현우.id: 5})  # type: ignore[dict-item]
+    _후보(session, s, hour=10, 점수={방.지수.id: 1, 방.현우.id: 5})  # type: ignore[dict-item]
+    _후보(session, s, hour=16, 점수={방.지수.id: 5, 방.현우.id: 1})  # type: ignore[dict-item]
 
     list(run_rounds(session, s))
 
-    assert s.status == SchedulingStatus.FAILED
-    assert session.exec(select(Meeting)).all() == []
+    제안된것 = session.exec(
+        select(CandidateSlot).where(col(CandidateSlot.proposed).is_(True))
+    ).all()
+    assert len(제안된것) == 2
 
 
-def test_후보가_없으면_바로_failed다(session: Session, 방: 팀) -> None:
-    s = _조율(session, 방)
-    assert list(run_rounds(session, s)) == []
-    assert s.status == SchedulingStatus.FAILED
-
-
-# ── 합의가 남기는 것 ────────────────────────────────────────────────
+# ── 합의 ────────────────────────────────────────────────────────────
 
 
 def test_합의하면_회의안과_응답칸이_생긴다(session: Session, 방: 팀) -> None:
-    """팀원 수만큼 pending을 깔아 둬야 "누가 아직 안 답했는지"를 보여 줄 수 있다."""
+    """팀원 수만큼 pending을 깔아 둬야 "누가 아직 안 답했는지"를 보여 준다."""
     s = _조율(session, 방)
     _후보(session, s, hour=14, 점수={방.지수.id: 1, 방.현우.id: 1})  # type: ignore[dict-item]
 
@@ -215,23 +213,124 @@ def test_합의하면_회의안과_응답칸이_생긴다(session: Session, 방:
 
     meeting = session.exec(select(Meeting)).one()
     assert meeting.status == MeetingStatus.PROPOSED
-    assert meeting.topic == "중간 발표 준비"
-    assert meeting.rationale  # 판단 에이전트의 마지막 말이 들어간다
     assert meeting.confirmed_at is None  # 아직 확정이 아니다
+    assert meeting.rationale
 
     응답 = session.exec(select(MeetingResponse)).all()
     assert len(응답) == 2
     assert all(r.state == ResponseState.PENDING for r in 응답)
 
+    # 합의에는 양보 점수가 붙지 않는다. 확정될 때 붙는다.
+    assert session.exec(select(YieldEntry)).all() == []
 
-def test_상관없음으로_열면_회의_방식을_정해_준다(session: Session, 방: 팀) -> None:
-    """meeting.mode에는 any가 들어갈 수 없다(CHECK). 선호로 정한다."""
-    s = _조율(session, 방, mode=Mode.ANY)
-    _후보(session, s, hour=14, 점수={방.지수.id: 1, 방.현우.id: 1})  # type: ignore[dict-item]
+
+# ── 조정 — 바로 확정 ────────────────────────────────────────────────
+
+
+def test_세_라운드_실패하면_조정해서_바로_확정한다(
+    session: Session, 방: 팀
+) -> None:
+    """브리프 11/5: 수락·거절 없이 확정. 3라운드까지 돌고도 안 되면 팀플이 멈춘다."""
+    s = _조율(session, 방)
+    for hour in (10, 12, 14):
+        _후보(session, s, hour=hour, 점수={방.지수.id: 1, 방.현우.id: 5})  # type: ignore[dict-item]
 
     list(run_rounds(session, s))
 
-    assert session.exec(select(Meeting)).one().mode in (Mode.OFFLINE, Mode.ONLINE)
+    assert s.status == SchedulingStatus.SETTLED
+    meeting = session.exec(select(Meeting)).one()
+    assert meeting.status == MeetingStatus.CONFIRMED
+    assert meeting.confirmed_at is not None
+    # 응답 단계가 없으니 pending을 깔지 않는다.
+    assert session.exec(select(MeetingResponse)).all() == []
+
+
+def test_전원_가능한_후보가_없으면_바로_조정한다(session: Session, 방: 팀) -> None:
+    """라운드를 돌 대상이 없다. 1명 불참안으로 바로 간다."""
+    s = _조율(session, 방)
+    _후보(
+        session,
+        s,
+        hour=18,
+        점수={방.지수.id: 1, 방.현우.id: 5},  # type: ignore[dict-item]
+        못_오는_사람=방.현우.id,
+    )
+
+    발언 = list(run_rounds(session, s))
+
+    assert s.status == SchedulingStatus.SETTLED
+    assert s.rounds_used <= 1
+    # 판단 에이전트가 왜 이렇게 됐는지 말한다.
+    assert 발언[-1].speaker_kind == SpeakerKind.JUDGE
+    assert "확정" in 발언[-1].text
+
+
+def test_후보가_없으면_failed다(session: Session, 방: 팀) -> None:
+    s = _조율(session, 방)
+    assert list(run_rounds(session, s)) == []
+    assert s.status == SchedulingStatus.FAILED
+    assert session.exec(select(Meeting)).all() == []
+
+
+def test_조정은_거절할_사람이_적은_쪽을_먼저_고른다(
+    session: Session, 방: 팀
+) -> None:
+    """조정은 누군가의 거절을 꺾는 일이다. 적게 꺾는 쪽이 낫다 —
+    양보 가중 합이 조금 나빠도 둘을 꺾으면 회의안이 거의 확실히 깨진다.
+    """
+    s = _조율(session, 방)
+    # 셋을 돌려 라운드를 소진시킨다. 하나는 둘 다 거절, 하나는 한 명만.
+    둘다거절 = _후보(session, s, hour=10, 점수={방.지수.id: 5, 방.현우.id: 5})  # type: ignore[dict-item]
+    한명만 = _후보(session, s, hour=12, 점수={방.지수.id: 1, 방.현우.id: 5})  # type: ignore[dict-item]
+    _후보(session, s, hour=14, 점수={방.지수.id: 4, 방.현우.id: 4})  # type: ignore[dict-item]
+
+    list(run_rounds(session, s))
+
+    정해진것 = session.exec(select(Meeting)).one()
+    assert 정해진것.start_at == 한명만.start_at
+    assert 정해진것.start_at != 둘다거절.start_at
+
+
+# ── 양보 점수 ───────────────────────────────────────────────────────
+
+
+def test_조정으로_맞춰_준_사람에게_양보_점수가_쌓인다(
+    session: Session, 방: 팀
+) -> None:
+    """브리프: 조금 불편(2~3) +1, 많이 불편(4~5) +2, 괜찮음(1)은 안 받음."""
+    s = _조율(session, 방)
+    for hour in (10, 12, 14):
+        _후보(session, s, hour=hour, 점수={방.지수.id: 1, 방.현우.id: 5})  # type: ignore[dict-item]
+
+    list(run_rounds(session, s))
+
+    entries = {e.user_id: e for e in session.exec(select(YieldEntry)).all()}
+    # 현우는 5점(많이) → +2. 지수는 1점(괜찮음) → 행이 없다.
+    assert set(entries) == {방.현우.id}
+    assert entries[방.현우.id].points == 2
+    assert entries[방.현우.id].discomfort == 5
+
+    # 누적도 같은 트랜잭션에서 올라간다. 안 올리면 다음 조율의 차등이 안 생긴다.
+    현우_멤버십 = session.exec(
+        select(Membership).where(Membership.user_id == 방.현우.id)
+    ).one()
+    assert 현우_멤버십.yield_total == 3 + 2
+
+
+def test_못_오는_사람은_양보_점수를_받지_않는다(session: Session, 방: 팀) -> None:
+    """빠지는 것은 맞춰 주는 것이 아니다."""
+    s = _조율(session, 방)
+    _후보(
+        session,
+        s,
+        hour=18,
+        점수={방.지수.id: 1, 방.현우.id: 5},  # type: ignore[dict-item]
+        못_오는_사람=방.현우.id,
+    )
+
+    list(run_rounds(session, s))
+
+    assert session.exec(select(YieldEntry)).all() == []
 
 
 # ── 발언 ────────────────────────────────────────────────────────────
@@ -245,29 +344,8 @@ def test_LLM이_없어도_발언이_나온다(session: Session, 방: 팀) -> Non
     발언 = list(run_rounds(session, s))
 
     assert all(u.text.strip() for u in 발언)
-    # 채점기가 만든 한국어 근거가 발언에 살아 있다.
     assert any("비어 있는 시간입니다" in u.text for u in 발언)
-    assert "11월 9일(월)" in 발언[0].text
-
-
-def test_못_오는_사람의_발언에_그_이유가_들어간다(
-    session: Session, 방: 팀
-) -> None:
-    s = _조율(session, 방)
-    _후보(
-        session,
-        s,
-        hour=18,
-        phase=SchedulingPhase.ABSENT,
-        점수={방.지수.id: 1, 방.현우.id: 5},  # type: ignore[dict-item]
-        못_오는_사람=방.현우.id,
-    )
-
-    발언 = list(run_rounds(session, s))
-    현우_말 = next(u for u in 발언 if u.speaker_user_id == 방.현우.id)
-    assert "알바와 겹칩니다" in 현우_말.text
-    # 판단 에이전트가 왜 부재 단계로 왔는지 짚는다.
-    assert "현우" in 발언[0].text
+    assert any("11월 9일(월)" in u.text for u in 발언)
 
 
 def test_판단_에이전트는_사람이_없고_팀원은_있다(session: Session, 방: 팀) -> None:
@@ -282,20 +360,27 @@ def test_판단_에이전트는_사람이_없고_팀원은_있다(session: Sessi
             assert u.speaker_user_id is not None
 
 
-def test_거절당한_후보에도_제안_표시가_남는다(session: Session, 방: 팀) -> None:
-    """시연에서 "왜 이 시간이죠"에 열어 보여 줄 근거다.
-
-    후보는 total_cost가 싼 것부터 꺼낸다. 그래서 같은 값으로 둘을 만들어
-    1라운드가 거절되고 2라운드로 넘어가게 한다.
-    """
-    s = _조율(session, 방)
-    거절당할것 = _후보(session, s, hour=10, 점수={방.지수.id: 1, 방.현우.id: 5})  # type: ignore[dict-item]
-    _후보(session, s, hour=16, 점수={방.지수.id: 3, 방.현우.id: 3})  # type: ignore[dict-item]
+def test_상관없음으로_열면_회의_방식을_정해_준다(session: Session, 방: 팀) -> None:
+    """meeting.mode에는 any가 들어갈 수 없다(CHECK). 선호로 정한다."""
+    s = _조율(session, 방, mode=Mode.ANY)
+    _후보(session, s, hour=14, 점수={방.지수.id: 1, 방.현우.id: 1})  # type: ignore[dict-item]
 
     list(run_rounds(session, s))
 
-    제안된것 = session.exec(
-        select(CandidateSlot).where(col(CandidateSlot.proposed).is_(True))
+    assert session.exec(select(Meeting)).one().mode in (Mode.OFFLINE, Mode.ONLINE)
+
+
+def test_발언이_쌓인_순서대로_남는다(session: Session, 방: 팀) -> None:
+    """SSE가 끊겼다 들어와도 처음부터 다시 볼 수 있어야 한다."""
+    s = _조율(session, 방)
+    _후보(session, s, hour=10, 점수={방.지수.id: 1, 방.현우.id: 5})  # type: ignore[dict-item]
+    _후보(session, s, hour=16, 점수={방.지수.id: 2, 방.현우.id: 2})  # type: ignore[dict-item]
+
+    list(run_rounds(session, s))
+
+    쌓인것 = session.exec(
+        select(Utterance).order_by(col(Utterance.seq))
     ).all()
-    assert len(제안된것) == 2  # 거절당한 것도 제안은 됐다
-    assert 거절당할것.id in [c.id for c in 제안된것]
+    assert [u.seq for u in 쌓인것] == list(range(1, len(쌓인것) + 1))
+    assert 쌓인것[0].round_no == 1
+    assert 쌓인것[-1].round_no >= 1

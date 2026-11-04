@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Iterator
 from dataclasses import replace
 from datetime import date, datetime, timedelta
@@ -18,7 +19,7 @@ from sqlmodel import Session, select
 from app.main import app
 from app.me.models import Preference, ScheduleItem
 from app.meeting import scorer
-from app.meeting.models import CandidateSlot, SlotCost
+from app.meeting.models import CandidateSlot, SlotCost, Utterance
 from app.shared.base import KST
 from app.shared.db import session_dep
 from app.shared.enums import (
@@ -412,3 +413,60 @@ def test_다른_방의_조율_id면_404다(
 
     res = client.get(f"{API}/rooms/{다른방.id}/schedulings/{started['id']}")
     assert res.status_code == 404
+
+
+# ── 발언 스트림 ──────────────────────────────────────────────────────
+
+
+def test_스트림이_발언을_흘리고_끝을_알린다(
+    client: TestClient, 방: 팀, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """11/5에 이 테스트가 없어서 두 번 터졌다 — utterance.phase를 지운 뒤
+    라우터에 남은 참조, 그리고 status.value(DB에서 읽으면 str이라 없다).
+    둘 다 pytest는 통과하는데 서버만 죽는 종류였다.
+    """
+    monkeypatch.setenv("LLM_ENABLED", "false")
+    monkeypatch.setattr("app.meeting.router.STEP_SEC", 0)
+    _login(client, "지수")
+    started = _start(client, 방.room.id).json()  # type: ignore[union-attr,attr-defined]
+
+    with client.stream(
+        "GET", f"{API}/rooms/{방.room.id}/schedulings/{started['id']}/stream"
+    ) as res:
+        assert res.status_code == 200
+        본문 = "".join(res.iter_text())
+
+    발언 = [json.loads(l[6:]) for l in 본문.splitlines() if l.startswith("data: ")]
+    assert len(발언) >= 2
+    assert "event: done" in 본문
+
+    끝 = 발언[-1]
+    assert 끝["status"] in ("agreed", "settled", "failed")
+
+    # 이름이 채워져야 한다. 비면 화면에 "1: 지수는…"처럼 숫자가 나온다.
+    팀원발언 = [u for u in 발언[:-1] if u["speaker_kind"] == "member"]
+    assert 팀원발언
+    assert all(u["speaker_name"] for u in 팀원발언)
+    assert all(u["speaker_name"] in ("지수", "현우") for u in 팀원발언)
+
+
+def test_두_번_열어도_루프는_한_번만_돈다(
+    client: TestClient, session: Session, 방: 팀, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """두 사람이 같이 열면 발언이 두 줄기로 섞여 핵심 화면이 망가진다."""
+    monkeypatch.setenv("LLM_ENABLED", "false")
+    monkeypatch.setattr("app.meeting.router.STEP_SEC", 0)
+    _login(client, "지수")
+    started = _start(client, 방.room.id).json()  # type: ignore[union-attr,attr-defined]
+    길 = f"{API}/rooms/{방.room.id}/schedulings/{started['id']}/stream"
+
+    with client.stream("GET", 길) as res:
+        처음 = "".join(res.iter_text())
+    쌓인것 = len(session.exec(select(Utterance)).all())
+
+    with client.stream("GET", 길) as res:
+        다시 = "".join(res.iter_text())
+
+    # 재생이라 발언 수가 늘지 않는다.
+    assert len(session.exec(select(Utterance)).all()) == 쌓인것
+    assert 처음.count("data: ") == 다시.count("data: ")

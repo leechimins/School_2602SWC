@@ -12,7 +12,7 @@ from datetime import datetime
 
 from sqlmodel import Field, SQLModel
 
-from app.shared.enums import Mode, SchedulingPhase, SchedulingStatus, SpeakerKind
+from app.shared.enums import Mode, SchedulingStatus, SpeakerKind
 
 # 점수를 "괜찮음 / 조금 / 많이"로 바꾸는 함수는 아직 없다. 그 말이 나가는
 # 화면(회의 일정 조율 확인)이 회의안과 함께 오고, 회의안은 라운드를 돈
@@ -34,15 +34,9 @@ class SchedulingStartIn(SQLModel):
 
 
 class UtteranceOut(SQLModel):
-    """조율 발언 한 줄. "시간 정하는 과정" 화면이 하나씩 꺼내 보여 준다.
-
-    phase가 바뀌는 자리가 화면에서 "전원이 되는 시간이 없어 한 명이 빠지는
-    안으로 넘어갑니다"를 끼워 넣을 지점이다. 라운드 번호는 단계마다 1부터
-    다시 센다.
-    """
+    """조율 발언 한 줄. "시간 정하는 과정" 화면이 하나씩 꺼내 보여 준다."""
 
     seq: int
-    phase: SchedulingPhase
     round_no: int
     speaker_kind: SpeakerKind
     speaker_user_id: int | None = None

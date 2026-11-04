@@ -104,8 +104,7 @@ def _to_out(db: Session, scheduling: Scheduling) -> SchedulingOut:
         utterances=[
             UtteranceOut(
                 seq=utterance.seq,
-                phase=utterance.phase,
-                round_no=utterance.round_no,
+                        round_no=utterance.round_no,
                 speaker_kind=utterance.speaker_kind,
                 speaker_user_id=utterance.speaker_user_id,
                 speaker_name=name,
@@ -204,7 +203,6 @@ STEP_SEC = 1.6
 def _sse(utterance: Utterance, names: Mapping[int, str]) -> str:
     body = UtteranceOut(
         seq=utterance.seq,
-        phase=utterance.phase,
         round_no=utterance.round_no,
         speaker_kind=utterance.speaker_kind,
         speaker_user_id=utterance.speaker_user_id,

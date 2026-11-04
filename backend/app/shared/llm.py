@@ -78,6 +78,14 @@ def complete_json(prompt: str, *, max_tokens: int = 1200) -> dict | None:
                 # 같은 입력에 같은 답을 주게 한다. 리허설과 본 시연이
                 # 어긋나는 것을 조금이라도 줄인다.
                 "temperature": 0.3,
+                # 추론을 끈다. 판단은 이미 계산으로 끝났고 모델이 할 일은
+                # 그 결과를 문장으로 옮기는 것뿐이다.
+                #
+                # 끄지 않으면 추론 토큰이 max_tokens를 먹는다. 실제로 라운드
+                # 프롬프트에서 추론 1377 + 출력 43으로 잘려 content가 중간에
+                # 끊겼고, 파싱이 실패해 늘 템플릿으로 떨어졌다. 조용히
+                # 떨어지므로 발언을 눈으로 읽어 보기 전까지 몰랐다.
+                "reasoning_effort": "none",
             },
             timeout=TIMEOUT_SEC,
         )
