@@ -122,3 +122,28 @@ class MeetingSummaryOut(SQLModel):
 
 class MeetingListOut(SQLModel):
     meetings: list[MeetingSummaryOut] = Field(description="최근 회의가 먼저")
+
+
+# ── Suggest ─────────────────────────────────────────────────────────
+
+
+class ConfirmIn(SQLModel):
+    """제안 한꺼번에 확정."""
+
+    suggestion_ids: list[int] = Field(
+        min_length=1, max_length=50, description="확정할 제안 ID들. 하나만 보내도 된다"
+    )
+
+
+class SuggestionPatch(SQLModel):
+    """제안 고치기. 보낸 칸만 바꾼다. 담당자·기한은 null을 보내면 비운다."""
+
+    title: str | None = Field(default=None, min_length=1, max_length=200, description="제목")
+    assignee_user_id: int | None = Field(
+        default=None, description="담당자. 이 방 팀원만. null이면 담당자 없음"
+    )
+    due_date: date | None = Field(default=None, description="기한. null이면 기한 없음")
+
+
+class ConfirmOut(SQLModel):
+    tasks: list[MeetingTaskOut] = Field(description="방금 확정된 할 일")
