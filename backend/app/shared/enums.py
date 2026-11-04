@@ -203,6 +203,18 @@ class TaskState(StrEnum):
     DONE = "done"
 
 
+class YieldLevel(StrEnum):
+    """누적 양보 단계. 남의 누적 점수는 숫자 대신 이 단계로만 나간다.
+
+    화면 문구: 아직 없음 / 조금 맞춰 줌 / 많이 맞춰 줌. 경계값은 아직 팀
+    합의 전이라 app/room/service.py의 상수 한 곳에만 둔다.
+    """
+
+    NONE = "none"
+    SOME = "some"
+    MUCH = "much"
+
+
 class TaskOrigin(StrEnum):
     """할 일이 어디서 왔나. ai인 동안은 "AI 제안" 표시가 붙는다."""
 
