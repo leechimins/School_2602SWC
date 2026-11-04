@@ -53,7 +53,7 @@ SQLModel이면 `select(Meeting).where(Meeting.id == id).with_for_update()` 한 �
 | `yield_entry` | `CHECK (points IN (1, 2))` |
 | `candidate_slot`, `meeting` | `CHECK (start_at < end_at)` |
 | `schedule_item` | `CHECK (weekday BETWEEN 0 AND 6)` |
-| 모든 FK | `ON DELETE CASCADE` — 방을 지우면 딸린 게 같이 지워지게 |
+| FK | 기본은 `ON DELETE CASCADE` — 방을 지우면 딸린 게 같이 지워지게. 출처·담당자처럼 지워져도 행이 남아야 하는 곳만 `SET NULL` (`meeting.scheduling_id` `meeting.candidate_slot_id` `preference_change.meeting_id` `task.meeting_id` `task.assignee_user_id` `task.confirmed_by` `transcript_segment.speaker_user_id`) |
 
 부분 인덱스가 제일 값어치 있습니다. 조율이 도는 중에 팀장이 한 번 더 누르는 일은 쉽게 일어나고, 그러면 발언이 두 줄기로 섞여 핵심 화면이 망가집니다.
 
@@ -152,7 +152,7 @@ erDiagram
 
 ## 2. Room — B 담당, A가 먼저 만들어 넘김
 
-> **장연우님께.** 레인 표대로면 이 세 테이블은 Room 도메인이라 B 것입니다. 그런데 **A의 테이블 14개가 전부 이 셋으로 FK가 걸려서**, 이게 없으면 A 쪽 `create_all`이 아예 돌지 않습니다. 오늘(D1) A가 막히지 않으려고 **제가 먼저 만들어 뒀습니다.**
+> **장연우님께.** 레인 표대로면 이 세 테이블은 Room 도메인이라 B 것입니다. 그런데 **A의 테이블 13개가 전부 이 셋으로 FK가 걸려서**, 이게 없으면 A 쪽 `create_all`이 아예 돌지 않습니다. 오늘(D1) A가 막히지 않으려고 **제가 먼저 만들어 뒀습니다.**
 >
 > `app/shared/models.py`에 있습니다. **이 파일은 이제 B 것으로 넘깁니다** — 열을 더하거나 고치실 때 저에게 안 물어보셔도 됩니다. 아래에 왜 이렇게 생겼는지 적어 뒀으니, 마음에 안 드는 곳은 고치고 이 문서에 반영만 해 주세요. 다만 **A가 읽는 세 가지는 미리 말해 주셔야 합니다**: `user.id`, `room.leader_user_id`(조율 시작이 팀장만이라 권한을 여기서 봅니다), `membership.yield_total`(조율의 양보 차등).
 >
@@ -289,8 +289,8 @@ erDiagram
 | room_id | int FK room | |
 | started_by | int FK user | 팀장 |
 | topic | str | 주제 |
-| window_start | date | 언제부터 |
-| window_end | date | 언제 사이에 |
+| window_start | datetime | 언제부터 |
+| window_end | datetime | 언제 사이에 |
 | duration_min | int | 30의 배수 |
 | mode | enum | `offline` / `online` / `any` |
 | status | enum | `running` / `agreed` / `needs_pick` / `no_common` / `failed` |
@@ -400,7 +400,7 @@ erDiagram
 | meeting_id | int FK meeting | |
 | user_id | int FK user | 점수를 받는 사람 |
 | points | int | **+1 또는 +2** |
-| discomfort | int | 근거가 된 불편 점수 1~5 |
+| discomfort | int | 근거가 된 불편 점수 2~5 (1점은 행을 만들지 않음) |
 | reason | str | "내 불편 3/5만큼 맞춰 줘서 +1" |
 | created_at | datetime | |
 
