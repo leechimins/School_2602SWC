@@ -16,7 +16,9 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from app.me.router import router as me_router
 from app.meeting.router import router as meeting_router
+from app.minutes.router import router as minutes_router
 from app.notice.router import router as notice_router
+from app.room.router import router as room_router
 from app.shared.auth import router as auth_router
 from app.shared.db import engine, register_models
 
@@ -57,6 +59,8 @@ app.include_router(auth_router, prefix=API_PREFIX)
 app.include_router(me_router, prefix=API_PREFIX)
 app.include_router(meeting_router, prefix=API_PREFIX)
 app.include_router(notice_router, prefix=API_PREFIX)
+app.include_router(room_router, prefix=API_PREFIX)
+app.include_router(minutes_router, prefix=API_PREFIX)
 
 
 # 에러 모양을 명세에 맞춘다 — {"code": ..., "message": 화면에 그대로 띄울 한 줄}.
