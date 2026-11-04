@@ -90,6 +90,22 @@ class ResponseState(StrEnum):
     DECLINED = "declined"
 
 
+class Burden(StrEnum):
+    """남의 불편을 내보낼 때 쓰는 세 단계. 화면 문구: 괜찮음 / 조금 / 많이.
+
+    내 불편은 1~5 숫자로 보이고 남의 불편은 이 단계로만 나간다(명세 권장
+    규칙 3). 숫자를 내보내면 "내가 4인데 저 사람은 2네"가 되고, 그건 제품이
+    하려는 일의 반대다.
+
+    경계값은 app/meeting/service.py에 있다. 양보 점수 차등(+1/+2)과 거절선
+    (4점)이 같은 자리에서 갈린다.
+    """
+
+    OK = "ok"
+    SOME = "some"
+    MUCH = "much"
+
+
 class ScheduleSource(StrEnum):
     """시간표 한 칸이 어디서 왔나."""
 

@@ -32,11 +32,14 @@ from app.meeting.scorer import (
     best_for,
     settle_order,
     unavailable_count,
+    yield_points,
     yield_weighted_cost,
 )
 from app.shared import demo_clock, llm
+from app.shared.notify import emit
 from app.shared.enums import (
     MeetingStatus,
+    NotificationKind,
     Mode,
     ResponseState,
     SchedulingStatus,
@@ -471,6 +474,14 @@ def _propose(
         )
     scheduling.status = SchedulingStatus.AGREED
     db.add(scheduling)
+    _tell(
+        db,
+        scheduling.room_id,
+        meeting.id,
+        [c.user_id for c in costs],
+        NotificationKind.MEETING_PROPOSED,
+        f"{scheduling.topic} 회의안이 나왔습니다. 수락·거절해 주세요.",
+    )
     db.commit()
 
 
@@ -485,9 +496,13 @@ def _confirm(
     3라운드까지 돌고도 결정이 안 나면 팀플이 멈춘다. 대신 피드백 한 줄은
     받는다 — 그 길은 수락·거절 엔드포인트가 맡는다.
 
-    meeting_response를 만들지 않는다. 응답 단계가 없으니 pending으로 깔면
-    "아직 안 답한 사람"이 영원히 남는다. 화면은 scheduling.status가
-    settled인 것으로 "조정"을 안다.
+    오는 사람에게 meeting_response를 accepted로 깔아 둔다. 거짓이 아니다 —
+    시스템이 대신 수락한 것이고, scheduling.status가 settled인 것으로 화면이
+    "조정"을 안다. 이 행이 있어야 피드백 한 줄을 받을 자리가 생기고, 일정
+    화면이 "사람별 응답 상태"를 그릴 수 있다.
+
+    못 오는 사람은 만들지 않는다 — 브리프: "불참안이면 빠지는 사람은
+    응답자에서 빠지고".
     """
     now = demo_clock.now(db)
     meeting = _make_meeting(db, scheduling, candidate, costs, MeetingStatus.CONFIRMED)
@@ -495,10 +510,54 @@ def _confirm(
     db.add(meeting)
     assert meeting.id is not None
 
-    _award_yield(db, scheduling.room_id, meeting.id, costs)
+    for cost in costs:
+        if not cost.available:
+            continue
+        db.add(
+            MeetingResponse(
+                meeting_id=meeting.id,
+                user_id=cost.user_id,
+                state=ResponseState.ACCEPTED,
+                responded_at=now,
+            )
+        )
+
+    award_yield(db, scheduling.room_id, meeting.id, costs)
     scheduling.status = SchedulingStatus.SETTLED
     db.add(scheduling)
+    _tell(
+        db,
+        scheduling.room_id,
+        meeting.id,
+        [c.user_id for c in costs],
+        NotificationKind.MEETING_CONFIRMED,
+        f"{scheduling.topic} 회의가 조정으로 확정됐습니다.",
+    )
     db.commit()
+
+
+def _tell(
+    db: Session,
+    room_id: int,
+    meeting_id: int,
+    user_ids: Sequence[int],
+    kind: NotificationKind,
+    reason: str,
+) -> None:
+    """알림을 깐다. 못 오는 사람도 받는다 — 자기가 빠지는 회의라서 더 알아야 한다.
+
+    dedupe가 회의 하나당 하나다. 같은 회의의 회의안 알림과 확정 알림은
+    kind가 달라 서로를 막지 않는다(shared/notify.emit이 앞에 kind를 붙인다).
+    """
+    emit(
+        db,
+        room_id=room_id,
+        user_ids=user_ids,
+        kind=kind,
+        reason=reason[:200],
+        dedupe=f"meeting{meeting_id}",
+        meeting_id=meeting_id,
+    )
 
 
 def _make_meeting(
@@ -519,13 +578,16 @@ def _make_meeting(
         mode=_decide_mode(db, scheduling.mode, [c.user_id for c in costs]),
         status=status,
         rationale=_rationale(db, scheduling.id),
+        # 회의안 화면이 이걸로 slot_cost를 찾아 "내 불편 3/5"를 보여 준다.
+        # 안 채우면 (scheduling_id, start_at)으로 되짚어야 한다.
+        candidate_slot_id=candidate.id,
     )
     db.add(meeting)
     db.flush()
     return meeting
 
 
-def _award_yield(
+def award_yield(
     db: Session, room_id: int, meeting_id: int, costs: Sequence[SlotCost]
 ) -> None:
     """맞춰 준 사람에게 양보 점수를 올린다. 브리프의 차등 그대로다.
@@ -537,9 +599,9 @@ def _award_yield(
     차등이 되므로 yield_entry만 쌓고 합계를 안 올리면 차등이 영원히 안 생긴다.
     """
     for cost in costs:
-        if not cost.available or cost.score < 2:
+        points = yield_points(cost.score, cost.available)
+        if not points:
             continue
-        points = 1 if cost.score <= 3 else 2
         db.add(
             YieldEntry(
                 room_id=room_id,

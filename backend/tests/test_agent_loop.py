@@ -241,8 +241,12 @@ def test_세_라운드_실패하면_조정해서_바로_확정한다(
     meeting = session.exec(select(Meeting)).one()
     assert meeting.status == MeetingStatus.CONFIRMED
     assert meeting.confirmed_at is not None
-    # 응답 단계가 없으니 pending을 깔지 않는다.
-    assert session.exec(select(MeetingResponse)).all() == []
+    # 응답칸은 accepted로 깔린다 — 시스템이 대신 수락했고, 거기에 피드백
+    # 한 줄을 받는다(브리프 11/5의 B안).
+    응답 = session.exec(select(MeetingResponse)).all()
+    assert len(응답) == 2
+    assert all(r.state == ResponseState.ACCEPTED for r in 응답)
+    assert all(r.feedback is None for r in 응답)
 
 
 def test_전원_가능한_후보가_없으면_바로_조정한다(session: Session, 방: 팀) -> None:

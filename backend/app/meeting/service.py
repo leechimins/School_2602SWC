@@ -1,11 +1,11 @@
 """조율 한 번의 순서. db-설계.md §6이 그대로 이 파일이다.
 
-지금 들어 있는 것은 **1~3번까지**다 — scheduling 한 행, 빈칸 찾기, 채점.
-여기까지 LLM이 안 들어온다.
+여기 있는 것은 **1~3번**이다 — scheduling 한 행, 빈칸 찾기, 채점. LLM이
+안 들어온다. 4번부터(라운드, 발언)는 agent_loop.py이고, 거기서도 계산이
+정한 결과를 LLM이 말로 옮기기만 한다.
 
-4번(라운드 1~3, 발언 쌓기)부터가 LLM이고, 공급자를 아직 안 골랐다. 그래서
-status는 running으로 두고 끝낸다. 후보는 이미 DB에 있으므로 LLM이 붙으면
-그걸 읽어 말로 설명하는 것부터 하면 된다.
+burden()은 계산이 아니라 내보내기 규칙이라 scorer가 아니라 여기 있다 —
+room/service.py의 yield_level()과 같은 자리다.
 """
 
 from __future__ import annotations
@@ -25,7 +25,12 @@ from app.meeting.scorer import (
     unavailable_count,
 )
 from app.meeting.slots import Busy, expand_busy, find_candidates, group_by_user
-from app.shared.enums import MeetingStatus, SchedulingPhase, SchedulingStatus
+from app.shared.enums import (
+    Burden,
+    MeetingStatus,
+    SchedulingPhase,
+    SchedulingStatus,
+)
 from app.shared.models import Membership
 
 # 한 라운드에 저장하는 후보 개수.
@@ -36,6 +41,23 @@ from app.shared.models import Membership
 # 3라운드 안에 합의가 실패했을 때 사람에게 보여 줄 후보는 2~3개면 되므로
 # 다섯이면 넉넉하다.
 CANDIDATES_PER_ROUND = 5
+
+# 남의 불편을 세 단계로 뭉갤 때의 경계. 1 = 괜찮음, 2~3 = 조금, 4~5 = 많이.
+#
+# 양보 점수 차등(2~3 → +1, 4~5 → +2)과 거절선(agent_loop.REJECT_AT = 4)이
+# 같은 자리에서 갈린다. 세 군데가 같은 경계를 쓰는 것이 우연이 아니라서
+# 상수로 뺐다 — "많이 불편"은 거절할 만하고 양보 점수를 두 배로 받는 구간이다.
+BURDEN_MUCH_FROM = 4
+BURDEN_SOME_FROM = 2
+
+
+def burden(score: int) -> Burden:
+    """내 점수를 남에게 보일 단계로 바꾼다(명세 권장 규칙 3)."""
+    if score >= BURDEN_MUCH_FROM:
+        return Burden.MUCH
+    if score >= BURDEN_SOME_FROM:
+        return Burden.SOME
+    return Burden.OK
 
 
 def start_scheduling(
