@@ -19,7 +19,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlmodel import Session, SQLModel, select
 
 from app.shared.db import session_dep
-from app.shared.models import User
+from app.shared.models import Membership, User
 
 router = APIRouter(prefix="/sessions", tags=["auth"])
 
@@ -50,6 +50,24 @@ def current_user_id(request: Request) -> int:
             detail={"code": "UNAUTHENTICATED", "message": "로그인이 필요합니다."},
         )
     return int(user_id)
+
+
+def require_member(db: Session, room_id: int, user_id: int) -> None:
+    """이 방의 팀원인지. 아니면 403.
+
+    방이 없을 때도 403이다 — 없는 방 번호를 넣어 보는 쪽에게 "그 방은
+    없습니다"와 "당신은 팀원이 아닙니다"를 구분해 줄 이유가 없다.
+    """
+    found = db.exec(
+        select(Membership.id).where(
+            Membership.room_id == room_id, Membership.user_id == user_id
+        )
+    ).first()
+    if found is None:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            detail={"code": "FORBIDDEN", "message": "이 방의 팀원이 아닙니다."},
+        )
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)

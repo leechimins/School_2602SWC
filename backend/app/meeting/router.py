@@ -21,9 +21,9 @@ from app.meeting.models import (
 )
 from app.meeting.schemas import SchedulingOut, SchedulingStartIn, UtteranceOut
 from app.meeting.service import start_scheduling
-from app.shared.auth import current_user_id
+from app.shared.auth import current_user_id, require_member
 from app.shared.db import session_dep
-from app.shared.models import Membership, Room, User
+from app.shared.models import Room, User
 
 router = APIRouter(prefix="/rooms/{room_id}", tags=["meeting"])
 
@@ -67,19 +67,6 @@ def _require_offset(moment: datetime, field: str) -> None:
                 "field": field,
                 "message": "시각에 +09:00을 붙여 보내 주세요.",
             },
-        )
-
-
-def _require_member(db: Session, room_id: int, user_id: int) -> None:
-    found = db.exec(
-        select(Membership.id).where(
-            Membership.room_id == room_id, Membership.user_id == user_id
-        )
-    ).first()
-    if found is None:
-        raise HTTPException(
-            status.HTTP_403_FORBIDDEN,
-            detail={"code": "FORBIDDEN", "message": "이 방의 팀원이 아닙니다."},
         )
 
 
@@ -193,7 +180,7 @@ def read(
     SSE가 끊겼다 들어와도 처음부터 다시 볼 수 있어야 한다 — 이 화면이
     시연에서 가장 중요한 장면이다.
     """
-    _require_member(db, room_id, user_id)
+    require_member(db, room_id, user_id)
     scheduling = db.get(Scheduling, scheduling_id)
     if scheduling is None or scheduling.room_id != room_id:
         raise HTTPException(
