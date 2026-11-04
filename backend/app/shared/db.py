@@ -63,6 +63,7 @@ def register_models() -> None:
     import app.demo.models  # noqa: F401
     import app.me.models  # noqa: F401
     import app.meeting.models  # noqa: F401
+    import app.minutes.models  # noqa: F401
     import app.notice.models  # noqa: F401
     import app.shared.models  # noqa: F401
 

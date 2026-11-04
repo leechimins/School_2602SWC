@@ -1,3 +1,6 @@
+# 개인 작업 메모 (공개 저장소에 포함 금지)
+_local/
+
 # AI Agent Files (공개 저장소에 포함 금지 — 로컬 워크스페이스 루트에서 관리)
 .claude/
 .agents/
@@ -38,3 +41,10 @@ target/
 .DS_Store
 Thumbs.db
 Desktop.ini
+
+# Python tooling
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
