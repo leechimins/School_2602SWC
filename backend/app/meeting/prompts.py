@@ -1,0 +1,112 @@
+"""라운드 하나를 말로 옮기는 프롬프트.
+
+**모델은 판단을 하지 않는다.** 어느 후보를 제안할지, 누가 수락하고 누가
+거절할지는 이미 점수가 정했다(scorer.py). 여기서는 그 결과를 사람 말로
+바꾸기만 한다. 모델에게 판단을 맡기면 같은 데이터로 다른 시간이 나와서
+리허설과 본 시연이 어긋난다.
+
+한 라운드를 한 번에 요청한다. 발언마다 부르면 조율 한 번에 15~30번이
+되어 한도와 시간을 다 쓴다.
+"""
+
+from __future__ import annotations
+
+import json
+from dataclasses import dataclass
+
+_WEEKDAYS = "월화수목금토일"
+
+
+def when(start_at, end_at) -> str:
+    """11월 9일(월) 15:00–17:00"""
+    return (
+        f"{start_at.month}월 {start_at.day}일({_WEEKDAYS[start_at.weekday()]}) "
+        f"{start_at:%H:%M}–{end_at:%H:%M}"
+    )
+
+
+def yield_step(total: int) -> str:
+    """누적 양보는 숫자로 내보내지 않는다(명세 권장 규칙 3). 단계로만 말한다."""
+    if total <= 0:
+        return "아직 없음"
+    if total <= 2:
+        return "조금 맞춰 줌"
+    return "많이 맞춰 줌"
+
+
+@dataclass(frozen=True)
+class Speaker:
+    """한 사람이 이 후보에 대해 어떤 상태인가. 전부 계산된 값이다."""
+
+    user_id: int
+    name: str
+    score: int  # 1~5
+    available: bool
+    reason: str  # "알바와 겹칩니다" 같은, 이미 한국어인 근거
+    accepts: bool  # 점수가 정한 결과. 모델이 뒤집으면 안 된다
+    yield_step: str
+
+
+def round_prompt(
+    *,
+    topic: str,
+    slot: str,
+    round_no: int,
+    is_absent_phase: bool,
+    speakers: list[Speaker],
+    last_round_rejections: list[str],
+) -> str:
+    """판단 에이전트 1개 + 팀원 n개를 한 번에 받는 프롬프트."""
+    사람들 = [
+        {
+            "user_id": s.user_id,
+            "이름": s.name,
+            "판정": "수락" if s.accepts else "거절",
+            "근거": s.reason,
+            "불편": s.score,
+            "누적_양보": s.yield_step,
+            "못_옴": not s.available,
+        }
+        for s in speakers
+    ]
+    상황 = {
+        "회의_주제": topic,
+        "제안할_시간": slot,
+        "라운드": round_no,
+        "한_명_빠지는_안인가": is_absent_phase,
+        "지난_라운드_거절_이유": last_round_rejections,
+        "사람들": 사람들,
+    }
+
+    return f"""당신은 대학 팀플 일정 조율 화면에 넣을 대화를 쓰는 작가입니다.
+아래 상황을 읽고, 에이전트들이 주고받는 말을 만들어 주세요.
+
+{json.dumps(상황, ensure_ascii=False, indent=2)}
+
+규칙입니다. 하나라도 어기면 화면이 망가집니다.
+
+1. **판정을 바꾸지 마세요.** "판정"이 수락이면 수락하는 말을, 거절이면
+   거절하는 말을 쓰세요. 당신이 다시 판단하지 않습니다.
+2. **남의 불편 숫자를 말하지 마세요.** "불편"은 참고용입니다. 말로 쓸 때는
+   괜찮음 / 조금 / 많이 로만 표현하세요. 숫자를 문장에 넣지 마세요.
+3. **"근거"를 살려 쓰세요.** 거기 적힌 사정이 그 사람이 그렇게 말하는 이유입니다.
+4. 존댓말로, 한 사람당 1~2문장. 판단 에이전트는 1~3문장.
+5. 판단 에이전트는 **왜 이 시간인지**를 말합니다. 라운드가 2 이상이면
+   "지난_라운드_거절_이유"를 받아 **무엇을 바꿨는지** 말하세요. 누군가의
+   "누적_양보"가 많이 맞춰 줌이면 그 사람을 먼저 챙긴다고 말할 수 있습니다.
+6. "한_명_빠지는_안인가"가 참이면, 판단 에이전트가 **전원이 가능한 시간이
+   없어서 한 명이 빠지는 안으로 넘어왔다**는 것을 한 번 짚어 주세요.
+   "못_옴"이 참인 사람이 그 한 명입니다.
+7. 사람을 부를 때는 "{{이름}}" 또는 "{{이름}}의 에이전트" 대신 그 사람 입장에서
+   말하세요. 예: "지수는 이 시간에 수업이 없어요."
+
+JSON만 출력하세요. 설명도 코드 블록도 붙이지 마세요.
+
+{{
+  "judge": "판단 에이전트의 말",
+  "members": [
+    {{"user_id": 1, "text": "그 사람 에이전트의 말"}}
+  ]
+}}
+
+"members"에는 위 "사람들"에 있는 모두가 한 번씩 들어가야 합니다."""

@@ -6,12 +6,16 @@ widen·accept-absent·rerun은 LLM이 붙은 뒤에 여기에 붙는다.
 
 from __future__ import annotations
 
+import json
+import time
+from collections.abc import Iterator, Mapping
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import StreamingResponse
 from psycopg.errors import UniqueViolation
 from sqlalchemy.exc import IntegrityError
-from sqlmodel import Session, func, select
+from sqlmodel import Session, col, func, select
 
 from app.meeting.models import (
     RUNNING_SCHEDULING_INDEX,
@@ -20,9 +24,11 @@ from app.meeting.models import (
     Utterance,
 )
 from app.meeting.schemas import SchedulingOut, SchedulingStartIn, UtteranceOut
+from app.meeting.agent_loop import member_names, run_rounds
 from app.meeting.service import start_scheduling
 from app.shared.auth import current_user_id, require_member
 from app.shared.db import session_dep
+from app.shared.enums import SchedulingStatus
 from app.shared.models import Room, User
 
 router = APIRouter(prefix="/rooms/{room_id}", tags=["meeting"])
@@ -98,6 +104,7 @@ def _to_out(db: Session, scheduling: Scheduling) -> SchedulingOut:
         utterances=[
             UtteranceOut(
                 seq=utterance.seq,
+                phase=utterance.phase,
                 round_no=utterance.round_no,
                 speaker_kind=utterance.speaker_kind,
                 speaker_user_id=utterance.speaker_user_id,
@@ -188,3 +195,90 @@ def read(
             detail={"code": "NOT_FOUND", "message": "그 조율이 없습니다."},
         )
     return _to_out(db, scheduling)
+
+
+STEP_SEC = 1.6
+"""발언 하나와 다음 발언 사이. 브리프가 전체를 30초 안팎으로 잡았다."""
+
+
+def _sse(utterance: Utterance, names: Mapping[int, str]) -> str:
+    body = UtteranceOut(
+        seq=utterance.seq,
+        phase=utterance.phase,
+        round_no=utterance.round_no,
+        speaker_kind=utterance.speaker_kind,
+        speaker_user_id=utterance.speaker_user_id,
+        # 이름을 채운다. 비워 두면 화면에 "1: 지수는…"처럼 숫자가 나온다.
+        speaker_name=names.get(utterance.speaker_user_id or 0),
+        text=utterance.text,
+        created_at=utterance.created_at,
+    )
+    return f"data: {body.model_dump_json()}\n\n"
+
+
+@router.get("/schedulings/{scheduling_id}/stream")
+def stream(
+    room_id: int,
+    scheduling_id: int,
+    user_id: int = Depends(current_user_id),
+    db: Session = Depends(session_dep),
+) -> StreamingResponse:
+    """발언을 하나씩 흘려보낸다. 이 화면이 시연에서 가장 중요하다.
+
+    스피너를 돌리지 않는다. 브리프: "이 10~20초는 로딩이 아니라 구경거리라서,
+    스피너를 돌리면 시연에서 가장 중요한 장면을 덮습니다."
+
+    **라운드를 여기서 직접 돌린다.** 백그라운드 작업을 두지 않는 이유는,
+    조율 시작에서 미리 다 돌리면 POST가 10~20초 멈춰 그동안 화면이 비기
+    때문이다. 발언이 생기는 대로 흘러가야 쌓이는 것이 보인다.
+
+    두 사람이 같이 열어도 루프는 한 번만 돈다. 맨 앞에서 scheduling 행을
+    잠그고, 이미 돈 조율이면 쌓인 발언을 재생한다.
+    """
+    require_member(db, room_id, user_id)
+
+    # FOR UPDATE. 두 번째 요청은 첫 번째가 상태를 정할 때까지 여기서 기다린다.
+    scheduling = db.exec(
+        select(Scheduling).where(Scheduling.id == scheduling_id).with_for_update()
+    ).first()
+    if scheduling is None or scheduling.room_id != room_id:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail={"code": "NOT_FOUND", "message": "그 조율이 없습니다."},
+        )
+
+    # == 로 비교한다. DB에서 읽은 열거값은 str이라 is가 항상 거짓이다
+    # (backend/README.md 지킬 것 4번). is를 쓰면 루프가 한 번도 안 돈다.
+    names = member_names(db, room_id)
+    처음인가 = (
+        scheduling.status == SchedulingStatus.RUNNING
+        and not scheduling.rounds_used
+    )
+
+    def 흘려보내기() -> Iterator[str]:
+        if 처음인가:
+            for utterance in run_rounds(db, scheduling):
+                yield _sse(utterance, names)
+                time.sleep(STEP_SEC)
+        else:
+            # 재진입. 이미 쌓인 것을 같은 속도로 다시 보여 준다.
+            쌓인것 = db.exec(
+                select(Utterance)
+                .where(Utterance.scheduling_id == scheduling_id)
+                .order_by(col(Utterance.seq))
+            ).all()
+            for utterance in 쌓인것:
+                yield _sse(utterance, names)
+                time.sleep(STEP_SEC)
+        # 끝났다는 신호. 화면이 여기서 회의안으로 넘어간다.
+        # str()로 감싼다. DB에서 읽은 열거값은 str이라 .value가 없다
+        # (backend/README.md 지킬 것 4번). StrEnum이든 str이든 둘 다 된다.
+        done = json.dumps({"status": str(scheduling.status)})
+        yield f"event: done\ndata: {done}\n\n"
+
+    return StreamingResponse(
+        흘려보내기(),
+        media_type="text/event-stream",
+        # 프록시가 버퍼링하면 발언이 한꺼번에 쏟아진다.
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )

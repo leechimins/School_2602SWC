@@ -21,7 +21,13 @@ from app.meeting import scorer
 from app.meeting.models import CandidateSlot, SlotCost
 from app.shared.base import KST
 from app.shared.db import session_dep
-from app.shared.enums import Mode, Recurrence, ScheduleKind, ScheduleSource
+from app.shared.enums import (
+    Mode,
+    Recurrence,
+    ScheduleKind,
+    ScheduleSource,
+    SchedulingPhase,
+)
 from app.shared.models import Membership, Room, User
 
 API = "/api/v1"
@@ -193,14 +199,15 @@ def test_겹치는_수업이_있으면_그_사람은_안_된다(
     assert all(c.available is False for c in 현우_점수)
     assert all("알바와 겹칩니다" in c.reason for c in 현우_점수)
 
-    # 한 사람만 안 되면 1명 불참안 재료로 남는다.
+    # 한 사람만 안 되면 1명 불참안 재료로 남는다. 전부 absent 단계다.
     slots = session.exec(select(CandidateSlot)).all()
     assert slots
     assert all(s.absentee_user_id == 방.현우.id for s in slots)
+    assert all(s.phase == SchedulingPhase.ABSENT for s in slots)
 
-    # 전원 가능한 후보가 하나도 없으므로 no_common이다. 후보가 아예 없을
-    # 때만이 아니다 — 화면이 1명 불참안으로 가야 한다.
-    assert res.json()["status"] == "no_common"  # type: ignore[attr-defined]
+    # 조율 시작은 끝 상태를 정하지 않는다. 라운드 루프가 정한다 —
+    # absent 단계에서 합의하면 no_common이 된다.
+    assert res.json()["status"] == "running"  # type: ignore[attr-defined]
     assert res.json()["candidate_count"] > 0  # type: ignore[attr-defined]
 
 
@@ -229,12 +236,14 @@ def test_두_명_이상_못_오는_후보는_저장하지_않는다(
     _login(client, "지수")
     res = _start(client, 방.room.id)  # type: ignore[union-attr]
     assert res.status_code == 201, res.text  # type: ignore[attr-defined]
-    assert res.json()["status"] == "no_common"  # type: ignore[attr-defined]
+    # 쓸 수 있는 후보가 아예 없으면 라운드를 돌 것이 없다. 괜히 스트림을
+    # 열게 하지 않고 바로 failed다.
+    assert res.json()["status"] == "failed"  # type: ignore[attr-defined]
     assert res.json()["candidate_count"] == 0  # type: ignore[attr-defined]
     assert session.exec(select(CandidateSlot)).all() == []
 
 
-def test_가능_시간이_안_겹치면_no_common이다(
+def test_가능_시간이_안_겹치면_후보가_없다(
     client: TestClient, session: Session, 방: 팀
 ) -> None:
     """지수는 오전만, 현우는 밤만 가능하면 후보가 하나도 없다.
@@ -256,7 +265,7 @@ def test_가능_시간이_안_겹치면_no_common이다(
     _login(client, "지수")
     res = _start(client, 방.room.id)  # type: ignore[union-attr]
     assert res.status_code == 201, res.text  # type: ignore[attr-defined]
-    assert res.json()["status"] == "no_common"  # type: ignore[attr-defined]
+    assert res.json()["status"] == "failed"  # type: ignore[attr-defined]
     assert res.json()["candidate_count"] == 0  # type: ignore[attr-defined]
 
 
