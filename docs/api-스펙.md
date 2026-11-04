@@ -28,6 +28,7 @@
 | 시각 | ISO 8601 + 오프셋 — `2026-11-10T16:00:00+09:00` |
 | 날짜 | `YYYY-MM-DD` / 시각만 필요하면 `HH:mm` |
 | ID | 문자열. 프론트는 안을 들여다보지 않음 |
+| 반환값 | **서버를 띄우면 `/api/v1/docs`에 전부 있습니다** (OpenAPI). 이 표에 베껴 적지 않습니다 — 코드와 어긋나는 순간 둘 중 어느 쪽이 맞는지 알 수 없어집니다 |
 
 ### 권장 규칙
 
@@ -72,27 +73,27 @@
 | Room | 방 만들기 | POST | `/rooms` | B | High | 팀장만. 플랜 없이 바로 생성 | 미착수 | 미착수 |
 | Room | 초대 코드로 방 미리보기 | GET | `/rooms/by-invite-code/{code}` | B | Medium |  | 미착수 | 미착수 |
 | Room | 방 들어가기 | POST | `/rooms/join` | B | High |  | 미착수 | 미착수 |
-| Onboard | 온보딩 답 해석하기 | POST | `/me/onboarding/interpret` | A | High | AI. 4문항, 1번이 두 값을 냄 | 미착수 | 미착수 |
-| Onboard | 내 선호 보기 | GET | `/me/preferences` | A | High | 조율이 이 값을 읽음 | 미착수 | 미착수 |
-| Onboard | 내 선호 고치기 | PATCH | `/me/preferences` | A | High | 보낸 키만 반영 | 미착수 | 미착수 |
+| Onboard | 온보딩 답 해석하기 | POST | `/me/onboarding/interpret` | A | High | AI. 4문항, 1번이 두 값을 냄 | **완료** | 미착수 |
+| Onboard | 내 선호 보기 | GET | `/me/preferences` | A | High | 조율이 이 값을 읽음 | **완료** | 미착수 |
+| Onboard | 내 선호 고치기 | PATCH | `/me/preferences` | A | High | 보낸 키만 반영 | **완료** | 미착수 |
 | Home | 홈 보기 | GET | `/rooms/{room_id}/home` | A | High | 진척률·단계 빠짐 → 디데이만. my_tasks는 B 데이터 | 미착수 | 미착수 |
-| Notice | 알림 목록 보기 | GET | `/rooms/{room_id}/notifications` | A | High | 3종(늦음·막힘·완료) + 30분 전. 카드는 B가 만듦 | 미착수 | 미착수 |
-| Notice | 알림 읽음 처리 | POST | `/rooms/{room_id}/notifications/read` | A | Medium | 모두 / 개별 | 미착수 | 미착수 |
+| Notice | 알림 목록 보기 | GET | `/rooms/{room_id}/notifications` | A | High | 3종(늦음·막힘·완료) + 30분 전. 카드는 B가 만듦 | **완료** | 미착수 |
+| Notice | 알림 읽음 처리 | POST | `/rooms/{room_id}/notifications/read` | A | Medium | 모두 / 개별 | **완료** | 미착수 |
 | Notice | 에이전트가 한 일 보기 | GET | `/rooms/{room_id}/agent-log` | A | Medium | 무엇을·왜·언제. 읽음 처리 없이 쌓임 | 미착수 | 미착수 |
 | Notice | 웹 푸시 등록 | PUT | `/me/push-subscription` | A | Low | 팀 전체 빼는 1순위 | 미착수 | 미착수 |
 | Notice | 웹 푸시 끄기 | DELETE | `/me/push-subscription` | A | Low | “ | 미착수 | 미착수 |
-| Meeting | 조율 시작하기 | POST | `/rooms/{room_id}/schedulings` | A | High | 팀장만. 회의 길이 30분 단위 | 미착수 | 미착수 |
-| Meeting | 지금까지의 조율 보기 | GET | `/rooms/{room_id}/schedulings/{id}` | A | High | 재진입용. 쌓인 발언을 한 번에 | 미착수 | 미착수 |
+| Meeting | 조율 시작하기 | POST | `/rooms/{room_id}/schedulings` | A | High | 팀장만. 회의 길이 30분 단위 | **완료** | 미착수 |
+| Meeting | 지금까지의 조율 보기 | GET | `/rooms/{room_id}/schedulings/{id}` | A | High | 재진입용. 쌓인 발언을 한 번에 | **완료** | 미착수 |
 | Meeting | 조율 발언 받기 | GET | `/rooms/{room_id}/schedulings/{id}/stream` | A | High | SSE. 1.6초마다 하나씩. 스피너 금지. 끝에 `event: done`으로 `status` 전달 | **완료** | 미착수 |
 | Meeting | ~~후보 중 팀이 고르기~~ | ~~POST~~ | ~~`/rooms/{room_id}/schedulings/{id}/pick`~~ | A | — | **빗금 11/5**: 사람이 고르는 단계를 없앴습니다. 3라운드 실패·전원 가능한 시간 없음 둘 다 판단 에이전트가 불편·양보 점수로 정하고 **바로 확정**합니다 | 안 만듦 | 안 만듦 |
 | Meeting | 기간 넓혀 다시 조율 | POST | `/rooms/{room_id}/schedulings/{id}/widen` | A | Medium | 새 scheduling_id를 받음 | 미착수 | 미착수 |
-| Meeting | 불참안 받아들이기 | POST | `/rooms/{room_id}/schedulings/{id}/accept-absent` | A | Medium | 전원 가능한 시간이 없을 때 | 미착수 | 미착수 |
+| Meeting | ~~불참안 받아들이기~~ | ~~POST~~ | ~~`/rooms/{room_id}/schedulings/{id}/accept-absent`~~ | A | — | **빗금 11/5**: `pick`과 같은 이유입니다. 전원 가능한 시간이 없으면 판단 에이전트가 불참안까지 포함해 불편·양보 점수로 정하고 바로 확정하므로, 사람이 "받아들이기"를 누를 자리가 없습니다 | 안 만듦 | 안 만듦 |
 | Meeting | 거절 뒤 다시 조율 | POST | `/rooms/{room_id}/schedulings/{id}/rerun` | A | Medium | 권한 미정 — 팀원도 되는지 | 미착수 | 미착수 |
-| Meeting | 회의안 목록 보기 | GET | `/rooms/{room_id}/proposals` | A | Medium | 지난 것 포함 | 미착수 | 미착수 |
-| Meeting | 회의안 보기 | GET | `/rooms/{room_id}/proposals/{id}` | A | High | 차선책 빠짐. 보는 사람마다 내용이 다름 | 미착수 | 미착수 |
-| Meeting | 수락·거절하기 | POST | `/rooms/{room_id}/proposals/{id}/respond` | A | High | 피드백 한 줄 함께. 전원 수락 시 자동 확정. **조정된 회의(`settled`)는 이미 확정이라 피드백만 받습니다** | 미착수 | 미착수 |
-| Meeting | 선호 변경 되돌리기 | POST | `/me/preference-changes/{id}/undo` | A | Medium | 말없이 바꾸면 안 되므로 필요 | 미착수 | 미착수 |
-| Meeting | 일정 보기(회의 관리) | GET | `/rooms/{room_id}/schedule` | A | High | 회의 관리로 바뀜 (전 timeline). 조율 중도 자리 잡음 | 미착수 | 미착수 |
+| Meeting | 회의안 목록 보기 | GET | `/rooms/{room_id}/proposals` | A | Low | **11/5**: `GET /rooms/{room_id}/schedule`이 같은 일을 합니다(조율 중·잡힘·지남 세 묶음). 따로 쓸 화면이 생기면 만듭니다 | 안 만듦 | 안 만듦 |
+| Meeting | 회의안 보기 | GET | `/rooms/{room_id}/proposals/{id}` | A | High | 차선책 빠짐. 보는 사람마다 내용이 다름 | **완료** | 미착수 |
+| Meeting | 수락·거절하기 | POST | `/rooms/{room_id}/proposals/{id}/respond` | A | High | 피드백 한 줄 함께. 전원 수락 시 자동 확정. **조정된 회의(`settled`)는 이미 확정이라 피드백만 받습니다** | **완료** | 미착수 |
+| Meeting | 선호 변경 되돌리기 | POST | `/me/preference-changes/{id}/undo` | A | Medium | 말없이 바꾸면 안 되므로 필요. **11/5**: 피드백 한 줄을 `meeting_response.feedback`에 저장만 하고 선호를 자동으로 바꾸지 않으므로 되돌릴 것이 아직 없습니다. 자동 반영을 넣을 때 같이 만듭니다 | 미착수 | 미착수 |
+| Meeting | 일정 보기(회의 관리) | GET | `/rooms/{room_id}/schedule` | A | High | 회의 관리로 바뀜 (전 timeline). 조율 중도 자리 잡음 | **완료** | 미착수 |
 | Record | 회의록 목록 보기 | GET | `/rooms/{room_id}/meetings` | B | High | 주제 한 줄이 보여야 나중에 찾음 | 미착수 | 미착수 |
 | Record | 회의 기록 시작하기 | POST | `/rooms/{room_id}/meetings` | B | High | 확정된 회의 없이도 됨 | 미착수 | 미착수 |
 | Record | 회의록 보기 | GET | `/rooms/{room_id}/meetings/{id}` | B | High | 원문 + 요약 + 그 회의에서 확정된 할 일 | 미착수 | 미착수 |
