@@ -438,7 +438,8 @@ erDiagram
 | id | int PK | |
 | meeting_id | int FK meeting | |
 | seq | int | |
-| speaker_user_id | int? | **받아적는 사람이 고릅니다.** 자동 화자 구분 없음 |
+| speaker_label | str? | **미정(화자 구분 방식 합의 전).** STT가 붙이는 익명 라벨 `"A"` `"B"`. 제안일 뿐이고 비어 있어도 됩니다 |
+| speaker_user_id | int? | 사람이 라벨을 이름에 매핑하거나 줄마다 직접 고릅니다. 비어 있어도 됩니다 |
 | text | str | |
 | created_at | datetime | |
 

@@ -24,15 +24,20 @@ from app.meeting.models import (
     Utterance,
     YieldEntry,
 )
+from app.minutes.models import CalendarLink, Task, TranscriptSegment
 from app.shared import demo_clock
 from app.shared.base import KST
 from app.shared.enums import (
+    CalendarKind,
     Daypart,
+    LinkStatus,
     MeetingStatus,
     Mode,
     ResponseState,
     SchedulingStatus,
     SpeakerKind,
+    TaskOrigin,
+    TaskState,
 )
 from app.shared.models import Membership, Room, User
 
@@ -91,9 +96,9 @@ def a_meeting(session: Session, room: Room, **kw) -> Meeting:
     return row
 
 
-def test_테이블_17개가_생긴다(session: Session) -> None:
+def test_테이블_22개가_생긴다(session: Session) -> None:
     names = set(SQLModel.metadata.tables)
-    assert len(names) == 17, sorted(names)
+    assert len(names) == 22, sorted(names)
     assert "scheduling_note" not in names, "11/3에 뺀 테이블이 살아 있다"
     # 레인이 갈리는 접점 세 곳이 다 있어야 A가 돌아간다.
     assert {"user", "room", "membership", "meeting", "demo_state"} <= names
@@ -311,3 +316,81 @@ def test_시계를_안_옮기면_지금은_aware다(session: Session) -> None:
     session.flush()
 
     assert demo_clock.now(session).tzinfo is not None
+
+
+def a_task(session: Session, room: Room, **kw) -> Task:
+    kw.setdefault("title", "발표 자료 초안")
+    kw.setdefault("state", TaskState.TODO)
+    kw.setdefault("origin", TaskOrigin.AI)
+    row = Task(room_id=room.id, **kw)
+    session.add(row)
+    session.flush()
+    return row
+
+
+def test_확정_전_제안은_확정자도_시각도_없어야_한다(session: Session) -> None:
+    user, room = a_room(session)
+    a_task(session, room)  # 담당자 없는 제안은 정상
+    with pytest.raises(REJECTED):
+        a_task(session, room, confirmed=False, confirmed_by=user.id)
+
+
+def test_확정된_할_일은_확정_시각이_있어야_한다(session: Session) -> None:
+    user, room = a_room(session)
+    with pytest.raises(REJECTED):
+        a_task(session, room, confirmed=True)
+
+
+def test_할_일_상태는_네_개만_된다(session: Session) -> None:
+    user, room = a_room(session)
+    with pytest.raises(REJECTED):
+        a_task(session, room, state="stuck")
+
+
+def test_같은_순번의_받아적은_글은_두_번_못_들어간다(session: Session) -> None:
+    user, room = a_room(session)
+    meeting = a_meeting(session, room)
+    session.add(TranscriptSegment(meeting_id=meeting.id, seq=0, text="시작합니다"))
+    session.flush()
+    session.add(TranscriptSegment(meeting_id=meeting.id, seq=0, text="중복"))
+    with pytest.raises(REJECTED):
+        session.flush()
+
+
+def test_받아적은_글은_화자_라벨과_사람이_각각_비어도_된다(session: Session) -> None:
+    user, room = a_room(session)
+    meeting = a_meeting(session, room)
+    session.add_all(
+        [
+            TranscriptSegment(meeting_id=meeting.id, seq=0, text="라벨도 사람도 없음"),
+            TranscriptSegment(
+                meeting_id=meeting.id, seq=1, text="라벨만", speaker_label="A"
+            ),
+            TranscriptSegment(
+                meeting_id=meeting.id, seq=2, text="사람만", speaker_user_id=user.id
+            ),
+            TranscriptSegment(
+                meeting_id=meeting.id,
+                seq=3,
+                text="둘 다",
+                speaker_label="B",
+                speaker_user_id=user.id,
+            ),
+        ]
+    )
+    session.flush()
+
+
+def test_연동은_사람당_종류별로_하나다(session: Session) -> None:
+    user, room = a_room(session)
+    link = dict(
+        user_id=user.id,
+        kind=CalendarKind.EVERYTIME,
+        external_ref="abc",
+        status=LinkStatus.OK,
+    )
+    session.add(CalendarLink(**link))
+    session.flush()
+    session.add(CalendarLink(**link))
+    with pytest.raises(REJECTED):
+        session.flush()

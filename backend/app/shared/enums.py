@@ -142,3 +142,49 @@ class NotificationKind(StrEnum):
     MEETING_SOON = "meeting_soon"
     MEETING_PROPOSED = "meeting_proposed"
     MEETING_CONFIRMED = "meeting_confirmed"
+
+
+class CalendarKind(StrEnum):
+    """연동의 종류. 에브리타임은 수업, 구글 캘린더는 개인 약속을 담는다."""
+
+    EVERYTIME = "everytime"
+    GOOGLE = "google"
+
+
+class LinkStatus(StrEnum):
+    """연동이 지금 읽히나. failed여도 직접 입력으로 계속 진행된다."""
+
+    OK = "ok"
+    FAILED = "failed"
+
+
+class MinutesStatus(StrEnum):
+    """회의록 요약의 상태. 원문을 먼저 보이고 요약 자리만 비워 두는 동안이 summarizing."""
+
+    SUMMARIZING = "summarizing"
+    DONE = "done"
+    FAILED = "failed"
+
+
+class MinutesItemKind(StrEnum):
+    """회의록 요약 분류. 브리프의 "결정 / 논의 / 보류"."""
+
+    DECISION = "decision"
+    DISCUSSION = "discussion"
+    PENDING = "pending"
+
+
+class TaskState(StrEnum):
+    """할 일 상태 네 개. 진행률 숫자는 없다."""
+
+    TODO = "todo"
+    DOING = "doing"
+    BLOCKED = "blocked"
+    DONE = "done"
+
+
+class TaskOrigin(StrEnum):
+    """할 일이 어디서 왔나. ai인 동안은 "AI 제안" 표시가 붙는다."""
+
+    AI = "ai"
+    MANUAL = "manual"
