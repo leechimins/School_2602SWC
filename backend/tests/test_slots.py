@@ -15,6 +15,7 @@ from app.meeting.slots import (
     candidate_windows,
     expand_busy,
     find_candidates,
+    group_by_user,
     within_day_range,
 )
 from app.shared.base import KST
@@ -144,7 +145,7 @@ def test_겹치면_안_되는_시간이_되고_5점이다() -> None:
     cost = scorer.score_for(at(0, 19), at(0, 20), 3, None, [알바])
     assert cost.available is False
     assert cost.score == 5
-    assert "알바" in cost.reason
+    assert cost.reason == "알바와 겹칩니다"
 
 
 def test_비어_있으면_1점_괜찮음이다() -> None:
@@ -165,6 +166,56 @@ def test_30분_넘게_떨어져_있으면_벌점이_없다() -> None:
     알바 = Busy(user_id=3, start_at=at(0, 10), end_at=at(0, 13), label="알바")
     cost = scorer.score_for(at(0, 14), at(0, 15), 3, None, [알바])
     assert cost.score == 1
+
+
+def test_딱_붙은_일정이_가장_빠듯한_것으로_뽑힌다() -> None:
+    """timedelta(0)이 파이썬에서 거짓이라, `gap or 기본값`을 쓰면 간격 0분이
+    가장 먼 것으로 뒤집힌다. 제일 빠듯한 경우가 제일 한가한 것으로 읽힌다.
+    """
+    딱붙음 = Busy(user_id=3, start_at=at(0, 12), end_at=at(0, 14), label="수업")
+    조금뒤 = Busy(user_id=3, start_at=at(0, 15, 15), end_at=at(0, 18), label="알바")
+
+    cost = scorer.score_for(at(0, 14), at(0, 15), 3, None, [딱붙음, 조금뒤])
+    assert "수업" in cost.reason
+    assert "알바" not in cost.reason
+
+
+def test_뒤에_있는_일정은_바로_전이라고_말한다() -> None:
+    """에이전트가 이 문장을 그대로 말한다. 뒤에 있는 알바를 "바로 뒤"라고
+    하면 틀린 이유를 말하게 된다.
+    """
+    뒤에알바 = Busy(user_id=3, start_at=at(0, 15, 10), end_at=at(0, 19), label="알바")
+    앞에수업 = Busy(user_id=3, start_at=at(0, 12), end_at=at(0, 13, 50), label="수업")
+
+    뒤 = scorer.score_for(at(0, 14), at(0, 15), 3, None, [뒤에알바])
+    assert 뒤.reason == "알바 바로 전이라 이동이 빠듯합니다"
+
+    앞 = scorer.score_for(at(0, 14), at(0, 15), 3, None, [앞에수업])
+    assert 앞.reason == "수업 바로 뒤라 이동이 빠듯합니다"
+
+
+def test_사람별로_묶으면_남의_일정이_안_섞인다() -> None:
+    """채점기는 후보마다 팀 전체를 훑지 않는다. 묶는 건 한 번만 한다."""
+    내일정 = Busy(user_id=3, start_at=at(0, 10), end_at=at(0, 12), label="내 알바")
+    남일정 = Busy(user_id=9, start_at=at(0, 10), end_at=at(0, 12), label="남의 알바")
+
+    grouped = group_by_user([내일정, 남일정])
+    assert grouped[3] == [내일정]
+    assert grouped[9] == [남일정]
+
+    costs = scorer.score_slot(at(0, 10), at(0, 11), [3, 9], {}, grouped)
+    assert all(c.available is False for c in costs)
+    assert {c.user_id: c.reason for c in costs}[3] == "내 알바와 겹칩니다"
+
+
+def test_못_오는_사람_수를_센다() -> None:
+    costs = [
+        scorer.Cost(1, 1, True, ""),
+        scorer.Cost(2, 5, False, ""),
+        scorer.Cost(3, 5, False, ""),
+    ]
+    assert scorer.unavailable_count(costs) == 2
+    assert scorer.unavailable_count([scorer.Cost(1, 1, True, "")]) == 0
 
 
 def test_고른_시간대_밖이면_한_점_올라간다() -> None:
@@ -223,3 +274,13 @@ def test_전원_가능한_후보가_항상_먼저다() -> None:
 
     order = scorer.pick_order([한명_불가, 전원_가능], {})
     assert order[0] == 전원_가능  # 총합이 더 높아도 먼저다
+
+
+def test_조사가_받침에_맞게_붙는다() -> None:
+    """에이전트가 그대로 말하는 문장이라 조사가 틀리면 바로 보인다."""
+    assert scorer.with_particle("알바") == "알바와"      # 받침 없음
+    assert scorer.with_particle("수업") == "수업과"      # 받침 있음
+    assert scorer.with_particle("바쁨") == "바쁨과"
+    assert scorer.with_particle("서비스디자인") == "서비스디자인과"
+    assert scorer.with_particle("팀 회의") == "팀 회의와"
+    assert scorer.with_particle("CS101") == "CS101와"   # 한글이 아니면 와

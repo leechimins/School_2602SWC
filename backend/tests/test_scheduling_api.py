@@ -188,11 +188,47 @@ def test_겹치는_수업이_있으면_그_사람은_안_된다(
     ).all()
     assert 현우_점수
     assert all(c.available is False for c in 현우_점수)
-    assert all("알바" in c.reason for c in 현우_점수)
+    assert all("알바와 겹칩니다" in c.reason for c in 현우_점수)
 
     # 한 사람만 안 되면 1명 불참안 재료로 남는다.
     slots = session.exec(select(CandidateSlot)).all()
+    assert slots
     assert all(s.absentee_user_id == 방.현우.id for s in slots)
+
+    # 전원 가능한 후보가 하나도 없으므로 no_common이다. 후보가 아예 없을
+    # 때만이 아니다 — 화면이 1명 불참안으로 가야 한다.
+    assert res.json()["status"] == "no_common"  # type: ignore[attr-defined]
+    assert res.json()["candidate_count"] > 0  # type: ignore[attr-defined]
+
+
+def test_두_명_이상_못_오는_후보는_저장하지_않는다(
+    client: TestClient, session: Session, 방: 팀
+) -> None:
+    """브리프에 1명 불참안만 있다. 두 명을 빼는 회의는 제안할 수 없으므로,
+    저장하면 라운드가 쓸 수 없는 행만 쌓인다.
+    """
+    for user_id in (방.지수.id, 방.현우.id):
+        for weekday in range(5):
+            session.add(
+                ScheduleItem(
+                    user_id=user_id,  # type: ignore[arg-type]
+                    source=ScheduleSource.MANUAL,
+                    kind=ScheduleKind.PARTTIME,
+                    title="알바",
+                    recurrence=Recurrence.WEEKLY,
+                    weekday=weekday,
+                    start_min=9 * 60,
+                    end_min=22 * 60,
+                )
+            )
+    session.commit()
+
+    _login(client, "지수")
+    res = _start(client, 방.room.id)  # type: ignore[union-attr]
+    assert res.status_code == 201, res.text  # type: ignore[attr-defined]
+    assert res.json()["status"] == "no_common"  # type: ignore[attr-defined]
+    assert res.json()["candidate_count"] == 0  # type: ignore[attr-defined]
+    assert session.exec(select(CandidateSlot)).all() == []
 
 
 def test_가능_시간이_안_겹치면_no_common이다(
@@ -237,6 +273,22 @@ def test_회의_길이는_30분_단위다(client: TestClient, 방: 팀, duration
     res = _start(client, 방.room.id, duration_min=duration)  # type: ignore[union-attr]
     assert res.status_code == 400  # type: ignore[attr-defined]
     assert res.json()["code"] == "INVALID_INPUT"  # type: ignore[attr-defined]
+
+
+@pytest.mark.parametrize("field", ["window_start", "window_end"])
+def test_오프셋_없는_시각은_거절한다(client: TestClient, 방: 팀, field: str) -> None:
+    """받아 주면 조용히 틀린다. naive에 astimezone(KST)를 부르면 서버의
+    시간대로 해석하므로, 배포 서버가 UTC면 오전 9시가 오후 6시가 된다.
+    """
+    _login(client, "지수")
+    naive = {field: WINDOW_START.replace(tzinfo=None).isoformat()}
+    if field == "window_end":
+        naive[field] = WINDOW_END.replace(tzinfo=None).isoformat()
+
+    res = _start(client, 방.room.id, **naive)  # type: ignore[union-attr]
+    assert res.status_code == 400  # type: ignore[attr-defined]
+    assert res.json()["code"] == "INVALID_INPUT"  # type: ignore[attr-defined]
+    assert res.json()["field"] == field  # type: ignore[attr-defined]
 
 
 def test_기간이_거꾸로면_400이다(client: TestClient, 방: 팀) -> None:

@@ -92,6 +92,19 @@ def expand_busy(
     return busy
 
 
+def group_by_user(busy: Sequence[Busy]) -> dict[int, list[Busy]]:
+    """사람별로 묶는다. 채점 전에 한 번만 부른다.
+
+    채점기가 후보마다 팀 전체 일정을 다시 훑지 않게 하려는 것이다. 한 달
+    기간에 6명이 시간표를 꽉 채우면 후보 수 × 사람 수 × 일정 수가 수십만
+    번이 된다.
+    """
+    grouped: dict[int, list[Busy]] = {}
+    for item in busy:
+        grouped.setdefault(item.user_id, []).append(item)
+    return grouped
+
+
 def _in_term(item: ScheduleItem, day: object) -> bool:
     if item.valid_from is not None and day < item.valid_from:  # type: ignore[operator]
         return False

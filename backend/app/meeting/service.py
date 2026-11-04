@@ -17,8 +17,14 @@ from sqlmodel import Session, select
 from app.me.models import Preference, ScheduleItem
 from app.meeting.models import CandidateSlot, Meeting, Scheduling, SlotCost
 from app.meeting.schemas import SchedulingStartIn
-from app.meeting.scorer import Cost, pick_order, score_slot, total_cost
-from app.meeting.slots import Busy, expand_busy, find_candidates
+from app.meeting.scorer import (
+    Cost,
+    pick_order,
+    score_slot,
+    total_cost,
+    unavailable_count,
+)
+from app.meeting.slots import Busy, expand_busy, find_candidates, group_by_user
 from app.shared.enums import MeetingStatus, SchedulingStatus
 from app.shared.models import Membership
 
@@ -76,21 +82,25 @@ def start_scheduling(
         list(prefs.values()),
         team_busy,
     )
+    busy_by_user = group_by_user(personal_busy)
     scored = [
-        ((start_at, end_at), score_slot(start_at, end_at, member_ids, prefs, personal_busy))
+        ((start_at, end_at), score_slot(start_at, end_at, member_ids, prefs, busy_by_user))
         for start_at, end_at in found
     ]
-    ordered = pick_order(scored, yield_totals)
-
-    if not ordered:
-        # 전원의 가능 시간이 겹치지 않거나, 겹치는 칸이 이미 다 차 있다.
-        scheduling.status = SchedulingStatus.NO_COMMON
-        db.commit()
-        db.refresh(scheduling)
-        return scheduling
+    # 두 명 이상 못 오는 후보는 버린다. 브리프에 1명 불참안만 있다 — 두 명을
+    # 빼는 회의는 제안할 수 없으므로, 저장하면 라운드가 쓸 수 없는 행만 쌓인다.
+    usable = [pair for pair in scored if unavailable_count(pair[1]) <= 1]
+    ordered = pick_order(usable, yield_totals)
 
     for (start_at, end_at), costs in ordered[:CANDIDATES_PER_ROUND]:
         _save_candidate(db, scheduling.id, start_at, end_at, costs)
+
+    # 전원 가능한 후보가 하나도 없으면 no_common이다(db-설계.md §6-5). 후보가
+    # 아예 없을 때만이 아니다 — 한 명이 못 오는 후보만 남은 것도 "전원 가능한
+    # 시간이 없음"이고, 그때 화면은 1명 불참안으로 가야 한다. pick_order가
+    # 못 오는 사람 수 순으로 세워 두므로 맨 앞 것만 보면 된다.
+    if not ordered or unavailable_count(ordered[0][1]) > 0:
+        scheduling.status = SchedulingStatus.NO_COMMON
 
     db.commit()
     db.refresh(scheduling)
@@ -107,8 +117,7 @@ def _save_candidate(
     """후보 하나 + 사람 수만큼의 불편 점수.
 
     absentee_user_id는 딱 한 사람만 안 될 때 채운다. 그게 1명 불참안의
-    재료다. 둘 이상 안 되는 후보는 비워 둔다 — 두 명을 빼는 회의는
-    브리프에 없다.
+    재료다. 두 명 이상 못 오는 후보는 부르는 쪽에서 이미 걸러진다.
     """
     unavailable = [c.user_id for c in costs if not c.available]
     candidate = CandidateSlot(

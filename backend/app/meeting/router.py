@@ -6,6 +6,8 @@ widen·accept-absent·rerun은 LLM이 붙은 뒤에 여기에 붙는다.
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, func, select
@@ -28,6 +30,26 @@ def _room(db: Session, room_id: int) -> Room:
             detail={"code": "NOT_FOUND", "message": "그 방이 없습니다."},
         )
     return room
+
+
+def _require_offset(moment: datetime, field: str) -> None:
+    """오프셋 없는 시각은 받지 않는다. 명세 권장 규칙 2다.
+
+    받아 주면 조용히 틀린다. naive datetime에 astimezone(KST)를 부르면
+    **서버의 시간대**를 기준으로 해석하므로, 배포 서버가 UTC면 팀장이 보낸
+    오전 9시가 오후 6시가 된다. 후보 격자 전체가 아홉 시간 밀린다.
+
+    shared/demo_clock.set_clock()이 같은 이유로 같은 검사를 한다.
+    """
+    if moment.tzinfo is None:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail={
+                "code": "INVALID_INPUT",
+                "field": field,
+                "message": "시각에 +09:00을 붙여 보내 주세요.",
+            },
+        )
 
 
 def _require_member(db: Session, room_id: int, user_id: int) -> None:
@@ -103,6 +125,8 @@ def start(
             status.HTTP_403_FORBIDDEN,
             detail={"code": "FORBIDDEN", "message": "조율은 팀장만 시작할 수 있습니다."},
         )
+    _require_offset(body.window_start, "window_start")
+    _require_offset(body.window_end, "window_end")
     if body.window_start >= body.window_end:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,

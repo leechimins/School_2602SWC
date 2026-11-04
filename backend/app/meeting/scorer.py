@@ -16,7 +16,7 @@ LLM이 붙으면 reason을 다듬는 데 쓰인다.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
@@ -58,23 +58,42 @@ class Cost:
     reason: str
 
 
+def with_particle(word: str) -> str:
+    """뒤에 "와" 또는 "과"를 붙인다. 받침이 있으면 "과", 없으면 "와".
+
+    에이전트가 이 문장을 그대로 말하므로 조사가 틀리면 바로 보인다 —
+    "알바과 겹칩니다"는 "알바와 겹칩니다"여야 한다.
+
+    한글 음절의 받침은 (코드포인트 - 0xAC00) % 28로 나온다. 0이면 받침이
+    없다. 한글이 아닌 글자(영문 과목 코드 등)로 끝나면 "와"를 쓴다 —
+    영문 이름의 받침을 추측하면 더 틀린다.
+    """
+    code = ord(word[-1])
+    if 0xAC00 <= code <= 0xD7A3 and (code - 0xAC00) % 28 != 0:
+        return f"{word}과"
+    return f"{word}와"
+
+
 def score_for(
     start_at: datetime,
     end_at: datetime,
     user_id: int,
     pref: Preference | None,
-    busy: Sequence[Busy],
+    mine: Sequence[Busy],
 ) -> Cost:
-    """한 사람 한 후보. 1에서 시작해 걸리는 것마다 올린다."""
-    mine = [b for b in busy if b.user_id == user_id]
+    """한 사람 한 후보. 1에서 시작해 걸리는 것마다 올린다.
 
+    mine은 **이 사람의** 일정만이다. 거르는 것은 부르는 쪽이 한 번만 한다
+    (slots.group_by_user) — 후보마다 팀 전체를 다시 훑으면 기간이 길어질 때
+    후보 수 × 사람 수 × 일정 수만큼 늘어난다.
+    """
     clash = next((b for b in mine if b.overlaps(start_at, end_at)), None)
     if clash is not None:
         return Cost(
             user_id=user_id,
             score=BLOCKED_SCORE,
             available=False,
-            reason=f"{clash.label}과 겹칩니다",
+            reason=f"{with_particle(clash.label)} 겹칩니다",
         )
 
     score = 1
@@ -82,8 +101,10 @@ def score_for(
 
     tight = _tightest(start_at, end_at, mine)
     if tight is not None:
+        item, comes_before = tight
         score += TIGHT_PENALTY
-        reasons.append(f"{tight.label} 바로 뒤라 이동이 빠듯합니다")
+        when = "바로 뒤라" if comes_before else "바로 전이라"
+        reasons.append(f"{item.label} {when} 이동이 빠듯합니다")
 
     if pref is not None and pref.dayparts and not _in_dayparts(start_at, pref.dayparts):
         score += OFF_DAYPART_PENALTY
@@ -99,16 +120,27 @@ def score_for(
 
 def _tightest(
     start_at: datetime, end_at: datetime, mine: Sequence[Busy]
-) -> Busy | None:
-    """앞뒤로 가장 바싹 붙은 일정. 없으면 None."""
-    close = [
-        b
-        for b in mine
-        if (gap := b.gap_to(start_at, end_at)) is not None and gap < TIGHT_GAP
-    ]
-    if not close:
+) -> tuple[Busy, bool] | None:
+    """앞뒤로 가장 바싹 붙은 일정과, 그게 후보보다 **앞**인지. 없으면 None.
+
+    min(key=...)으로 쓰지 않는다. timedelta(0)이 파이썬에서 거짓이라
+    `gap or 기본값` 같은 식을 쓰면 **딱 붙은 일정(간격 0분)이 가장 먼 것으로
+    뒤집힌다** — 제일 빠듯한 경우가 제일 한가한 것으로 읽힌다.
+
+    앞인지 뒤인지를 함께 돌려주는 이유: 에이전트가 이 문장을 그대로 말한다.
+    뒤에 있는 알바를 "알바 바로 뒤라"라고 하면 틀린 이유를 말하게 된다.
+    """
+    best: tuple[timedelta, Busy, bool] | None = None
+    for item in mine:
+        gap = item.gap_to(start_at, end_at)
+        if gap is None or gap >= TIGHT_GAP:
+            continue
+        comes_before = item.end_at <= start_at
+        if best is None or gap < best[0]:
+            best = (gap, item, comes_before)
+    if best is None:
         return None
-    return min(close, key=lambda b: b.gap_to(start_at, end_at) or timedelta.max)
+    return best[1], best[2]
 
 
 def _in_dayparts(start_at: datetime, dayparts: Sequence[Daypart]) -> bool:
@@ -130,13 +162,21 @@ def score_slot(
     start_at: datetime,
     end_at: datetime,
     member_ids: Sequence[int],
-    prefs: dict[int, Preference],
-    busy: Sequence[Busy],
+    prefs: Mapping[int, Preference],
+    busy_by_user: Mapping[int, Sequence[Busy]],
 ) -> list[Cost]:
+    """후보 하나에 대한 전원의 불편. busy_by_user는 slots.group_by_user의 결과다."""
     return [
-        score_for(start_at, end_at, user_id, prefs.get(user_id), busy)
+        score_for(
+            start_at, end_at, user_id, prefs.get(user_id), busy_by_user.get(user_id, ())
+        )
         for user_id in member_ids
     ]
+
+
+def unavailable_count(costs: Sequence[Cost]) -> int:
+    """이 후보에 못 오는 사람 수. 0이면 전원 가능하다."""
+    return sum(1 for c in costs if not c.available)
 
 
 def total_cost(costs: Sequence[Cost]) -> float:
@@ -183,7 +223,7 @@ def pick_order(
     return sorted(
         scored,
         key=lambda pair: (
-            sum(0 if c.available else 1 for c in pair[1]),
+            unavailable_count(pair[1]),
             yield_weighted_cost(pair[1], yield_totals),
             pair[0][0],
         ),
