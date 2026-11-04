@@ -38,3 +38,10 @@ target/
 .DS_Store
 Thumbs.db
 Desktop.ini
+
+# Python tooling
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
