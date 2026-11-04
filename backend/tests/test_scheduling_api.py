@@ -7,14 +7,17 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
+from dataclasses import replace
 from datetime import date, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from app.main import app
 from app.me.models import Preference, ScheduleItem
+from app.meeting import scorer
 from app.meeting.models import CandidateSlot, SlotCost
 from app.shared.base import KST
 from app.shared.db import session_dep
@@ -265,6 +268,30 @@ def test_한_방에_도는_조율은_하나뿐이다(client: TestClient, 방: �
     res = _start(client, 방.room.id)  # type: ignore[union-attr]
     assert res.status_code == 409  # type: ignore[attr-defined]
     assert res.json()["code"] == "ALREADY_RUNNING"  # type: ignore[attr-defined]
+
+
+def test_다른_제약이_깨지면_409가_아니라_터진다(
+    client: TestClient, 방: 팀, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """조율 시작은 다른 제약도 깨뜨릴 수 있다 — 채점 상수를 잘못 건드리면
+    ck_slot_cost_score가, 라운드 루프를 붙일 때 ck_candidate_round가 걸린다.
+    그건 우리 버그라서 "이미 진행 중입니다"로 덮으면 안 된다.
+
+    에러 문장 속 글자를 찾는 방식이었다면 이 갈래가 조용히 뒤집혔다.
+    """
+    from app.meeting import service
+
+    def 점수를_0으로(*args, **kw) -> list[scorer.Cost]:
+        costs = 원래_채점(*args, **kw)
+        return [replace(c, score=0) for c in costs]  # CHECK는 1~5만 받는다
+
+    원래_채점 = service.score_slot
+    monkeypatch.setattr(service, "score_slot", 점수를_0으로)
+
+    _login(client, "지수")
+    with pytest.raises(IntegrityError) as caught:
+        _start(client, 방.room.id)  # type: ignore[union-attr]
+    assert caught.value.orig.diag.constraint_name == "ck_slot_cost_score"
 
 
 @pytest.mark.parametrize("duration", [45, 0, -30])

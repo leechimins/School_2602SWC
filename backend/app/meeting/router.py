@@ -9,10 +9,16 @@ from __future__ import annotations
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from psycopg.errors import UniqueViolation
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, func, select
 
-from app.meeting.models import CandidateSlot, Scheduling, Utterance
+from app.meeting.models import (
+    RUNNING_SCHEDULING_INDEX,
+    CandidateSlot,
+    Scheduling,
+    Utterance,
+)
 from app.meeting.schemas import SchedulingOut, SchedulingStartIn, UtteranceOut
 from app.meeting.service import start_scheduling
 from app.shared.auth import current_user_id
@@ -30,6 +36,18 @@ def _room(db: Session, room_id: int) -> Room:
             detail={"code": "NOT_FOUND", "message": "그 방이 없습니다."},
         )
     return room
+
+
+def _is_running_conflict(exc: IntegrityError) -> bool:
+    """"이미 도는 조율이 있다"로 깨진 것인지.
+
+    psycopg가 Postgres의 진단 정보를 그대로 넘겨 준다. diag.constraint_name이
+    깨진 제약의 이름이다 — 에러 문장을 뒤지지 않아도 된다.
+    """
+    orig = exc.orig
+    if not isinstance(orig, UniqueViolation):
+        return False
+    return orig.diag.constraint_name == RUNNING_SCHEDULING_INDEX
 
 
 def _require_offset(moment: datetime, field: str) -> None:
@@ -143,8 +161,14 @@ def start(
         # 한 방에 도는 조율은 하나뿐이다(부분 유니크 인덱스). 조율이 도는
         # 중에 팀장이 한 번 더 누르는 일은 쉽게 일어나고, 그러면 발언이 두
         # 줄기로 섞여 가장 중요한 화면이 망가진다.
+        #
+        # 어느 제약이 깨졌는지는 Postgres가 알려 주는 제약 이름으로 판단한다.
+        # 에러 문장 속 글자를 찾는 쪽은 인덱스 이름을 바꾸면 조용히 어긋나고,
+        # 그러면 이 상황이 409 대신 500으로 나간다. 조율 시작이 깨뜨릴 수 있는
+        # 제약은 이것 말고도 ck_slot_cost_score·ck_candidate_round가 있는데,
+        # 그건 우리 버그라서 500이 맞다.
         db.rollback()
-        if "ix_one_running_scheduling_per_room" not in str(exc.orig):
+        if not _is_running_conflict(exc):
             raise
         raise HTTPException(
             status.HTTP_409_CONFLICT,
