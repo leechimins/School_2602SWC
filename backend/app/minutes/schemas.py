@@ -10,13 +10,32 @@ from typing import Literal
 
 from sqlmodel import Field, SQLModel
 
-from app.shared.enums import MeetingStatus, MinutesStatus, Mode, TaskState, TranscriptMode
+from app.shared.enums import (
+    MeetingStatus,
+    MinutesStatus,
+    Mode,
+    TaskState,
+    TranscriptMode,
+)
 
 # ── Record 입력 ─────────────────────────────────────────────────────
 
 
 class RecordStartIn(SQLModel):
-    """회의 기록 시작. 잡힌 회의에 붙이거나, 없으면 새로 만든다."""
+    """회의 기록 시작. 잡힌 회의에 붙이거나, 없으면 새로 만든다.
+
+    둘 중 하나만 보낸다. Swagger 기본 예시가 meeting_id=0을 채워 404가
+    나는 일이 있어서, 두 경우를 예시로 따로 보여 준다.
+    """
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {"topic": "최종 발표 역할 나누기", "mode": "offline"},
+                {"meeting_id": 2},
+            ]
+        }
+    }
 
     meeting_id: int | None = Field(
         default=None, description="기록을 붙일 확정된 회의. 비우면 회의를 새로 만든다"

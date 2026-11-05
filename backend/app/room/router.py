@@ -114,7 +114,7 @@ def preview_by_invite_code(
     )
 
 
-@router.post("/rooms/join", response_model=RoomOut, summary="초대 코드로 방 들어가기")
+@router.post("/rooms/join", response_model=RoomOut, summary="방 들어가기")
 def join_room(
     body: JoinIn,
     user_id: int = Depends(current_user_id),
