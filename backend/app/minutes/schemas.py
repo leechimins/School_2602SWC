@@ -147,3 +147,79 @@ class SuggestionPatch(SQLModel):
 
 class ConfirmOut(SQLModel):
     tasks: list[MeetingTaskOut] = Field(description="방금 확정된 할 일")
+
+
+# ── Task ────────────────────────────────────────────────────────────
+
+
+class TaskSourceOut(SQLModel):
+    """할 일이 나온 회의. 화면의 "11/5 회의" 출처 표시."""
+
+    meeting_id: int = Field(description="회의 ID")
+    held_on: date = Field(description="회의 날짜")
+    topic: str = Field(description="회의 주제")
+
+
+class TaskOut(SQLModel):
+    """할 일 한 줄. 팀 할 일 · 내 할 일 · 할 일 하나가 같은 모양을 쓴다."""
+
+    id: int = Field(description="할 일 ID")
+    title: str = Field(description="제목")
+    due_date: date | None = Field(description="기한. 없으면 null")
+    assignee_user_id: int | None = Field(description="담당자. 없으면 null (담당자 없음)")
+    assignee_name: str | None = Field(description="담당자 이름")
+    state: TaskState = Field(description="상태 (todo 시작 전 / doing 진행 중 / blocked 막힘 / done 완료)")
+    source: TaskSourceOut | None = Field(description="출처 회의. 직접 추가면 null")
+    is_late: bool = Field(description="늦음 뱃지. 기한이 시연 시계의 오늘보다 앞서고 완료가 아님")
+    can_change_status: bool = Field(
+        description="상태를 바꿀 수 있는지. 담당자만, 담당자가 없으면 전원"
+    )
+    can_edit: bool = Field(description="제목·담당자·기한 고치기와 필요 없음. 전원 true")
+
+
+class TaskCountOut(SQLModel):
+    user_id: int = Field(description="팀원 ID")
+    name: str = Field(description="이름")
+    remaining: int = Field(description="남은 할 일 수 (완료·필요 없음 제외)")
+
+
+class TaskListOut(SQLModel):
+    """팀 할 일."""
+
+    tasks: list[TaskOut] = Field(
+        description="담당자 없음 → 나 → 다른 사람 순. 묶음 안에서는 기한 순"
+    )
+    task_counts: list[TaskCountOut] = Field(description="사람별 남은 할 일 수")
+    suggestion_count: int = Field(
+        description="확정 전 AI 제안 수. 0보다 크면 '회의록에 제안 N개' 안내"
+    )
+
+
+class MyTaskListOut(SQLModel):
+    tasks: list[TaskOut] = Field(description="내가 담당인 할 일. 기한 순, 기한 없으면 맨 뒤")
+
+
+class StatusIn(SQLModel):
+    state: TaskState = Field(description="바꿀 상태")
+
+
+class TaskPatch(SQLModel):
+    """할 일 고치기. 보낸 칸만 바꾼다. 담당자·기한은 null을 보내면 비운다."""
+
+    title: str | None = Field(default=None, min_length=1, max_length=200, description="제목")
+    assignee_user_id: int | None = Field(
+        default=None, description="담당자. 이 방 팀원만. null이면 담당자 없음"
+    )
+    due_date: date | None = Field(default=None, description="기한. null이면 기한 없음")
+
+
+class TaskCreateIn(SQLModel):
+    """할 일 직접 추가. AI 없이 도는 길."""
+
+    title: str = Field(min_length=1, max_length=200, description="제목")
+    assignee_user_id: int | None = Field(default=None, description="담당자. 비워도 됨")
+    due_date: date | None = Field(default=None, description="기한. 비워도 됨")
+
+
+class ReassignIn(SQLModel):
+    assignee_user_id: int | None = Field(description="새 담당자. null이면 담당자 없음")
