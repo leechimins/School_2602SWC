@@ -985,7 +985,7 @@
       const m = DATA.meeting;
       let sum;
       // 11/5: 조정된 안은 수락·거절 없이 바로 확정된다. 막아 세울 단계가 없다.
-      if (S.pick != null) sum = `<div class="row-between"><span><span class="badge warn">조정 · 확정</span> <span class="meta">${S.talk === 'fail' ? '3라운드 뒤' : '1명 불참안'}</span></span><span class="yield-val">${nameOf(cands()[S.pick].gets)} ${steps(2)}${YIELD[2]}</span></div>
+      if (S.pick != null) sum = `<div class="row-between"><span><span class="badge warn">조정 · 확정</span> <span class="meta">${S.talk === 'fail' ? '3라운드' : '1명 불참안'}</span></span><span class="yield-val">${nameOf(cands()[S.pick].gets)} ${steps(2)}${YIELD[2]}</span></div>
         <b class="when num">${cands()[S.pick].label}</b><p class="meta">이미 확정된 회의예요. 피드백 한 줄만 받아요</p>`;
       else if (!talkDone()) sum = `<span class="badge">조율 중</span> <span class="meta num">${roundNow()}라운드 진행 중 · 최대 3</span>`;
       else sum = `<div class="row-between"><span><span class="badge ok">합의</span> <span class="meta">2라운드에서 합의</span></span><span class="yield-val">${nameOf(m.gets)} ${steps(1)}${YIELD[1]}</span></div>
@@ -1002,8 +1002,7 @@
       const pickSec = settled ? `<section class="sec"><h2>조정된 안</h2>
           <div class="list-row"><div><p class="strong">${settled.label}</p><p class="meta">${settled.why}</p></div>
           <span class="badge warn">확정</span></div>
-          <p class="meta" style="margin-top:8px">수락·거절 버튼이 없어요. 이미 확정된 회의예요 — 대신 한 줄 남기면 다음 회의 선호에 반영돼요.</p>
-          <div class="btn-row"><button class="btn small" data-action="go" data-to="proposal">조정 결과와 피드백 보기</button></div></section>` : '';
+          <p class="meta" style="margin-top:8px">수락·거절 버튼이 없어요. 이미 확정된 회의예요 — 대신 한 줄 남기면 다음 회의 선호에 반영돼요.</p></section>` : '';
       if (S.talk === 'fail') return head + `<div class="talk">${talkHTML(10)}<div class="round-div">2–3라운드</div>
           ${msg({ kind: 'judge', text: '두 번 더 조율했지만 모두 되는 시간을 찾지 못했어요. 불편 점수와 그동안의 양보를 따져서 목요일 13:00–15:00, 대면으로 정했어요. 이 시간으로 확정할게요.' })}</div>` + pickSec + dock;
       if (none) return head + `<div class="talk"><div class="round-div">1라운드</div>
@@ -1040,7 +1039,7 @@
         : mine === '대기' ? `<button class="btn" data-action="reject">거절</button><button class="btn primary" data-action="accept">수락</button>`
         : mine === '거절' ? `<button class="btn primary" data-action="replay">다음 라운드로 다시 조율</button>`
         : `<button class="btn" disabled>${waiting}의 응답을 기다리는 중</button>`;
-      return `<section class="sec res-top"><div class="row-between"><span><span class="badge ${picked ? 'warn' : 'ok'}">${picked ? '조정' : '합의'}</span> <span class="meta">${S.talk === 'none' ? '불참안' : picked ? '3라운드 뒤' : '2라운드'}</span></span>
+      return `<section class="sec res-top"><div class="row-between"><span><span class="badge ${picked ? 'warn' : 'ok'}">${picked ? '조정' : '합의'}</span> <span class="meta">${S.talk === 'none' ? '불참안' : picked ? '3라운드' : '2라운드'}</span></span>
             <span class="badge ${conf ? 'ok' : 'warn'}">${conf ? '확정' : '확정 대기'}</span></div>
           <span class="big num">${m.short}</span><p class="meta">${m.mode} · ${m.length} · ${m.title}</p>
           ${m.out ? `<p class="meta">${nameOf(m.out)} 빠짐 · 회의록 요약을 따로 보내요</p>` : ''}</section>
