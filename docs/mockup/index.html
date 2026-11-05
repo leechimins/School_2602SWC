@@ -436,10 +436,10 @@
     <p class="mock-g">조율</p>
     <div class="mock-btns">
       <button data-action="state" data-v="newmeet">회의 잡기 (팀장)</button>
-      <button data-action="state" data-v="fail">3라운드 합의 실패 (팀장)</button>
-      <button data-action="state" data-v="failm">3라운드 합의 실패 (팀원)</button>
-      <button data-action="state" data-v="none">전원 가능한 시간 없음 (팀장)</button>
-      <button data-action="state" data-v="nonem">전원 가능한 시간 없음 (팀원)</button>
+      <button data-action="state" data-v="fail">3라운드 합의 → 조정 (팀장 눈)</button>
+      <button data-action="state" data-v="failm">3라운드 합의 → 조정 (팀원 눈)</button>
+      <button data-action="state" data-v="none">전원 가능한 시간 없음 (팀장 눈)</button>
+      <button data-action="state" data-v="nonem">전원 가능한 시간 없음 (팀원 눈)</button>
     </div>
     <p class="mock-g">회의</p>
     <div class="mock-btns">
@@ -505,11 +505,17 @@
           { id: 'seoyeon', score: 0, reason: '비대면이라 이동이 없어요' }
         ],
         cared: { id: 'hyunwoo', why: '지난 두 번의 회의에서 많이 맞춰 줬어요' }, gets: 'minji' },
-      // 조율 과정: 판단 에이전트(중립) 제안 → 팀원 에이전트 응답(거절은 이유만, 대안은 판단 에이전트가 다음 라운드에 낸다).
+      // 조율 과정(11/5): 팀원이 각자 원하는 시간을 어필 → 판단 에이전트(중립)가 그중에서 고름
+      // → 팀원 에이전트 응답. 2라운드부터는 어필 없이 판단이 먼저 무엇을 바꿨는지 말한다.
       // score는 그 시간의 불편 점수(0~5), 내 것만 숫자로 보인다. yields: [사람, 이전 양보 단계, 이번 뒤 단계]
+      // res가 없는 줄이 어필이다 — 아직 수락·거절이 아니라 원하는 시간을 말하는 자리.
       talk: [
         { round: 1 },
-        { kind: 'judge', text: '목요일 13:00–15:00, 대면을 제안합니다. 팀 전체로는 가장 덜 불편한 시간이에요.', picks: [['1순위', '11/19(목) 13:00–15:00 · 대면']] },
+        { who: 'jisu', text: '저는 목요일 오후가 제일 좋아요. 그 시간에는 수업이 없어요.' },
+        { who: 'hyunwoo', text: '저는 수요일 오후가 제일 좋아요. 평일 저녁은 알바가 있어 어려워요.' },
+        { who: 'minji', text: '저는 수요일 오후가 좋아요. 오전에는 수업이 연달아 있어 어려워요.' },
+        { who: 'seoyeon', text: '저는 저녁 비대면이 제일 좋아요. 이동이 없어서요.' },
+        { kind: 'judge', text: '네 분이 원한 시간 중에서 골랐어요. 목요일 13:00–15:00, 대면을 제안합니다. 팀 전체로는 가장 덜 불편한 시간이에요.', picks: [['1순위', '11/19(목) 13:00–15:00 · 대면']] },
         { who: 'jisu', res: '수락', text: '좋아요. 지수는 이 시간에 수업이 없어요.', score: 1 },
         { who: 'hyunwoo', res: '거절', text: '어렵습니다. 알바 끝나고 바로라 이동이 빠듯해요.', score: 4 },
         { who: 'minji', res: '수락', text: '괜찮아요. 수업이 끝나고 바로지만 맞출 수 있어요. 다만 금요일 저녁은 개인 일정이 있어 어려워요.', score: 2 },
@@ -673,11 +679,11 @@
     const member = id => DATA.members.find(m => m.id === id);
     const nameOf = id => (id ? member(id).name : '');
     const isLeader = () => S.me === DATA.leader;
-    // 3라운드 합의 실패 뒤 팀장이 아직 후보를 고르지 않음
-    const choosing = () => (S.talk === 'fail' || S.talk === 'none') && S.pick == null;
-    // 팀장이 고를 안: 3라운드 실패면 후보, 전원 가능한 시간이 없으면 불참안
+    // 11/5: 사람이 고르는 단계가 없다. 합의가 안 되면 판단 에이전트가 불편·양보
+    // 점수로 정하고 **바로 확정**하므로 "고르는 중" 상태가 아예 없다.
+    // 판단 에이전트가 정한 안: 3라운드 실패면 후보 중에서, 전원 가능한 시간이 없으면 불참안
     const cands = () => S.talk === 'none' ? DATA.absent : DATA.candidates;
-    // 지금 잡힌 회의: 팀장이 안을 골랐으면 그 안의 시간·부담·판단을 합의안 위에 덮어쓴다
+    // 지금 잡힌 회의: 조정된 안이 있으면 그 안의 시간·부담·판단을 합의안 위에 덮어쓴다
     const meet = () => S.pick != null ? { ...DATA.meeting, ...cands()[S.pick] } : DATA.meeting;
     const voters = () => DATA.members.filter(x => x.id !== meet().out); // 응답할 사람(불참안에서 빠지는 사람 제외)
     const av = id => `<span class="av">${id ? nameOf(id)[0] : '?'}</span>`; // 이름 글자 하나(김지수 → 지)
@@ -836,7 +842,7 @@
       const m = meet(), conf = S.meeting === 'confirmed';
       if (S.coord) return `<section class="sec meetcard"><div class="row-between"><h2>다음 회의</h2><span class="badge">조율 중</span></div>
         <p class="strong" style="margin-top:4px">${m.title}</p><p class="meta num">조율 중 · ${m.range} 사이</p>
-        <div class="row-between meet-foot"><span class="meta">${choosing() ? `팀장 ${nameOf(DATA.leader)}가 고르는 중` : S.pick != null ? '팀장이 고른 안에 응답을 기다리는 중' : '에이전트끼리 시간을 맞추는 중'}</span>
+        <div class="row-between meet-foot"><span class="meta">에이전트끼리 시간을 맞추는 중</span>
           <button class="btn small" data-action="go" data-to="negotiate">조율 과정 보기</button></div></section>`;
       if (S.meeting === 'none') return `<section class="sec meetcard"><h2>다음 회의</h2>
         <p class="strong" style="margin-top:4px">아직 잡힌 회의가 없어요</p>
@@ -847,7 +853,7 @@
         <div class="meet" style="margin-top:6px">${dateBox(11, m.day, m.wd)}
           <div style="flex:1;min-width:0"><p class="strong">${m.title}</p><p class="meta">${m.time} · ${m.mode} · ${m.length}</p>
             <p class="tick"><span class="tick-l">시작까지</span><span class="num" id="tick">${countdown()}</span></p></div></div>
-        <div class="row-between meet-foot"><span class="meta">${conf ? '모두 수락했어요' : `수락 ${accepted()}/${voters().length} · 내 응답 ${mine}`}</span>
+        <div class="row-between meet-foot"><span class="meta">${S.pick != null ? '판단 에이전트가 조정했어요' : conf ? '모두 수락했어요' : `수락 ${accepted()}/${voters().length} · 내 응답 ${mine}`}</span>
           <button class="btn small ${!conf && mine === '대기' ? 'primary' : ''}" data-action="go" data-to="negotiate">조율 과정 확인</button></div></section>`;
     }
     // 새 회의 잡기는 다음 회의와 따로(팀장만). 회의가 없으면 강조
@@ -957,8 +963,12 @@
       }
       // 팀원 에이전트: 이름 옆 뱃지 하나에 응답과 불편 정도(내 것만 숫자)
       const me = t.who === S.me, ok = t.res === '수락';
+      // res가 없으면 어필이다. 아직 판정이 없으니 수락·거절 뱃지를 달 수 없고,
+      // 불편 점수도 아직 말할 자리가 아니다(제안된 시간이 없으므로).
+      const badge = !t.res ? '<span class="badge">원하는 시간</span>'
+        : `<span class="badge ${ok ? 'ok' : 'danger'}">${ok ? '수락' : '거절'} · ${me ? `내 불편 <span class="num">${t.score}/5</span>` : LEVEL(t.score)}</span>`;
       return `<div class="msg${cls}" data-kind="${me ? 'me' : 'member'}">${av(t.who)}<div class="body">
-        <div class="who"><span class="name">${me ? '내 에이전트' : nameOf(t.who) + '의 에이전트'}</span><span class="badge ${ok ? 'ok' : 'danger'}">${ok ? '수락' : '거절'} · ${me ? `내 불편 <span class="num">${t.score}/5</span>` : LEVEL(t.score)}</span></div>
+        <div class="who"><span class="name">${me ? '내 에이전트' : nameOf(t.who) + '의 에이전트'}</span>${badge}</div>
         <p class="text">${t.text}</p></div></div>`;
     }
     const talkHTML = n => DATA.talk.slice(0, n).map((t, i) => t.round
@@ -967,18 +977,16 @@
     const roundNow = () => S.talk === 'fail' ? 3 : S.talk === 'none' ? 1 : Math.max(1, DATA.talk.slice(0, S.shown).filter(t => t.round).length);
     function negHead() {
       const m = DATA.meeting, r = roundNow(), done = S.talk === 'play' && talkDone();
-      return `<p class="topic">${m.title} ${choosing() ? '— 팀장이 골라야 해요' : S.pick != null ? '— 고른 안에 응답해요' : done ? '시간을 정했어요' : '시간 정하는 중'}</p>
+      return `<p class="topic">${m.title} ${S.pick != null ? '— 조정해서 정했어요' : done ? '시간을 정했어요' : '시간 정하는 중'}</p>
         <div class="chips-s"><span>${m.length}</span><span class="num">${m.range}</span><span>대면 · 비대면 상관없음</span></div>
         <div class="rounds">${[1, 2, 3].map(k => `<i class="${k <= r ? 'on' : ''}"></i>`).join('')}<span class="num">${r} / 최대 3 라운드</span></div>`;
     }
     function negDock() {
       const m = DATA.meeting;
       let sum;
-      // 3라운드 실패·전원 가능한 시간 없음: 팀장이 안을 고르기 전에는 결과로 못 간다
-      if (choosing()) return `<div class="dock-sum">${S.talk === 'fail' ? `<span class="badge warn">합의 못 함</span> <span class="meta">3라운드 · 후보 ${DATA.candidates.length}개 중 팀장이 골라요</span>`
-          : '<span class="badge warn">전원 가능한 시간 없음</span> <span class="meta">1명 불참안을 팀장이 골라요</span>'}</div>
-        <button class="btn" disabled>${isLeader() ? '위에서 하나 골라 주세요' : `팀장 ${nameOf(DATA.leader)}가 고르는 중`}</button>`;
-      if (S.pick != null) sum = `<span class="badge warn">팀장이 고름</span> <b class="when num">${cands()[S.pick].label}</b><p class="meta">이 안으로 모두 수락 · 거절해요</p>`;
+      // 11/5: 조정된 안은 수락·거절 없이 바로 확정된다. 막아 세울 단계가 없다.
+      if (S.pick != null) sum = `<div class="row-between"><span><span class="badge warn">조정 · 확정</span> <span class="meta">${S.talk === 'fail' ? '3라운드' : '1명 불참안'}</span></span><span class="yield-val">${nameOf(cands()[S.pick].gets)} ${steps(2)}${YIELD[2]}</span></div>
+        <b class="when num">${cands()[S.pick].label}</b><p class="meta">이미 확정된 회의예요. 피드백 한 줄만 받아요</p>`;
       else if (!talkDone()) sum = `<span class="badge">조율 중</span> <span class="meta num">${roundNow()}라운드 진행 중 · 최대 3</span>`;
       else sum = `<div class="row-between"><span><span class="badge ok">합의</span> <span class="meta">2라운드에서 합의</span></span><span class="yield-val">${nameOf(m.gets)} ${steps(1)}${YIELD[1]}</span></div>
         <b class="when num">${m.short} ${m.mode}</b>
@@ -987,15 +995,18 @@
     }
     function negotiate() {
       const head = `<div class="neg-head" id="neg-head">${negHead()}</div>`, dock = `<div class="cta col" id="neg-dock">${negDock()}</div>`;
-      // 3라운드 실패·전원 가능한 시간 없음: 안은 팀장에게만 보이고 팀장이 고른다(팀원은 고르는 중) → 고른 안으로 전원 수락·거절
+      // 11/5: 판단 에이전트가 정한 안 하나를 보여 주고 피드백 칸을 연다. 고르는
+      // 버튼도, 기간을 넓히는 버튼도 없다. 팀원도 팀장과 같은 화면을 본다.
       const none = S.talk === 'none';
-      const pickSec = isLeader() ? `<section class="sec"><h2>${none ? '불참안' : '후보'}</h2>${cands().map((c, i) => `<div class="list-row"><div><p class="strong">${c.label}</p><p class="meta">${c.why}</p></div>
-          ${S.pick === i ? '<span class="badge ok">고름</span>' : S.pick == null ? `<button class="btn small" data-action="pick" data-i="${i}">고르기</button>` : ''}</div>`).join('')}
-          ${none && S.pick == null ? '<div class="btn-row"><button class="btn small" data-action="toast" data-msg="기간을 넓혀 다시 조율합니다">기간 넓혀 다시 조율</button></div>' : ''}</section>` : '';
-      if (S.talk === 'fail') return head + `<div class="talk">${talkHTML(6)}<div class="round-div">2–3라운드</div>
-          ${msg({ kind: 'judge', text: '두 번 더 조율했지만 모두 맞는 시간을 찾지 못했어요. 좋은 안 세 개를 드릴게요. 팀장이 하나 골라 주세요.' })}</div>` + pickSec + dock;
+      const settled = S.pick != null ? cands()[S.pick] : null;
+      const pickSec = settled ? `<section class="sec"><h2>조정된 안</h2>
+          <div class="list-row"><div><p class="strong">${settled.label}</p><p class="meta">${settled.why}</p></div>
+          <span class="badge warn">확정</span></div>
+          <p class="meta" style="margin-top:8px">수락·거절 버튼이 없어요. 이미 확정된 회의예요 — 대신 한 줄 남기면 다음 회의 선호에 반영돼요.</p></section>` : '';
+      if (S.talk === 'fail') return head + `<div class="talk">${talkHTML(10)}<div class="round-div">2–3라운드</div>
+          ${msg({ kind: 'judge', text: '두 번 더 조율했지만 모두 되는 시간을 찾지 못했어요. 불편 점수와 그동안의 양보를 따져서 목요일 13:00–15:00, 대면으로 정했어요. 이 시간으로 확정할게요.' })}</div>` + pickSec + dock;
       if (none) return head + `<div class="talk"><div class="round-div">1라운드</div>
-          ${msg({ kind: 'judge', text: '이번 주에는 네 명 모두 되는 2시간이 없어요. 한 명이 빠지는 안을 드릴게요. 팀장이 이 안으로 갈지, 기간을 넓혀 다시 조율할지 골라 주세요.' })}</div>` + pickSec + dock;
+          ${msg({ kind: 'judge', text: '이번 주에는 네 명 모두 되는 2시간이 없어요. 기간을 넓히지 않고, 불편 점수와 그동안의 양보를 따져서 현우가 빠지는 안으로 정했어요. 현우에게는 회의록 요약을 따로 보내요.' })}</div>` + pickSec + dock;
       return head + `<div class="talk" id="talk">${talkHTML(S.shown)}</div>`
         + (talkDone() ? `<div style="text-align:center"><button class="link sm" data-action="replay-view">처음부터 다시 보기</button></div>` : '') + dock;
     }
@@ -1028,7 +1039,7 @@
         : mine === '대기' ? `<button class="btn" data-action="reject">거절</button><button class="btn primary" data-action="accept">수락</button>`
         : mine === '거절' ? `<button class="btn primary" data-action="replay">다음 라운드로 다시 조율</button>`
         : `<button class="btn" disabled>${waiting}의 응답을 기다리는 중</button>`;
-      return `<section class="sec res-top"><div class="row-between"><span><span class="badge ${picked ? 'warn' : 'ok'}">${picked ? '팀장이 고름' : '합의'}</span> <span class="meta">${S.talk === 'none' ? '불참안' : picked ? '3라운드 뒤' : '2라운드'}</span></span>
+      return `<section class="sec res-top"><div class="row-between"><span><span class="badge ${picked ? 'warn' : 'ok'}">${picked ? '조정' : '합의'}</span> <span class="meta">${S.talk === 'none' ? '불참안' : picked ? '3라운드' : '2라운드'}</span></span>
             <span class="badge ${conf ? 'ok' : 'warn'}">${conf ? '확정' : '확정 대기'}</span></div>
           <span class="big num">${m.short}</span><p class="meta">${m.mode} · ${m.length} · ${m.title}</p>
           ${m.out ? `<p class="meta">${nameOf(m.out)} 빠짐 · 회의록 요약을 따로 보내요</p>` : ''}</section>
@@ -1071,7 +1082,7 @@
       const today = DATA.meetings.find(x => x.id === 'm3'), past = meetings();
       const recNow = `<button class="rec-now" data-action="rec-now"><span class="rec-ic">${ic('mic', '')}</span><span><b>지금 회의 받아적기</b>
           <span>${!S.recorded ? `오늘 ${S.adhoc ? '지금' : today.time} '${today.topic}' 회의를 받아적어요` : '잡힌 회의가 없어도 주제 한 줄만 쓰고 바로 받아적어요'}</span></span></button>`;
-      const coordLabel = choosing() ? (isLeader() ? '내가 골라야 해요' : `팀장 ${nameOf(DATA.leader)}가 고르는 중`) : S.pick != null ? '팀장이 고른 안 응답 중' : '조율 중';
+      const coordLabel = '조율 중'; // 조정은 S.coord가 false라 이 칸에 안 온다
       const coord = S.coord ? `<div class="sec-h"><h2>조율 중인 회의</h2></div>
         <section class="sec"><button class="mrow" data-action="go" data-to="negotiate"><span class="dateblock coord"><b>–</b></span>
           <span class="body"><span class="strong">${m.title}</span><span class="meta num">조율 중 · ${m.range} 사이 · ${m.length}</span></span>
@@ -1083,8 +1094,8 @@
       if (!S.coord && S.meeting !== 'none') booked.push(`<button class="mrow" data-action="go" data-to="proposal">
           ${dateBox(11, m.day, m.wd, conf ? 'conf' : 'wait')}
           <span class="body"><span class="strong">${m.title}</span><span class="meta num">${m.time} · ${m.mode} · ${m.length}</span>
-            <span class="meta num">${conf ? '모두 수락했어요' : `수락 ${accepted()}/${voters().length} · 내 응답 ${S.resp[S.me]}`}</span></span>
-          <span class="badge ${conf ? 'ok' : 'warn'}">${conf ? '확정' : '확정 대기'}</span></button>`);
+            <span class="meta num">${S.pick != null ? '판단 에이전트가 조정했어요' : conf ? '모두 수락했어요' : `수락 ${accepted()}/${voters().length} · 내 응답 ${S.resp[S.me]}`}</span></span>
+          <span class="badge ${conf ? 'ok' : 'warn'}">${conf ? (S.pick != null ? '확정 · 조정' : '확정') : '확정 대기'}</span></button>`);
       const pastRow = x => `<button class="mrow" data-action="go-mtg" data-id="${x.id}">${dateBlk(x, 'past')}
           <span class="body"><span class="strong">${x.topic}</span><span class="meta">${x.length} · 회의록 열기</span></span>
           ${pendingCount(x) ? `<span class="badge ai num">제안 ${pendingCount(x)}개</span>` : ''}</button>`;
@@ -1357,8 +1368,15 @@
       S.noTasks = v === 'notasks'; S.quiet = v === 'quiet'; S.read = false;
       if (S.quiet) { S.meeting = 'confirmed'; DATA.members.forEach(x => { S.resp[x.id] = '수락'; }); }
       S.talk = v === 'fail' || v === 'none' ? v : 'play';
-      S.coord = v === 'fail' || v === 'none'; S.pick = null;
-      DATA.members.forEach(x => { S.resp[x.id] ??= '대기'; }); // 불참안을 고른 뒤에도 응답자 네 명으로 되돌림
+      // 11/5: 조정은 그 자리에서 확정되므로 조율이 끝난 상태다. 조율 중 칸이
+      // 아니라 잡힌 회의로 가야 한다(예전엔 팀장이 고를 때까지 조율 중이었다).
+      S.coord = false;
+      // 11/5: 사람이 고르지 않으므로 화면에 들어오는 순간 이미 정해져 있다.
+      // fail은 후보 중 두 번째(현우가 많이 맞춰 주는 안) — 양보 차등이 보이는 쪽이다.
+      S.pick = v === 'fail' ? 1 : v === 'none' ? 0 : null;
+      DATA.members.forEach(x => { S.resp[x.id] ??= '대기'; }); // 불참안 뒤에도 응답자 네 명으로 되돌림
+      // 조정은 수락·거절 없이 확정된다. 오는 사람은 수락으로 깔린다(시스템이 대신 수락).
+      if (S.pick != null) { S.meeting = 'confirmed'; S.resp = Object.fromEntries(voters().map(x => [x.id, '수락'])); }
       S.recorded = v !== 'norec' && v !== 'live' && v !== 'aifail'; S.add = null;
       if (v === 'aifail') { S.mtg = 'm3'; S.rec = 'fail'; }
       // 받아적는 중: 세 줄쯤 받아적힌 상태에서 시작
@@ -1395,8 +1413,8 @@
       else if (a === 'to-result') { if (S.talk === 'play') S.shown = DATA.talk.length; go('proposal'); }
       else if (a === 'replay-view') { S.shown = 0; render(); play(); }
       else if (a === 'replay') { S.talk = 'play'; S.pick = null; S.shown = 0; S.coord = true; S.resp[S.me] = '대기'; go('negotiate'); }
-      // 3라운드 실패 뒤 팀장이 후보 하나를 고름 → 그 안으로 전원 수락·거절
-      else if (a === 'pick') {
+      // 11/5: 'pick' 동작을 없앴다. 사람이 후보를 고르는 단계가 사라져서 부를 데가 없다.
+      else if (a === '__removed_pick') {
         S.pick = +el.dataset.i; S.meeting = 'proposed';
         S.resp = Object.fromEntries(voters().map(x => [x.id, '대기']));
         go('proposal'); toast('고른 안을 팀원에게 보냈어요');
