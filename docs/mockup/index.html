@@ -1,0 +1,1626 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>팀플 에이전트 화면 목업</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+  <style>
+    /* 팀플 에이전트 화면 목업(단일 HTML, 빌드 없음). 왼쪽 = 시연 장치, 오른쪽 = 휴대폰 폭 앱 화면.
+       하단 탭 4개(홈·일정·할 일·나), 회의록은 일정 탭의 회의 상세에서 연다. 팀원 표시는 이름 글자 하나 */
+    :root {
+      color-scheme: light;
+      --font: "Pretendard Variable", Pretendard, -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+      --white: #FFFFFF;
+      --mock-bg: #E9E9E6; --mock-fg: #4A4A46; --mock-line: #C9C8C2;
+    }
+    /* 색 토큰: 중립 바탕 + 포인트 파랑 1색 + AI 노랑 1색. 초록은 쓰지 않음(완료도 포인트 계열) */
+    .app {
+      --point: #3D5BAB; --on-point: #FFFFFF; --point-ink: #3D5BAB; --sub: #E8B730; --sub-ink: #7F6418;
+      --page: #F4F5F7; --card: #FFFFFF; --text: #191F28; --r: 12px; --rl: 16px;
+      --ok: var(--point-ink); --warn: #B8690F; --danger: #E5383B;
+      --sp: 16px;
+      --soft: color-mix(in srgb, var(--text) 5%, var(--card));
+      --line: color-mix(in srgb, var(--text) 10%, var(--page)); --muted: color-mix(in srgb, var(--text) 62%, var(--page));
+      --bubble: color-mix(in srgb, var(--text) 7%, var(--page)); --point-soft: color-mix(in srgb, var(--point) 12%, var(--card));
+      --sub-soft: color-mix(in srgb, var(--sub) 18%, var(--card)); --sub-wash: color-mix(in srgb, var(--sub) 7%, var(--card));
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body { margin: 0; display: flex; background: var(--mock-bg); color: var(--mock-fg);
+           font-family: var(--font); font-size: 14px; line-height: 1.5; word-break: keep-all; }
+    button, input, select, textarea { font: inherit; color: inherit; }
+    button { cursor: pointer; }
+    [hidden] { display: none !important; }
+    p { margin: 0; }
+    .num { font-variant-numeric: tabular-nums; }
+
+    /* 시연 장치 패널(왼쪽, 앱 토큰과 섞지 않는 무채색) */
+    .mock { width: 210px; flex: none; overflow-y: auto; padding: 14px 12px; display: flex; flex-direction: column; gap: 6px;
+            font-size: 13px; border-right: 1px solid var(--mock-line); }
+    .mock-h { font-size: 15px; font-weight: 700; }
+    .mock-g { margin-top: 10px; font-weight: 700; }
+    .mock-btns { display: grid; gap: 6px; }
+    .mock button, .mock select { min-height: 34px; padding: 0 10px; border: 1px solid var(--mock-line); border-radius: 6px; background: var(--white); font-size: 13px; text-align: left; }
+    .mock button[aria-pressed="true"] { background: var(--mock-fg); color: var(--white); border-color: var(--mock-fg); }
+    .mock .desc { margin-top: 4px; line-height: 1.5; }
+    @media (max-width: 480px) {
+      body { flex-direction: column; }
+      .mock { width: 100%; max-height: 38vh; border-right: 0; border-bottom: 1px solid var(--mock-line); }
+    }
+
+    /* 틀 */
+    .app { flex: 1; min-height: 0; width: 100%; max-width: 430px; margin: 0 auto; display: grid; grid-template-rows: auto 1fr auto auto;
+           position: relative; background: var(--page); color: var(--text); overflow: hidden; }
+    .app[data-full] .tabs { display: none; }
+    .top { min-height: 54px; display: flex; align-items: center; gap: 4px; padding: 0 8px 0 16px; background: var(--page); }
+    .top h1 { flex: 1; margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -0.03em; }
+    .icon-btn { position: relative; width: 44px; height: 44px; border: 0; background: none; display: inline-flex; align-items: center; justify-content: center; }
+    #back { margin-left: -10px; }
+    svg.i { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+    svg.i.s { width: 17px; height: 17px; }
+    main { overflow-y: auto; min-height: 0; padding-bottom: 20px; }
+
+    .sec { margin: 8px 12px 0; padding: 14px var(--sp); background: var(--card); border: 1px solid var(--line); border-radius: var(--rl); }
+    .sec h2 { margin: 0 0 6px; font-size: 13.5px; font-weight: 700; letter-spacing: -0.01em; }
+    .sec-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin: 18px 18px 0; }
+    .sec-h h2 { margin: 0; font-size: 13.5px; font-weight: 700; }
+    .meta { font-size: 12.5px; color: var(--muted); }
+    .strong { font-size: 14.5px; font-weight: 600; }
+    .big { display: block; font-size: 28px; font-weight: 700; line-height: 1.25; letter-spacing: -0.03em; }
+    .row-between { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .meta-row { display: flex; flex-wrap: wrap; gap: 0 8px; margin-top: 1px; font-size: 12.5px; color: var(--muted); }
+    .btn-row { display: flex; gap: 8px; margin-top: 10px; }
+    .btn-row .btn { flex: 1; }
+    .divider { height: 1px; margin: 10px 0; background: var(--line); }
+
+    .bar { height: 5px; margin: 6px 0; background: var(--line); border-radius: 99px; overflow: hidden; }
+    .bar > i { display: block; height: 100%; background: var(--point); border-radius: inherit; }
+
+    .badge { display: inline-flex; align-items: center; padding: 0 6px; border-radius: 4px; font-size: 11.5px; font-weight: 600; line-height: 1.7;
+             white-space: nowrap; color: var(--muted); background: var(--soft); }
+    .badge.ok { color: var(--ok); background: color-mix(in srgb, var(--ok) 12%, var(--white)); }
+    .badge.warn { color: var(--warn); background: color-mix(in srgb, var(--warn) 13%, var(--white)); }
+    .badge.danger { color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, var(--white)); }
+    .badge.here { color: var(--point-ink); background: var(--point-soft); }
+    .badge.ai { color: var(--sub-ink); background: transparent; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sub) 70%, transparent); padding: 0 8px; font-weight: 500; }
+
+    .btn { min-height: 44px; padding: 0 14px; border: 0; border-radius: var(--r); background: var(--point-soft); color: var(--point-ink); font-size: 14px; font-weight: 600; }
+    .btn.primary { background: var(--point); color: var(--on-point); }
+    .btn.danger { background: var(--danger); color: var(--white); }
+    .btn.block { width: 100%; margin-top: 10px; }
+    .btn.small { min-height: 34px; padding: 0 12px; font-size: 13px; }
+    .btn.quiet { background: none; color: var(--muted); font-weight: 500; } /* 왼쪽 취소류: 배경 없이 회색 글자 */
+    .btn.dashed { background: none; color: var(--text); border: 1.5px dashed var(--line); }
+    .btn:disabled { opacity: .5; cursor: default; }
+    .pill { min-height: 32px; padding: 0 12px; border: 1px solid var(--line); border-radius: 99px; background: var(--card); font-size: 12.5px; font-weight: 600; }
+    .pill.go { border-color: color-mix(in srgb, var(--point) 45%, var(--card)); color: var(--point-ink); }
+    .pill.quiet { border-color: transparent; background: none; color: var(--muted); font-weight: 500; }
+    .link { min-height: 40px; padding: 0; border: 0; background: none; color: var(--point-ink); font-size: 13.5px; font-weight: 600; }
+    .link.sm { min-height: 30px; font-size: 12.5px; white-space: nowrap; }
+    .field { min-height: 38px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); font-size: 14px; }
+    /* 하단 고정 영역: 화면의 .cta를 main 밖(탭 바로 위)으로 옮겨 붙인다. 떠 있는 틈 없음 */
+    .dock { padding: 10px 12px 12px; background: var(--card); border-top: 1px solid var(--line); }
+    .dock:empty { display: none; }
+    .cta { display: flex; gap: 8px; }
+    .cta.col { flex-direction: column; }
+    .cta .btn { flex: 1; } .cta .btn.primary { flex: 2; }
+    .list-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; min-height: 44px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+    .list-row:last-child { border-bottom: 0; }
+    .note { padding: 10px 12px; border-radius: 10px; background: var(--soft); }
+    .field-l { display: block; margin-top: 12px; font-size: 12.5px; color: var(--muted); font-weight: 600; }
+    .field-l:first-of-type { margin-top: 0; }
+    .field-l .field { display: block; width: 100%; margin-top: 4px; color: var(--text); font-weight: 400; }
+
+    /* 팀원 표시: 중립 바탕 + 이름 글자 하나(색으로 사람을 나누지 않음) */
+    .av { width: 28px; height: 28px; flex: none; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+          background: var(--bubble); color: var(--text); font-size: 12.5px; font-weight: 700; }
+
+    /* 하단 탭 */
+    .tabs { display: grid; grid-template-columns: repeat(4, 1fr); padding: 2px 6px env(safe-area-inset-bottom);
+            background: var(--card); border-top: 1px solid var(--line); }
+    .tab { position: relative; z-index: 0; min-height: 50px; border: 0; background: none; display: flex; flex-direction: column; align-items: center; justify-content: center;
+           gap: 1px; font-size: 10.5px; color: #8E8E93; }
+    .tab[aria-current="page"] { color: var(--point-ink); font-weight: 700; }
+    .tab[aria-current="page"]::before { content: ""; position: absolute; inset: 5px 8px; border-radius: 10px; background: var(--point-soft); z-index: -1; }
+    .count { position: absolute; top: 3px; left: calc(50% + 5px); min-width: 17px; padding: 0 5px; border-radius: 99px; background: var(--danger);
+             color: var(--white); font-size: 10.5px; line-height: 17px; font-weight: 700; }
+    .count.calm { background: var(--sub-ink); }
+    .icon-btn .count { top: 4px; left: 24px; }
+
+    /* ── 홈 ── */
+    .hh { display: grid; grid-template-columns: auto 1fr; gap: 0; align-items: center; }
+    .hh > div:first-child { padding-right: 16px; margin-right: 16px; border-right: 1px solid var(--line); }
+    .w-label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); }
+    .hero-n { display: block; color: var(--point-ink); font-size: 30px; font-weight: 700; line-height: 1.15; letter-spacing: -0.03em; }
+    .meet { display: flex; gap: 12px; align-items: flex-start; }
+    /* 날짜 칸: 기본 = 포인트, conf·wait = 옅은 포인트, past·coord = 회색 */
+    .dateblock { width: 50px; flex: none; padding: 5px 0; border-radius: 8px; background: var(--point); color: var(--on-point); text-align: center;
+                 display: flex; flex-direction: column; font-size: 11px; font-weight: 600; }
+    .dateblock.conf { background: color-mix(in srgb, var(--point) 84%, var(--white)); }
+    .dateblock.wait { background: color-mix(in srgb, var(--point) 72%, var(--white)); }
+    .dateblock b { font-size: 20px; line-height: 1.15; }
+    .tick { margin-top: 4px; font-size: 12.5px; color: var(--point-ink); font-weight: 600; }
+    /* 이름표 + 체크. 이름표는 회색이고 날짜(기한 지남·오늘·내일) 점만 --mc로 색을 준다 */
+    .cat { --mc: #B0B8C1; display: inline-flex; align-items: center; gap: 6px; margin: 10px 0 0; padding: 2px 10px; border-radius: 99px;
+           background: var(--bubble); font-size: 12.5px; font-weight: 700; }
+    .cat::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--mc); }
+    .cat .n { font-weight: 500; color: var(--muted); }
+    .mini { display: flex; align-items: center; gap: 10px; min-height: 38px; width: 100%; padding: 0; border: 0; background: none; text-align: left; }
+    .check { width: 20px; height: 20px; flex: none; border-radius: 50%; border: 2px solid #C7C7CC; }
+    /* 완료 체크: 포인트 색 원 + 흰 체크 */
+    :is(.mini, .todo)[data-done="true"] .check { border-color: var(--point);
+      background: var(--point) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 8.5l2.6 2.5L12 5.5' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 14px no-repeat; }
+    .mini[data-done="true"] .t { color: var(--muted); text-decoration: line-through; }
+    .mini .t { flex: 1; min-width: 0; } .mini .meta { flex: none; }
+    .tag { font-size: 11.5px; color: var(--muted); }
+    .seg-s { display: inline-flex; padding: 2px; border-radius: 99px; background: var(--soft); }
+    .seg-s button { min-height: 28px; padding: 0 10px; border: 0; border-radius: 99px; background: none; font-size: 12px; color: var(--muted); }
+    .seg-s button[aria-pressed="true"] { background: var(--card); color: var(--text); font-weight: 700; box-shadow: 0 1px 2px rgb(0 0 0 / .08); }
+    .home-hero { background: color-mix(in srgb, var(--point) 16%, var(--card)); border-color: color-mix(in srgb, var(--point) 35%, var(--card)); }
+
+    /* ── 할 일 ── */
+    .todos { margin: 0; padding: 0; list-style: none; }
+    .todo { padding: 8px 0; border-bottom: 1px solid var(--line); }
+    .todo:last-child { border-bottom: 0; }
+    .todo-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;
+                 -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; } /* 길게 누름 = 고치기 */
+    .todo-title { display: flex; gap: 10px; align-items: flex-start; min-width: 0; }
+    .todo-title .check { margin-top: 1px; padding: 0; background: none; }
+    .todo .check:disabled { border-color: #E2E2E6; background: var(--soft); cursor: not-allowed; } /* 남의 할 일: 회색, 누를 수 없음 */
+    .todo[data-done="true"] .check:disabled { border-color: #C7C7CC; background-color: #C7C7CC; }
+    .todo-title .name { padding: 0; border: 0; background: none; text-align: left; font-size: 14.5px; font-weight: 600; }
+    .todo[data-done="true"] .todo-title .name { color: var(--muted); text-decoration: line-through; font-weight: 400; }
+    .todo-badges { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; }
+    .todo-meta { padding-left: 30px; }
+    .todo-right { position: relative; display: flex; flex: none; align-items: center; gap: 6px; }
+    .st-menu { position: absolute; top: calc(100% + 4px); right: 0; z-index: 5; display: flex; flex-direction: column; gap: 2px; min-width: 96px; padding: 4px;
+               border: 1px solid var(--line); border-radius: 10px; background: var(--card); box-shadow: 0 6px 20px rgba(0, 0, 0, .12); }
+    .st-menu button { display: flex; align-items: center; min-height: 32px; padding: 0 8px; border: 0; border-radius: 6px; background: none; }
+    .st-menu button[aria-checked="true"] { background: var(--soft); }
+    .st-menu .badge { padding: 0; background: none; }
+    .st-chip { min-width: 62px; justify-content: center; border: 0; min-height: 24px; cursor: pointer; } .st-chip::after { content: "▾"; margin-left: 3px; font-size: 10px; }
+    .todo .src { padding: 0; border: 0; background: none; color: inherit; font-size: inherit; text-decoration: underline; text-underline-offset: 3px; }
+    .todo-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; padding-left: 30px; align-items: center; }
+    /* 더 보기(제목 누름) = 상태 · 고치기 = 제목·담당자·기한·예상 시간 */
+    .todo-panel { margin: 8px 0 2px 30px; padding: 10px 12px; border-radius: 10px; background: var(--soft); }
+    .todo-panel .field { background: var(--card); }
+    .todo-panel.edit { display: grid; gap: 6px; padding: 8px 10px; }
+    .todo-panel.edit .field { width: 100%; min-height: 32px; padding: 0 8px; font-size: 13px; }
+    .edit-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .todo-panel.edit .panel-act { margin-top: 0; } .panel-act .btns { display: flex; flex: none; gap: 4px; }
+    .todo-guide { margin: 6px 16px 0; }
+    .todo-panel .seg { margin-top: 4px; } .todo-panel .seg button { min-height: 32px; font-size: 12.5px; }
+    .panel-act { display: flex; justify-content: space-between; align-items: center; gap: 6px; margin-top: 10px; }
+    .btn.del { background: none; color: var(--danger); } /* 왼쪽 삭제류: 배경·테두리 없이 빨간 글자 */
+    .chips { display: flex; gap: 6px; overflow-x: auto; padding: 10px 12px 2px; scrollbar-width: none; }
+    .chip { flex: none; min-height: 32px; padding: 0 12px; border: 0; border-radius: 99px; background: var(--card); box-shadow: inset 0 0 0 1px var(--line); font-size: 12.5px; }
+    .chip[aria-pressed="true"] { background: var(--point); border-color: var(--point); color: var(--on-point); font-weight: 700; box-shadow: none; }
+    .load { display: grid; grid-template-columns: 34px 1fr 46px; align-items: center; gap: 8px; min-height: 24px; font-size: 13px; }
+    .load .bar { margin: 0; }
+    .hint { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 8px 12px 0; padding: 8px 12px; border-radius: 10px;
+            background: var(--sub-wash); border: 1px dashed color-mix(in srgb, var(--sub) 60%, var(--card)); font-size: 12.5px; }
+
+    /* ── 조율 과정 / 조율 결과 ── */
+    .talk { margin: 8px 12px 0; padding: 2px 12px 12px; border: 1px solid var(--line); border-radius: var(--rl); background: var(--card); }
+    .msg { display: flex; gap: 8px; align-items: flex-start; margin: 8px 0; }
+    .msg > .av { width: 26px; height: 26px; margin-top: 20px; font-size: 11px; }
+    .msg .body { min-width: 0; max-width: 84%; }
+    .msg .who { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+    .msg .name { font-size: 11.5px; font-weight: 600; color: var(--muted); }
+    .msg .text { margin-top: 3px; padding: 7px 12px; border-radius: 12px; background: var(--bubble); }
+    .msg[data-kind="me"] { flex-direction: row-reverse; }
+    .msg[data-kind="me"] > .av { display: none; }
+    .msg[data-kind="me"] .who { justify-content: flex-end; }
+    .msg[data-kind="me"] .text { background: var(--point); color: var(--on-point); }
+    .msg.enter, .judge.enter { animation: rise .25s ease-out; }
+    @keyframes rise { from { opacity: 0; transform: translateY(6px); } }
+    @media (prefers-reduced-motion: reduce) { .msg.enter, .judge.enter { animation: none; } }
+    .steps { display: inline-flex; gap: 3px; vertical-align: middle; }
+    .steps i { width: 12px; height: 7px; border-radius: 2px; background: var(--line); }
+    .steps i.on { background: var(--point); }
+    .yield-val { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--muted); }
+    .stepper { display: inline-flex; align-items: center; gap: 4px; margin-top: 4px; }
+    .stepper button { width: 38px; height: 38px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); font-size: 18px; }
+    .stepper b { min-width: 84px; text-align: center; font-size: 15px; }
+    .range { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+    .range .field { flex: 1; min-width: 0; }
+
+    /* 알림 카드 */
+    .risk { padding: 10px 0; border-bottom: 1px solid var(--line); }
+    .risk:last-child { border-bottom: 0; }
+    .risk-reason { margin: 3px 0 0; }
+
+    /* ── 일정 = 회의 관리: 마감·오늘 위치 → 지금 회의 기록하기 → 조율 중 → 잡힌 회의 → 지난 회의 ── */
+    .period { position: relative; height: 8px; margin: 10px 0 4px; border-radius: 99px; background: var(--line); }
+    .period > i { display: block; height: 100%; border-radius: inherit; background: var(--point); }
+    .home-hero .period { background: var(--card); }
+    .period > b { position: absolute; top: 50%; width: 14px; height: 14px; border: 3px solid var(--card); border-radius: 50%; background: var(--point); transform: translate(-50%, -50%); }
+    .rec-now { display: flex; align-items: center; gap: 10px; width: calc(100% - 24px); margin: 10px 12px 0; padding: 12px 14px; border: 0; border-radius: var(--rl);
+               background: var(--point); color: var(--on-point); text-align: left; }
+    .rec-ic { width: 40px; height: 40px; flex: none; border-radius: 50%; background: var(--card); color: var(--point);
+              display: inline-flex; align-items: center; justify-content: center; }
+    .rec-now b { display: block; font-size: 15px; }
+    .rec-now span span { font-size: 12.5px; opacity: .85; }
+    .mrow { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 56px; padding: 8px 0; border: 0; border-bottom: 1px solid var(--line); background: none; text-align: left; }
+    .mrow:last-child { border-bottom: 0; }
+    .mrow .body { flex: 1; min-width: 0; }
+    .mrow .body > span { display: block; }
+    .dateblock.past, .dateblock.coord { background: var(--soft); color: var(--muted); }
+    .dateblock.coord { font-size: 18px; }
+
+    /* ── 나 ── */
+    .profile { display: flex; align-items: center; gap: 12px; padding: 2px 18px 12px; }
+    .profile .av { width: 44px; height: 44px; border-radius: 12px; font-size: 16px; }
+    .profile .who { flex: 1; min-width: 0; }
+    .profile .who b { font-size: 18px; }
+    .quote { margin: 0 12px; padding: 10px 12px; border-radius: var(--rl); background: var(--sub-soft); }
+    .quote .meta { color: var(--sub-ink); font-weight: 600; }
+    .quote > p:last-child { margin-top: 2px; font-weight: 500; }
+    .quote .row-between .link { min-height: 24px; color: var(--sub-ink); }
+    .quote .row-between span { display: inline-flex; gap: 10px; }
+    .quote textarea { margin-top: 4px; min-height: 112px; padding: 8px 10px; font-size: 13.5px; line-height: 1.5; background: var(--card); }
+    .quote .panel-act { margin-top: 6px; }
+    .sync { display: inline-flex; align-items: center; gap: 2px; }
+    .sync .icon-btn { width: 30px; height: 30px; margin-right: -6px; color: var(--muted); }
+    .quote em { font-style: normal; font-weight: 700; }
+    .link-row { display: grid; grid-template-columns: 34px 1fr auto; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
+    .link-row .ic { width: 34px; height: 34px; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center; background: var(--soft); color: var(--muted); }
+    .lock { display: flex; gap: 8px; align-items: flex-start; margin-top: 10px; padding: 10px 12px; border-radius: 10px; background: var(--soft); font-size: 12.5px; }
+    .week { display: grid; grid-template-columns: 24px repeat(7, 1fr); gap: 0 3px; margin-top: 8px; }
+    .week .wd { text-align: center; font-size: 11.5px; color: var(--muted); padding-bottom: 3px; }
+    .week .hours { position: relative; height: 180px; font-size: 10.5px; color: var(--muted); }
+    .week .hours span { position: absolute; left: 0; transform: translateY(-50%); }
+    .week .col { position: relative; height: 180px; border-radius: 5px;
+                 background: repeating-linear-gradient(to bottom, var(--soft) 0 44px, var(--line) 44px 45px); }
+    .blk { position: absolute; left: 1px; right: 1px; padding: 2px 3px; border: 0; border-radius: 4px; color: inherit; font-size: 10px; line-height: 1.2;
+           text-align: left; overflow: hidden; cursor: pointer; }
+    .blk[data-k="class"] { background: color-mix(in srgb, var(--text) 14%, var(--card)); }
+    .blk[data-k="busy"] { background: var(--sub-soft); color: var(--sub-ink); }
+    .blk[data-k="class"], .blk[data-k="busy"] { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 14%, transparent); }
+    .blk[data-k="meet"] { background: var(--point); color: var(--on-point); font-weight: 600; }
+    .blk[data-k="wait"] { background: var(--card); border: 1.5px dashed var(--point); color: var(--point-ink); font-weight: 600; }
+    .wlegend { display: flex; flex-wrap: wrap; gap: 2px 10px; margin-top: 8px; font-size: 11.5px; color: var(--muted); }
+    .wlegend span { display: inline-flex; align-items: center; gap: 4px; }
+    .wlegend i { width: 11px; height: 11px; border-radius: 3px; }
+    .seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 6px; margin-top: 6px; }
+    .seg button { min-height: 38px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); font-weight: 600; font-size: 13px; }
+    .seg button[aria-pressed="true"] { background: var(--point); border-color: var(--point); color: var(--on-point); }
+    .blk[data-sel="true"] { outline: 2px solid var(--text); outline-offset: 1px; z-index: 1; }
+    .blk-form { margin-top: 10px; padding: 12px; border-radius: 10px; background: var(--soft); scroll-margin: 80px; }
+    .blk-form .seg { grid-auto-columns: auto; grid-template-columns: repeat(7, 1fr); }
+    .blk-form .seg.k2 { grid-template-columns: repeat(2, 1fr); }
+    .blk-form .seg button { min-height: 34px; font-size: 12.5px; }
+    .blk-form .field { background: var(--card); }
+    .day-t { display: grid; grid-template-columns: 22px 1fr; align-items: center; gap: 8px; margin-top: 6px; }
+    .day-t .range { margin-top: 0; }
+    .pref { padding: 10px 0; border-bottom: 1px solid var(--line); }
+    .pref:last-child { border-bottom: 0; padding-bottom: 0; }
+    .pref > .meta { display: block; }
+    .pref input.field { width: 100%; margin-top: 6px; }
+
+    /* ── 회의 상세(일정 탭 아래): 기록 → 요약·원문 → 끝난 일 → AI 제안 ── */
+    .rec-dot { display: inline-flex; align-items: center; gap: 8px; color: var(--danger); font-weight: 700; }
+    .rec-dot::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--danger); animation: pulse 1.2s ease-in-out infinite; }
+    @keyframes pulse { 50% { opacity: .3; } }
+    @media (prefers-reduced-motion: reduce) { .rec-dot::before { animation: none; } }
+    .rec-clock { font-size: 30px; font-weight: 700; letter-spacing: -0.02em; }
+    .btn.big { min-height: 56px; font-size: 16px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+    /* 받아적는 중: 글이 쌓이는 자리(말한 사람은 목소리 A·B…) */
+    .live { height: 210px; overflow-y: auto; margin-top: 10px; padding: 4px 6px; border-radius: 10px; background: var(--soft); }
+    .live .lines { margin: 0; }
+    .live .wait { padding: 6px; color: var(--muted); font-size: 13px; }
+    textarea.field { width: 100%; min-height: 100px; padding: 8px 10px; margin-top: 8px; resize: vertical; line-height: 1.5; }
+    .topic { font-size: 18px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.4; }
+    .sum-g { margin-top: 14px; }
+    .sum-g:first-child { margin-top: 0; }
+    .sum-g > b { display: block; margin-bottom: 2px; font-size: 14px; font-weight: 700; color: var(--muted); }
+    .sum { display: flex; justify-content: space-between; align-items: center; gap: 10px; min-height: 34px; font-size: 13px; border-bottom: 1px solid var(--line); }
+    .sum:last-child { border-bottom: 0; }
+    .lines { margin: 6px 0 0; padding: 0; list-style: none; }
+    .line { display: grid; grid-template-columns: 32px 1fr; gap: 8px; padding: 6px; border-radius: 8px; }
+    .line b { font-size: 12.5px; color: var(--muted); }
+    .sug-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: 18px 14px 0; }
+    .sug-top .bar { margin: 4px 0 0; }
+    /* 제안 카드는 두 줄: ① AI 제안 + 제목 ② 담당자·기한 | 삭제·확정. 왼쪽은 배경 없음, 오른쪽은 버튼형. 삭제류 빨강, 확정류 기본색 */
+    .sug { margin: 8px 12px 0; padding: 8px 12px; border-radius: 14px; background: var(--sub-wash); border: 1.5px dashed color-mix(in srgb, var(--sub) 65%, var(--card)); }
+    .sug.done { background: var(--card); border: 1px solid var(--line); }
+    .sug-h { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    .sug-h .strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .sug .title { flex: 1; min-width: 0; min-height: 32px; padding: 0; border: 0; border-bottom: 1px solid transparent; background: none; font-size: 15px; font-weight: 700; }
+    .sug .title:focus { outline: 0; border-bottom-color: var(--point); }
+    .sug-row { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+    .sug-row .btn, .sug-act .btn { flex: none; min-height: 32px; }
+    .sug-row .field { min-height: 32px; padding: 0 8px; font-size: 13px; }
+    .sug-row select.field { flex: 1; min-width: 0; } .sug-row input.field { width: 124px; }
+    .sug-act { display: flex; justify-content: flex-end; align-items: center; gap: 6px; margin-top: 6px; }
+    .sug-act .badge { margin-right: auto; }
+    .add-btn { display: block; width: calc(100% - 24px); margin: 8px 12px 0; }
+    .auto-list { margin: 8px 12px 0; padding: 0 14px; border-radius: 14px; background: var(--card); }
+    .auto-list .todo-meta { align-items: center; }
+
+    /* ── 처음 들어오기 · 방 생성하기 · 온보딩 ── */
+    .hello { padding: 36px 22px 8px; }
+    .hello h2 { margin: 0 0 8px; font-size: 26px; font-weight: 800; line-height: 1.3; letter-spacing: -0.03em; }
+    .flow { margin: 14px 0 0; padding: 0; list-style: none; counter-reset: f; }
+    .flow li { display: flex; gap: 10px; padding: 7px 0; counter-increment: f; }
+    .flow li::before { content: counter(f); width: 22px; height: 22px; flex: none; border-radius: 50%; background: var(--point-soft); color: var(--point-ink);
+                       display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; }
+    .code { font-size: 28px; font-weight: 800; letter-spacing: .08em; }
+    .q { margin: 22px 18px 2px; font-size: 21px; font-weight: 800; line-height: 1.35; letter-spacing: -0.02em; }
+    .q-hint { margin: 0 18px; }
+    .et-in { display: flex; gap: 6px; margin-top: 6px; }
+    .et-in .field { flex: 1; min-width: 0; }
+    .et-msg { margin-top: 6px; font-size: 12.5px; }
+    .et-msg.bad { color: var(--danger); }
+
+    /* 확인 팝업 */
+    dialog { margin: auto auto 0; width: 100%; max-width: 430px; padding: 20px 18px calc(18px + env(safe-area-inset-bottom)); border: 0;
+             border-radius: 18px 18px 0 0; background: var(--white); color: #1F1F1F; font-family: inherit; font-size: 14px; }
+    dialog::backdrop { background: rgb(0 0 0 / .45); }
+    dialog h2 { margin: 0 0 6px; font-size: 17px; font-weight: 700; }
+    dialog .meta { color: #6E6E6E; }
+    dialog .sheet-actions { display: flex; gap: 8px; margin-top: 16px; }
+    dialog .sheet-actions .btn { flex: 1; background: #F0F0F0; color: #1F1F1F; } dialog .sheet-actions .btn:last-child { flex: 2; }
+    dialog .btn.primary { background: var(--sheet-point, #222); color: var(--sheet-on, #fff); }
+    dialog .btn.danger { background: var(--danger); color: var(--white); }
+    dialog .field { width: 100%; margin-top: 8px; border-color: #DDD; }
+    .toast { position: absolute; left: 12px; right: 12px; bottom: 66px; padding: 10px 14px; border-radius: 12px; background: rgb(29 29 31 / .92); color: var(--white); font-size: 13.5px; z-index: 5; }
+
+    /* ── 홈: 새 회의 잡기(다음 회의와 따로) · 초대 ── */
+    .newmeet { display: flex; align-items: center; gap: 10px; width: calc(100% - 24px); margin: 10px 12px 0; padding: 10px 14px; border: 1.5px solid var(--point);
+               border-radius: var(--rl); background: var(--card); text-align: left; }
+    .newmeet .plus { width: 30px; height: 30px; flex: none; border-radius: 50%; background: var(--point); color: var(--on-point);
+                     display: inline-flex; align-items: center; justify-content: center; font-size: 19px; font-weight: 600; line-height: 1; }
+    .newmeet b { display: block; font-size: 14.5px; }
+    .tick-l { margin-right: 4px; }
+    .meet-foot { margin-top: 10px; }
+    .members-in { display: flex; gap: 6px; margin-top: 10px; }
+    .members-in .av[data-in="false"] { background: none; color: var(--muted); border: 1.5px dashed var(--line); }
+
+    /* ── 조율 과정 ── */
+    .neg-head { padding: 2px 16px 10px; }
+    .neg-head .topic { font-size: 17px; }
+    .chips-s { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+    .chips-s span { padding: 1px 9px; border-radius: 99px; border: 1px solid var(--line); background: var(--card); font-size: 12px; }
+    .rounds { display: flex; align-items: center; gap: 4px; margin-top: 10px; }
+    .rounds i { flex: 1; height: 4px; border-radius: 99px; background: var(--line); }
+    .rounds i.on { background: var(--point); }
+    .rounds span { margin-left: 6px; font-size: 12px; color: var(--muted); white-space: nowrap; }
+    .round-div { display: flex; align-items: center; gap: 10px; margin: 16px 0 6px; font-size: 11.5px; font-weight: 600; color: var(--muted); }
+    .round-div::before, .round-div::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+    .judge { margin: 8px 0; padding: 12px 14px; border-radius: 14px; background: var(--card); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sub) 45%, var(--card)); }
+    .judge-h { display: flex; justify-content: center; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--sub-ink); }
+    .judge .say { margin-top: 6px; }
+    .judge .box { background: var(--sub-wash); }
+    .box { margin-top: 8px; padding: 8px 12px; border-radius: 10px; background: var(--card); }
+    .pick { display: grid; grid-template-columns: 46px 1fr; gap: 8px; align-items: center; min-height: 26px; font-size: 13.5px; }
+    .pick > span { font-size: 12px; color: var(--muted); }
+    .pick s { color: var(--muted); }
+    .yrow { display: grid; grid-template-columns: 46px auto 1fr; gap: 8px; align-items: center; min-height: 24px; font-size: 12.5px; }
+    .dock-sum { margin-bottom: 8px; }
+    .dock-sum .when { display: block; margin: 2px 0; font-size: 18px; font-weight: 800; letter-spacing: -0.02em; }
+
+    /* ── 조율 결과 ── */
+    .res-top .big { margin: 6px 0 2px; font-size: 26px; }
+    .mine-b { background: var(--point-soft); }
+    .other { display: grid; grid-template-columns: 28px 40px auto 1fr; gap: 8px; align-items: center; min-height: 40px; border-bottom: 1px solid var(--line); }
+    .other:last-child { border-bottom: 0; }
+    .judge-card { margin: 10px 12px 0; }
+    .resp4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-top: 8px; text-align: center; font-size: 12.5px; }
+    .resp4 > div { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+    .resp4 .av { width: 34px; height: 34px; font-size: 13px; }
+
+  </style>
+</head>
+<body>
+  <!-- 시연 장치: 상태를 바꿔 보는 패널 (실제 앱 화면 아님) -->
+  <nav class="mock" aria-label="시연 장치">
+    <p class="mock-h">시연 장치</p>
+    <p class="mock-g">사용자</p>
+    <div class="mock-btns" id="me-btns"></div>
+    <p class="mock-g">처음</p>
+    <div class="mock-btns">
+      <button data-action="state" data-v="welcome">시작 화면 (방 만들기 · 참여)</button>
+      <button data-action="state" data-v="ob">온보딩 (조건 네 가지)</button>
+      <button data-action="state" data-v="linkfail">일정 연결 실패 (링크 안 읽힘)</button>
+    </div>
+    <p class="mock-g">홈</p>
+    <div class="mock-btns">
+      <button data-action="state" data-v="normal">기본</button>
+      <button data-action="state" data-v="fresh">방 막 만든 직후 (팀장)</button>
+      <button data-action="state" data-v="nomeeting">잡힌 회의 없음</button>
+      <button data-action="state" data-v="notasks">할 일 없음</button>
+      <button data-action="state" data-v="quiet">알림 없음 (회의 확정)</button>
+    </div>
+    <p class="mock-g">조율</p>
+    <div class="mock-btns">
+      <button data-action="state" data-v="newmeet">회의 잡기 (팀장)</button>
+      <button data-action="state" data-v="fail">3라운드 합의 실패 (팀장)</button>
+      <button data-action="state" data-v="failm">3라운드 합의 실패 (팀원)</button>
+      <button data-action="state" data-v="none">전원 가능한 시간 없음 (팀장)</button>
+      <button data-action="state" data-v="nonem">전원 가능한 시간 없음 (팀원)</button>
+    </div>
+    <p class="mock-g">회의</p>
+    <div class="mock-btns">
+      <button data-action="state" data-v="norec">오늘 회의 기록 전</button>
+      <button data-action="state" data-v="live">받아적는 중</button>
+      <button data-action="state" data-v="aifail">AI 정리 실패</button>
+    </div>
+    <p class="mock-g">시계</p>
+    <button data-action="clock" id="clock-btn"></button>
+    <p class="desc meta">홈 = 내 할 일만. 할 일 탭 = 팀 전체(확정된 것만). 회의록은 일정 탭에서 회의를 눌러 열고, AI 제안은 거기서 확정해야 할 일 탭에 들어가요. 회의 잡기는 팀장(지수)만.</p>
+  </nav>
+
+  <div class="app">
+    <!-- Component: TopBar -->
+    <header class="top">
+      <button class="icon-btn" id="back" data-action="back" aria-label="뒤로" hidden><svg class="i" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+      <h1 id="title"></h1>
+      <span id="aux"></span>
+    </header>
+    <main id="view"></main>
+    <div class="dock" id="dock"></div>
+    <!-- Component: TabBar -->
+    <nav class="tabs" aria-label="하단 탭">
+      <button class="tab" data-action="tab" data-to="home"><svg class="i" viewBox="0 0 24 24"><path d="M4 10.5 12 4l8 6.5V20h-5v-6H9v6H4z"/></svg>홈</button>
+      <button class="tab" data-action="tab" data-to="schedule"><svg class="i" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 9.5h16M9 3v4M15 3v4"/></svg>일정<span class="count calm num" id="pending"></span></button>
+      <button class="tab" data-action="tab" data-to="tasks"><svg class="i" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg>할 일</button>
+      <button class="tab" data-action="tab" data-to="me"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>나</button>
+    </nav>
+    <div class="toast" id="toast" role="status" hidden></div>
+  </div>
+
+  <!-- Component: ConfirmSheet (확인 팝업) -->
+  <dialog id="sheet">
+    <form method="dialog">
+      <h2 id="sheet-title"></h2>
+      <p id="sheet-body"></p>
+      <p class="meta" id="sheet-irrev">되돌릴 수 없습니다.</p>
+      <div id="sheet-extra"></div>
+      <div class="sheet-actions">
+        <button class="btn" value="cancel">취소</button>
+        <button class="btn primary" id="sheet-ok" value="ok"></button>
+      </div>
+    </form>
+  </dialog>
+
+  <script>
+    const DATA = {
+      project: { name: '서비스디자인 팀 프로젝트', start: '10월 13일', deadline: '12월 11일', daysLeft: 31, totalDays: 59, code: 'TEAM-4821',
+                 today: '11월 10일 화', todayN: 1110 },
+      leader: 'jisu',
+      members: [
+        { id: 'jisu', name: '지수', yield: 1 },
+        { id: 'minji', name: '민지', yield: 0 },
+        { id: 'hyunwoo', name: '현우', yield: 2 },
+        { id: 'seoyeon', name: '서연', yield: 0 }
+      ],
+      meeting: { title: '중간 점검 전 회의', date: '11월 18일 수요일', short: '11/18(수) 16:00–18:00', day: '18', wd: '수', time: '16:00–18:00', mode: '비대면', length: '2시간', range: '11/16–11/20',
+        judge: '현우가 지난 두 번 많이 맞춰 줘서 이번엔 현우 쪽을 먼저 챙겼어요. 대신 민지가 조금 맞춰 주게 됩니다.',
+        burden: [
+          { id: 'minji', score: 3, reason: '수업 바로 뒤예요' },
+          { id: 'jisu', score: 1, reason: '선호 시간대 안이에요' },
+          { id: 'hyunwoo', score: 1, reason: '알바 전까지 여유가 있어요' },
+          { id: 'seoyeon', score: 0, reason: '비대면이라 이동이 없어요' }
+        ],
+        cared: { id: 'hyunwoo', why: '지난 두 번의 회의에서 많이 맞춰 줬어요' }, gets: 'minji' },
+      // 조율 과정: 판단 에이전트(중립) 제안 → 팀원 에이전트 응답(거절은 이유만, 대안은 판단 에이전트가 다음 라운드에 낸다).
+      // score는 그 시간의 불편 점수(0~5), 내 것만 숫자로 보인다. yields: [사람, 이전 양보 단계, 이번 뒤 단계]
+      talk: [
+        { round: 1 },
+        { kind: 'judge', text: '목요일 13:00–15:00, 대면을 제안합니다. 팀 전체로는 가장 덜 불편한 시간이에요.', picks: [['1순위', '11/19(목) 13:00–15:00 · 대면']] },
+        { who: 'jisu', res: '수락', text: '좋아요. 지수는 이 시간에 수업이 없어요.', score: 1 },
+        { who: 'hyunwoo', res: '거절', text: '어렵습니다. 알바 끝나고 바로라 이동이 빠듯해요.', score: 4 },
+        { who: 'minji', res: '수락', text: '괜찮아요. 수업이 끝나고 바로지만 맞출 수 있어요. 다만 금요일 저녁은 개인 일정이 있어 어려워요.', score: 2 },
+        { who: 'seoyeon', res: '수락', text: '가능해요. 다만 서연은 비대면을 더 좋아해요.', score: 2 },
+        { round: 2 },
+        { kind: 'judge', yields: [['hyunwoo', 2, 2], ['minji', 0, 1]],
+          text: '현우가 지난 두 번 많이 맞춰 줘서 이번엔 현우 쪽을 먼저 챙길게요. 대안으로 수요일 16:00–18:00, 비대면을 제안합니다. 대신 민지가 조금 맞춰 주게 됩니다.',
+          picks: [['1순위', '11/18(수) 16:00–18:00 · 비대면']] },
+        { who: 'minji', res: '수락', text: '수업 바로 뒤라 조금 빠듯하지만 괜찮아요.', score: 3 },
+        { who: 'hyunwoo', res: '수락', text: '좋아요. 알바가 19시부터라 여유 있게 끝나요.', score: 1 },
+        { who: 'jisu', res: '수락', text: '좋아요. 지수도 이 시간은 비어 있어요.', score: 1 },
+        { who: 'seoyeon', res: '수락', text: '비대면이라 더 좋아요.', score: 0 }
+      ],
+      // 팀장이 고를 수 있는 안. 고르면 meeting 위에 덮어써 조율 결과·홈·일정에 쓴다(meet()). out: 빠지는 사람(응답자에서 제외)
+      // 전원 가능한 시간이 없을 때의 불참안
+      absent: [
+        { label: '목요일 19:00–21:00, 비대면 · 현우 빠짐', why: '현우가 평일 저녁 알바와 겹쳐요. 회의록 요약을 따로 보내요',
+          short: '11/19(목) 19:00–21:00', date: '11월 19일 목요일', day: '19', wd: '목', time: '19:00–21:00', mode: '비대면', out: 'hyunwoo',
+          judge: '네 명 모두 되는 시간이 없어 현우가 빠지는 안이에요. 현우에게는 회의록 요약을 따로 보내요. 남은 세 명 중 민지가 조금 맞춰 주게 됩니다.',
+          burden: [
+            { id: 'minji', score: 2, reason: '저녁이라 조금 늦어요' },
+            { id: 'jisu', score: 1, reason: '이 시간은 비어 있어요' },
+            { id: 'seoyeon', score: 0, reason: '비대면이라 이동이 없어요' }
+          ], gets: 'minji', hist: '현우가 빠지는 저녁 회의라 조금 늦게까지 맞춰 줬어요.' }
+      ],
+      // 3라운드 합의 실패 뒤 후보. 첫 안은 2라운드 합의안(meeting)과 같아 덮어쓸 것이 없다
+      candidates: [
+        { label: '수요일 16:00–18:00, 비대면', why: '민지가 조금 불편해요. 수업 바로 뒤예요' },
+        { label: '목요일 13:00–15:00, 대면', why: '현우가 많이 불편해요. 알바 끝나고 바로예요',
+          short: '11/19(목) 13:00–15:00', date: '11월 19일 목요일', day: '19', wd: '목', time: '13:00–15:00', mode: '대면',
+          judge: '팀장이 고른 안이에요. 현우가 알바 끝나고 바로 와야 해서 많이 맞춰 주게 됩니다.',
+          burden: [
+            { id: 'hyunwoo', score: 4, reason: '알바 끝나고 바로라 이동이 빠듯해요' },
+            { id: 'minji', score: 2, reason: '수업 끝나고 바로예요' },
+            { id: 'seoyeon', score: 2, reason: '대면보다 비대면을 좋아해요' },
+            { id: 'jisu', score: 1, reason: '이 시간에 수업이 없어요' }
+          ], gets: 'hyunwoo', hist: '알바 끝나고 바로 오는 대면 회의라 많이 맞춰 줬어요.' },
+        { label: '금요일 19:00–21:00, 비대면', why: '현우는 알바 시간과 겹치고, 민지는 금요일 저녁에 개인 일정이 있어 어려워요',
+          short: '11/20(금) 19:00–21:00', date: '11월 20일 금요일', day: '20', wd: '금', time: '19:00–21:00', mode: '비대면',
+          judge: '팀장이 고른 안이에요. 현우는 알바와 겹치고 민지는 개인 일정이 있어 두 사람이 많이 맞춰야 해요. 이번 양보 점수는 아직 덜 맞춰 준 민지가 받아요.',
+          burden: [
+            { id: 'hyunwoo', score: 5, reason: '알바 시간과 겹쳐요' },
+            { id: 'minji', score: 4, reason: '금요일 저녁에 개인 일정이 있어요' },
+            { id: 'jisu', score: 2, reason: '저녁이라 조금 늦어요' },
+            { id: 'seoyeon', score: 0, reason: '비대면이라 이동이 없어요' }
+          ], gets: 'minji', hist: '금요일 저녁 개인 일정을 미루고 맞춰 줬어요.' }
+      ],
+      // ai: true = 회의록에서 뽑았지만 아직 확정 전(회의록에서만 보임). autoDone: 그 회의에서 끝냈다고 해서 자동 완료
+      tasks: [
+        { id: 't1', title: '경쟁 서비스 사례 조사', owner: 'jisu', due: '11/7', status: 'doing', src: '직접 추가' },
+        { id: 't10', title: '경쟁 서비스 사례 조사 2차', owner: 'jisu', due: '11/20', status: 'todo', src: '직접 추가' },
+        { id: 't5', title: '중간 점검 자료', owner: null, due: '11/15', status: 'todo', src: '직접 추가' },
+        { id: 't3', title: '발표 대본 초안', owner: 'minji', due: '11/11', status: 'todo', src: '11/4 회의', mtg: 'm2', by: 'minji' },
+        { id: 'm1', title: '인터뷰 대상자 연락', owner: 'minji', due: '11/12', status: 'todo', src: '직접 추가' },
+        { id: 'm2', title: '발표 슬라이드 틀 잡기', owner: 'minji', due: '11/14', status: 'doing', src: '직접 추가' },
+        { id: 'm3x', title: '중간 점검 예상 질문 정리', owner: 'minji', due: '11/18', status: 'todo', src: '직접 추가' },
+        { id: 'm4', title: '최종 발표 리허설 일정 잡기', owner: 'minji', due: '11/27', status: 'todo', src: '직접 추가' },
+        { id: 't9', title: '페르소나 정리', owner: 'minji', due: '11/5', status: 'done', src: '직접 추가' },
+        { id: 't2', title: '사용자 흐름 초안', owner: 'hyunwoo', due: '11/14', status: 'todo', src: '11/4 회의', mtg: 'm2', by: 'hyunwoo' },
+        { id: 't7', title: '시연 시나리오 작성', owner: 'hyunwoo', due: '11/20', status: 'todo', src: '11/4 회의', mtg: 'm2', by: 'hyunwoo' },
+        { id: 'n4', title: '프로토타입 화면 연결', owner: 'hyunwoo', due: '11/20', status: 'todo', src: '11/10 회의', mtg: 'm3', by: 'hyunwoo' },
+        { id: 't8', title: '프로토타입 기본 화면', owner: 'hyunwoo', due: '11/21', status: 'doing', src: '직접 추가' },
+        { id: 't4', title: '인터뷰 결과 정리', owner: 'seoyeon', due: '11/13', status: 'blocked', src: '직접 추가', note: '인터뷰 녹취 2건이 아직 안 왔어요' },
+        { id: 't6', title: '화면 시안 3종', owner: 'seoyeon', due: '11/19', status: 'done', autoDone: 'm3', src: '직접 추가' },
+        { id: 'n1', title: '중간 점검 발표 구성안', owner: 'minji', due: '11/13', status: 'todo', ai: true, src: '11/10 회의', mtg: 'm3' },
+        { id: 'n2', title: '인터뷰 질문지 보완', owner: null, due: '11/13', status: 'todo', ai: true, src: '11/10 회의', mtg: 'm3' },
+        { id: 'n3', title: '사용성 테스트 참가자 모집', owner: null, due: '11/13', status: 'todo', ai: true, src: '11/10 회의', mtg: 'm3' }
+      ],
+      meetings: [
+        { id: 'm3', date: '11/10', dateL: '11월 10일 화', time: '16:00', mode: '대면', topic: '중간 점검 자료 나누기', length: '40분',
+          lines: [
+            ['jisu', '16일 중간 점검 전에 자료를 어떻게 나눌지 정해요.'],
+            ['seoyeon', '화면 시안 세 개는 어제 다 끝냈어요. 폴더에 올려 뒀어요.'],
+            ['minji', '발표 구성안은 제가 금요일까지 만들어 올게요.'],
+            ['jisu', '중간 점검 자료 취합은 제가 맡을게요.'],
+            ['seoyeon', '인터뷰 질문지는 조금 더 다듬어야 할 것 같아요.'],
+            ['hyunwoo', '질문지는 누가 할지 다음에 정해요.'],
+            ['hyunwoo', '프로토타입 화면 연결은 제가 할게요. 다음 주 금요일까지요.'],
+            ['minji', '사용성 테스트 참가자도 주말 전까지 모아야 해요.'],
+            ['jisu', '경쟁 서비스 2차 조사는 안 해도 될 것 같아요. 1차로 충분해요.'],
+            ['seoyeon', '발표 순서는 구성안 보고 다시 얘기해요.']
+          ],
+          summary: {
+            결정: ['발표 구성안은 민지가 금요일까지', '중간 점검 자료 취합은 지수', '프로토타입 화면 연결은 현우', '경쟁 서비스 2차 조사는 하지 않음'],
+            논의: ['인터뷰 질문지를 더 다듬기', '사용성 테스트 참가자 미리 모으기'],
+            보류: ['발표 순서 — 구성안 보고 다시', '질문지 담당자 — 다음 회의에서']
+          },
+          sugs: [
+            { kind: 'done', task: 't6' },
+            { kind: 'new', task: 'n1' },
+            { kind: 'new', task: 'n2' },
+            { kind: 'new', task: 'n3' },
+            { kind: 'new', task: 'n4' },
+            { kind: 'del', task: 't10', why: '회의에서 필요 없다고 했어요' }
+          ] },
+        { id: 'm2', date: '11/4', dateL: '11월 4일 수', topic: '발표 흐름과 화면 정하기', length: '55분',
+          lines: [
+            ['hyunwoo', '사용자 흐름은 제가 먼저 그려 볼게요. 다음 주 토요일까지요.'],
+            ['minji', '발표 대본 초안은 제가 맡을게요.'],
+            ['seoyeon', '시연 시나리오도 누군가 써야 해요.'],
+            ['hyunwoo', '시연은 화면 만드는 제가 쓰는 게 낫겠어요.']
+          ],
+          summary: { 결정: ['사용자 흐름 초안은 현우', '발표 대본 초안은 민지', '시연 시나리오는 현우'], 논의: [], 보류: [] },
+          sugs: [{ kind: 'new', task: 't2' }, { kind: 'new', task: 't3' }, { kind: 'new', task: 't7' }] },
+        { id: 'm1', date: '10/28', dateL: '10월 28일 수', topic: '주제 정하고 역할 나누기', length: '1시간',
+          lines: [['jisu', '주제는 대학생 팀플 도우미로 가요.'], ['jisu', '역할은 자료조사 저, 발표 민지, 개발 현우, 디자인 서연이요.']],
+          summary: { 결정: ['주제: 대학생 팀플 도우미', '역할 나누기'], 논의: [], 보류: [] }, sugs: [] }
+      ],
+      history: [
+        { date: '11월 4일 회의', who: 'hyunwoo', why: '알바 시작을 한 시간 늦춰 대면 회의에 맞춰 줬어요.' },
+        { date: '10월 28일 회의', who: 'hyunwoo', why: '수업 끝나자마자 이동해 회의에 왔어요. 지수도 조금 맞춰 줬어요.' }
+      ],
+      agentLog: [
+        { at: '11/10 18:42', what: "11/10 회의록에서 '화면 시안 3종'을 완료로 바꿨어요", why: '서연이 회의에서 다 끝냈다고 말했어요.' },
+        { at: '11/10 18:42', what: '11/10 회의록에서 할 일 제안 4개를 만들었어요', why: '확정 전까지는 회의록에만 보여요.' },
+        { at: '11/10 09:12', what: '조율 결과를 냈어요', why: '현우가 지난 두 번 많이 맞춰 줘서 이번엔 현우 쪽을 먼저 챙겼어요.' }
+      ],
+      // 내 주간 일정(매주 반복). 종류 k: class 수업 · busy 일정(알바·약속 등 개인 일정). src: et 에브리타임 링크 · cal 구글 캘린더(이름 없이 '일정', 캘린더에서 고침) · self 직접 입력
+      week: [
+        { d: 0, s: 10, e: 12, k: 'class', label: '디자인사고', src: 'et' }, { d: 2, s: 13, e: 16, k: 'class', label: '자료구조', src: 'et' },
+        { d: 3, s: 10, e: 12, k: 'class', label: '통계학', src: 'et' }, { d: 4, s: 10, e: 12, k: 'class', label: '영어회화', src: 'et' },
+        { d: 1, s: 18, e: 21, k: 'busy', label: '카페 알바', src: 'self' }, { d: 5, s: 11, e: 15, k: 'busy', label: '카페 알바', src: 'self' }, { d: 1, s: 12, e: 13, k: 'busy', label: '일정', src: 'cal' },
+        { d: 6, s: 14, e: 17, k: 'busy', label: '일정', src: 'cal' }
+      ],
+      // 일정 가져오기 세 가지: 에브리타임 공유 링크(수업) · 구글 캘린더(개인 약속) · 직접 입력(알바·반복 같은 개인 일정)
+      links: [
+        { name: '에브리타임 시간표', ic: 'link', desc: '수업 4개 · everytime.kr/@jisu_2026', act: '다시 불러오기' },
+        { name: '구글 캘린더', ic: 'cal', desc: '개인 약속 6개를 가져왔어요', act: '켜짐' },
+        { name: '직접 입력', ic: 'repeat', desc: '카페 알바 · 화 18–21시, 토 11–15시', act: '고치기' }
+      ]
+    };
+
+    // 알림 카드 3종. 순서가 정렬 순서이고, 완료만 좋은 소식이라 뱃지 색이 다르다
+    const RISK_ORDER = ['늦음', '막힘', '완료'];
+    const RISK_SEV = { '늦음': 'danger', '막힘': 'warn', '완료': 'ok' };
+    const STATUS = { todo: ['시작 전', ''], doing: ['진행 중', 'ok'], blocked: ['막힘', 'warn'], done: ['완료', 'ok'] };
+    const YIELD = ['아직 없음', '조금 맞춰 줌', '많이 맞춰 줌'];
+    const YIELD_FILL = [0, 1, 3];
+    // 이번에 받을 양보 점수는 맞춰 준 시간의 불편 점수에 따라 다르다: 조금 불편(2~3) +1, 많이 불편(4~5) +2
+    const YIELD_PT = s => (s >= 4 ? 2 : s >= 2 ? 1 : 0);
+    // 회의 일정의 불편 정도: 0~1 괜찮음, 2~3 조금 불편, 4~5 많이 불편
+    const LEVEL = s => (s <= 1 ? '괜찮음' : s <= 3 ? '조금 불편' : '많이 불편');
+    const LEVEL_CLS = s => (s <= 1 ? 'ok' : s <= 3 ? 'warn' : 'danger');
+    const FULL = ['welcome', 'create', 'join', 'ob'];
+
+    const S = { screen: 'home', from: 'home', mock: 'normal', coord: false, adhoc: false, me: 'minji', talk: 'play', shown: 0, meeting: 'proposed',
+                resp: { jisu: '수락', minji: '대기', hyunwoo: '수락', seoyeon: '대기' }, filter: '전체',
+                open: null, read: false, clock: false, noTasks: false, quiet: false,
+                recorded: true, mtg: 'm3', rec: 'idle', recAt: 0, live: [], add: null, raw: false, scrollTo: null,
+                fresh: false, week: 'next', quote: null, quoteEdit: false, pref: { from: 10, to: 21, mode: '비대면', when: ['오후', '저녁'], avoid: '금요일 저녁은 알바 끝나고 너무 지쳐요' },
+                room: { name: '서비스디자인 팀 프로젝트', desc: '대학생 생활 속 불편을 하나 골라 서비스로 풀고, 화면 시안과 발표로 보여 주는 과제', size: 4,
+                        start: '2026-10-13', end: '2026-12-11' }, made: 'form', fb: null,
+                ob: 0, et: { url: '', st: 'idle' }, gcal: false, openMode: 'more', blk: null, grp: [],
+                nm: { title: '중간 점검 전 회의', from: '2026-11-16', to: '2026-11-20', len: 120, mode: '상관없음' } };
+    let timer = null;
+    const LIVE_MS = 3000; // 받아적는 중에 한 줄이 쌓이는 간격(시연용)
+    const loadedAt = Date.now();
+
+    const $ = s => document.querySelector(s);
+    const P = DATA.project;
+    const member = id => DATA.members.find(m => m.id === id);
+    const nameOf = id => (id ? member(id).name : '');
+    const isLeader = () => S.me === DATA.leader;
+    // 3라운드 합의 실패 뒤 팀장이 아직 후보를 고르지 않음
+    const choosing = () => (S.talk === 'fail' || S.talk === 'none') && S.pick == null;
+    // 팀장이 고를 안: 3라운드 실패면 후보, 전원 가능한 시간이 없으면 불참안
+    const cands = () => S.talk === 'none' ? DATA.absent : DATA.candidates;
+    // 지금 잡힌 회의: 팀장이 안을 골랐으면 그 안의 시간·부담·판단을 합의안 위에 덮어쓴다
+    const meet = () => S.pick != null ? { ...DATA.meeting, ...cands()[S.pick] } : DATA.meeting;
+    const voters = () => DATA.members.filter(x => x.id !== meet().out); // 응답할 사람(불참안에서 빠지는 사람 제외)
+    const av = id => `<span class="av">${id ? nameOf(id)[0] : '?'}</span>`; // 이름 글자 하나(김지수 → 지)
+    const bar = (p, cls = '', style = '') => `<div class="bar ${cls}" role="img" aria-label="${p}%"${style ? ` style="${style}"` : ''}><i style="width:${p}%"></i></div>`;
+    const steps = lv => `<span class="steps" aria-hidden="true">${[0, 1, 2].map(i => `<i class="${i < YIELD_FILL[lv] ? 'on' : ''}"></i>`).join('')}</span>`;
+    const ICON = {
+      bell: '<path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15zM10 20.5h4"/>',
+      check: '<circle cx="12" cy="12" r="9"/><path d="m8 12.5 2.8 2.8L16 10"/>',
+      cal: '<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 9.5h16M9 3v4M15 3v4"/>',
+      flag: '<path d="M6 21V4M6 4h11l-2.5 4L17 12H6"/>',
+      start: '<circle cx="12" cy="12" r="3"/>',
+      link: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
+      repeat: '<path d="M4 12a8 8 0 0 1 14-5.3M20 12a8 8 0 0 1-14 5.3M18 3v4h-4M6 21v-4h4"/>',
+      mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/>',
+      lock: '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>'
+    };
+    const ic = (k, cls = 's') => `<svg class="i ${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICON[k]}</svg>`;
+    const dueN = t => { const [m, d] = t.due.split('/').map(Number); return m * 100 + d; };
+
+    // 확정된 할 일만(회의록 제안은 빠짐). 회의 기록 전 상태면 그 회의에서 나온 것과 자동 완료를 되돌려 보여 준다
+    const tasksAll = () => S.fresh || S.noTasks ? [] : DATA.tasks.filter(t => !t.ai).filter(t => S.recorded || t.mtg !== 'm3')
+      .map(t => (!S.recorded && t.autoDone === 'm3' && t.status === 'done') ? { ...t, status: 'doing', autoDone: null } : t);
+    const meetings = () => S.fresh ? [] : DATA.meetings.filter(m => S.recorded || m.id !== 'm3');
+    // 알림은 할 일 데이터에서 바로 나온다: 막힘 = 상태 막힘, 늦음 = 안 끝났는데 기한 지남, 완료 = 회의에서 끝났다고 한 일
+    const riskOf = t => t.status === 'blocked' ? '막힘' : t.status !== 'done' && dueN(t) < P.todayN ? '늦음' : t.status === 'done' && t.autoDone ? '완료' : null;
+    const risks = () => S.quiet ? [] : tasksAll().map(t => ({ type: riskOf(t), t })).filter(r => r.type)
+      .sort((a, b) => RISK_ORDER.indexOf(a.type) - RISK_ORDER.indexOf(b.type));
+    // 기한은 '11/20'으로 저장하고 날짜 입력칸에는 2026-11-20으로 넣는다
+    const isoOf = due => { if (!due) return ''; const [m, d] = due.split('/'); return `2026-${m.padStart(2, '0')}-${d.padStart(2, '0')}`; };
+    const dueOf = iso => (iso ? iso.slice(5).split('-').map(Number).join('/') : '');
+    const dueInput = (attrs, due) => `<input class="field num" type="date" value="${isoOf(due)}" ${attrs} aria-label="기한">`;
+    const accepted = () => Object.values(S.resp).filter(r => r === '수락').length;
+    const left = () => tasksAll().filter(t => t.status !== 'done').length;
+    const unread = () => (S.read ? 0 : risks().length + (S.meeting === 'proposed' ? 1 : 0));
+    const isPending = s => { const t = DATA.tasks.find(x => x.id === s.task);
+      if (!t || s.state || s.kind === 'done') return false; return s.kind === 'new' ? t.ai : true; };
+    const counted = s => s.kind === 'new';
+    const pendingCount = m => m.sugs.filter(s => counted(s) && isPending(s)).length;
+    const pendingAll = () => meetings().reduce((s, m) => s + pendingCount(m), 0);
+
+    function toast(msg) {
+      const t = $('#toast'); t.textContent = msg; t.hidden = false;
+      clearTimeout(toast.t); toast.t = setTimeout(() => (t.hidden = true), 2200);
+    }
+    function ask(o) {
+      const d = $('#sheet'), cs = getComputedStyle($('.app'));
+      d.style.setProperty('--sheet-point', cs.getPropertyValue('--point'));
+      d.style.setProperty('--sheet-on', cs.getPropertyValue('--on-point'));
+      $('#sheet-title').textContent = o.title;
+      $('#sheet-body').textContent = o.body;
+      $('#sheet-irrev').hidden = o.irreversible === false;
+      $('#sheet-extra').innerHTML = o.input ? `<input class="field" id="sheet-input" maxlength="40" placeholder="${o.input}" aria-label="${o.label || '이유'}">` : '';
+      const ok = $('#sheet-ok'); ok.textContent = o.ok; ok.className = 'btn ' + (o.danger ? 'danger' : 'primary');
+      d.returnValue = ''; d.showModal();
+      return new Promise(res => d.addEventListener('close', () => res(d.returnValue === 'ok' ? ($('#sheet-input')?.value || true) : false), { once: true }));
+    }
+    function countdown() {
+      const total = S.clock ? 30 * 60 : (8 * 24 + 7) * 3600;
+      const s = Math.max(0, total - Math.floor((Date.now() - loadedAt) / 1000));
+      const d = Math.floor(s / 86400), hh = Math.floor(s % 86400 / 3600), mm = Math.floor(s % 3600 / 60), ss = s % 60;
+      const p = n => String(n).padStart(2, '0');
+      return `${d ? d + '일 ' : ''}${p(hh)}:${p(mm)}:${p(ss)}`;
+    }
+
+    /* ── 처음 들어오기: 시작 → 방 생성하기(팀장 1회) 또는 초대 코드 → 온보딩(조건 네 가지 → 일정 연결 → 준비 완료) ── */
+    function welcome() {
+      return `<div class="hello"><p class="meta">팀플 에이전트</p><h2>팀원마다 <em>에이전트</em>가<br>하나씩 붙어요</h2>
+          <p class="meta">회의 시간은 에이전트끼리 양보하며 잡고, 회의록에서 할 일을 뽑고, 마감 위험을 먼저 알려 줘요.</p>
+          <ol class="flow"><li>팀장이 과제 이름·기간·팀원 수로 방을 만들어요</li><li>팀원은 초대 코드로 들어와요</li><li>질문 네 개를 고르고 일정을 연결하면 내 에이전트가 준비돼요</li></ol></div>
+        <div class="cta" style="flex-direction:column;margin-top:8px"><button class="btn primary" data-action="go" data-to="create">방 만들기 (팀장)</button>
+          <button class="btn" data-action="go" data-to="join">초대 코드로 들어가기</button></div>`;
+    }
+    // 방 생성하기: 과제 제목·설명·기간·팀원 수 → 방 만들기 → 초대 코드
+    function create() {
+      const r = S.room;
+      if (S.made === 'done') return `<section class="sec"><h2>방을 만들었어요</h2><p class="meta">팀원에게 이 코드를 보내 주세요</p>
+          <div class="row-between" style="margin-top:8px"><span class="code num">${P.code}</span><button class="pill go" data-action="toast" data-msg="초대 링크를 복사했어요">링크 복사</button></div></section>
+        <div class="cta"><button class="btn primary" data-action="ob-start">다음: 내 조건 알려 주기</button></div>`;
+      return `<section class="sec">
+          <label class="field-l">과제 제목 (방 이름)<input class="field" value="${r.name}" data-action="room" data-k="name"></label>
+          <label class="field-l">과제 설명<textarea class="field" rows="3" style="min-height:76px" data-action="room" data-k="desc" placeholder="무엇을 만들고 어떻게 평가받는지 두세 줄로 써 주세요">${r.desc}</textarea></label>
+          <span class="field-l">기간</span>
+          <div class="range"><input class="field num" type="date" value="${r.start}" data-action="room" data-k="start" aria-label="시작일"><span>–</span>
+            <input class="field num" type="date" value="${r.end}" data-action="room" data-k="end" aria-label="마감일"></div>
+          <span class="field-l">팀원 수</span>
+          <div class="seg">${[2, 3, 4, 5, 6].map(n => `<button class="num" data-action="room-size" data-v="${n}" aria-pressed="${r.size === n}">${n}명</button>`).join('')}</div></section>
+        <p class="meta" style="margin:10px 18px 0">방을 만든 사람이 팀장이 되고, 회의 잡기는 팀장만 할 수 있어요.</p>
+        <div class="cta"><button class="btn primary" data-action="room-make">방 만들기</button></div>`;
+    }
+    function join() {
+      return `<section class="sec"><label class="field-l">초대 코드<input class="field num" value="${P.code}" aria-label="초대 코드"></label>
+          <div class="note" style="margin-top:12px"><p class="strong">${P.name}</p><p class="meta">팀장 ${nameOf(DATA.leader)} · ${DATA.members.length - 1}명 참여 중 · 마감 ${P.deadline}</p></div></section>
+        <div class="cta"><button class="btn primary" data-action="join-ok">이 방에 들어가기</button></div>`;
+    }
+    const WHEN = ['아침', '오전', '점심', '오후', '저녁', '밤'];
+    const eun = s => ((s.charCodeAt(s.length - 1) - 0xAC00) % 28 ? '은' : '는'); // 받침 있으면 '은'
+    // 에이전트 말: 조건 네 가지를 정해진 틀에 그대로 끼워 만든다(조건마다 한 문장)
+    function quoteText(p, my) {
+      const mode = { '대면': '대면으로 만나요', '비대면': '비대면으로 만나요', '상관없음': '대면·비대면 모두 괜찮아요' }[p.mode];
+      return `“${my.name}${eun(my.name)} <em>${p.from}시–${p.to}시</em> 사이에 회의할 수 있어요. <em>${mode}</em>. <em>${p.when.join('·')}</em>${eun(p.when.at(-1))} 좋아요.${p.avoid ? ` 피하고 싶은 시간은 <em>‘${p.avoid}’</em>라고 했어요. 팀원에게는 이 말을 그대로 보여 주지 않고 다듬어서 조율 근거로 써요.` : ''}”`;
+    }
+    // 내가 직접 고친 문장(S.quote)이 있으면 그걸로 말한다. 고치기 칸에는 꾸밈 없는 글자만 넣는다
+    const myQuote = () => S.quote ? `“${S.quote}”` : quoteText(S.pref, member(S.me));
+    const quotePlain = () => S.quote || quoteText(S.pref, member(S.me)).replace(/<[^>]+>/g, '').replace(/[“”]/g, '');
+    // Component: PrefForm (온보딩 · 나 화면 공통). 세 가지는 선택형, 피하고 싶은 시간만 자연어. 필수는 없다
+    function prefForm() {
+      const p = S.pref, a = p.avoid;
+      const hours = sel => Array.from({ length: 15 }, (_, i) => i + 8).map(h => `<option value="${h}"${h === sel ? ' selected' : ''}>${h}시</option>`).join('');
+      const seg = (attr, opts, on) => `<div class="seg">${opts.map(o => `<button ${attr} data-v="${o}" aria-pressed="${on(o)}">${o}</button>`).join('')}</div>`;
+      return `<div class="pref" style="padding-top:4px"><span class="meta">몇 시부터 몇 시까지 회의할 수 있어요?</span>
+          <div class="range"><select class="field" data-action="pref-sel" data-k="from" aria-label="몇 시부터">${hours(p.from)}</select><span>–</span>
+            <select class="field" data-action="pref-sel" data-k="to" aria-label="몇 시까지">${hours(p.to)}</select></div></div>
+        <div class="pref"><span class="meta">어떻게 만날까요?</span>${seg('data-action="pref" data-k="mode"', ['대면', '비대면', '상관없음'], o => p.mode === o)}</div>
+        <div class="pref"><span class="meta">언제가 좋아요? (여러 개)</span>${seg('data-action="pref-when"', WHEN, o => p.when.includes(o))}</div>
+        <div class="pref" style="border-bottom:0"><span class="meta">꼭 피하고 싶은 시간이 있어요? (안 써도 돼요)</span>
+          <textarea class="field" rows="2" style="min-height:60px;margin-top:6px" maxlength="80" data-action="pref-avoid" placeholder="예: 화요일 오전, 목요일 오후는 알바라 어려워요" aria-label="피하고 싶은 시간">${a}</textarea>
+          <p class="meta" style="margin-top:6px">에이전트가 다듬어서 조율 근거로 써요.</p></div>`;
+    }
+    // 온보딩 일정 연결: 에브리타임 링크(수업) · 구글 캘린더(개인 약속) · 직접 입력(알바·반복)
+    function etRow() {
+      const e = S.et, n = DATA.week.filter(b => b.src === 'et').length;
+      const msg = e.st === 'reading' ? '<p class="et-msg meta">시간표를 읽는 중이에요…</p>'
+        : e.st === 'ok' ? `<p class="et-msg">수업 ${n}개를 가져왔어요</p>`
+        : e.st === 'fail' ? '<p class="et-msg bad">이 링크는 못 읽었어요. 시간표 공개 설정을 확인하거나 아래 직접 입력으로 넣어 주세요.</p>' : '';
+      return `<div class="link-row" style="grid-template-columns:34px 1fr"><span class="ic">${ic('link', '')}</span><div>
+          <p class="strong" style="font-size:14px">에브리타임 시간표${e.st === 'ok' ? ' <span class="badge ok">가져옴</span>' : ''}</p><p class="meta">수업 · 시간표 공유 링크를 붙여 넣어요</p>
+          <div class="et-in"><input class="field num" value="${e.url}" data-action="et-url" placeholder="everytime.kr/@아이디" aria-label="에브리타임 공유 링크"><button class="btn small" data-action="et-load">불러오기</button></div>${msg}</div></div>`;
+    }
+    const obReset = () => { S.ob = 0; S.et = { url: '', st: 'idle' }; S.gcal = false; S.blk = null; S.obWeek = DATA.week.length; };
+    // 온보딩 세 단계(S.ob): 0 조건 네 가지 → 1 일정 연결 → 2 준비 완료
+    function ob() {
+      if (S.ob === 0) return `<p class="q">회의 잡을 때 쓸 조건 네 가지</p><p class="q-hint meta">고르지 않은 건 지금 값 그대로 둬요. 시작한 뒤에도 언제든 고칠 수 있어요.</p>
+        <section class="sec">${prefForm()}</section>
+        <div class="cta"><button class="btn primary" data-action="ob-next">다음</button></div>`;
+      if (S.ob === 1) {
+        const any = S.et.st === 'ok' || S.gcal || DATA.week.length !== S.obWeek; // 직접 입력으로 하나라도 넣었으면
+        return `<p class="q">내 일정 연결하기</p><p class="q-hint meta">수업과 개인 일정 시간은 에이전트가 빼고 조율해요.</p>
+        <section class="sec">${etRow()}
+          <div class="link-row"><span class="ic">${ic('cal', '')}</span><div><p class="strong" style="font-size:14px">구글 캘린더</p><p class="meta">개인 약속 · 읽기 권한만 받아요</p></div>
+            ${S.gcal ? '<span class="badge ok">켜짐</span>' : '<button class="pill" data-action="gcal">연결</button>'}</div>
+          <div class="link-row"><span class="ic">${ic('repeat', '')}</span><div><p class="strong" style="font-size:14px">직접 입력</p><p class="meta">알바 · 반복 같은 개인 일정</p></div>
+            <button class="pill" data-action="blk-new">넣기</button></div>
+          ${S.blk === null ? '' : blkForm()}
+          <div class="lock">${ic('lock')}<span>팀원에게는 <b>바쁨 / 비어 있음</b>만 보여요. 약속 이름은 아무도 못 봐요.</span></div></section>
+        <div class="cta"><button class="btn" data-action="ob-prev">이전</button><button class="btn ${any ? 'primary' : ''}" data-action="ob-next">${any ? '다음' : '나중에 하기'}</button></div>`;
+      }
+      return `<p class="q">내 에이전트가 준비됐어요</p><p class="q-hint meta">고른 조건으로 이렇게 말해요. 시작한 뒤에도 언제든 고칠 수 있어요.</p>
+        <div class="quote" style="margin-top:12px"><p class="meta">내 에이전트가 이렇게 말해 줘요</p><p>${myQuote()}</p></div>
+        <div class="cta"><button class="btn" data-action="ob-prev">이전</button><button class="btn primary" data-action="ob-done">시작하기</button></div>`;
+    }
+
+    /* ── 홈: 요약 + 다음 회의 + (팀장) 새 회의 잡기 + 내 할 일(날짜별 · 종류별) ── */
+    // Component: DateBox (홈 다음 회의 · 일정 회의 목록 공통 날짜 칸). cls: conf 확정 · wait 확정 대기 · past 지난 회의
+    const dateBox = (mo, d, wd, cls = '') => `<span class="dateblock ${cls}"><span>${mo}월</span><b class="num">${d}</b><span>${wd}</span></span>`;
+    function meetingCard() {
+      const m = meet(), conf = S.meeting === 'confirmed';
+      if (S.coord) return `<section class="sec meetcard"><div class="row-between"><h2>다음 회의</h2><span class="badge">조율 중</span></div>
+        <p class="strong" style="margin-top:4px">${m.title}</p><p class="meta num">조율 중 · ${m.range} 사이</p>
+        <div class="row-between meet-foot"><span class="meta">${choosing() ? `팀장 ${nameOf(DATA.leader)}가 고르는 중` : S.pick != null ? '팀장이 고른 안에 응답을 기다리는 중' : '에이전트끼리 시간을 맞추는 중'}</span>
+          <button class="btn small" data-action="go" data-to="negotiate">조율 과정 보기</button></div></section>`;
+      if (S.meeting === 'none') return `<section class="sec meetcard"><h2>다음 회의</h2>
+        <p class="strong" style="margin-top:4px">아직 잡힌 회의가 없어요</p>
+        <p class="meta">${S.fresh ? '첫 회의에서 주제와 역할을 정하면 좋아요. 회의 횟수 제한은 없어요.' : '마감 전에 필요할 때 언제든 잡아요. 회의 횟수 제한은 없어요.'}</p>
+        ${isLeader() ? '' : `<p class="meta" style="margin-top:4px">팀장 ${nameOf(DATA.leader)}가 회의를 잡으면 알려 드려요.</p>`}</section>`;
+      const mine = S.resp[S.me];
+      return `<section class="sec hero meetcard"><div class="row-between"><h2>다음 회의</h2><span class="badge ${conf ? 'ok' : 'warn'}">${conf ? '확정' : '확정 대기'}</span></div>
+        <div class="meet" style="margin-top:6px">${dateBox(11, m.day, m.wd)}
+          <div style="flex:1;min-width:0"><p class="strong">${m.title}</p><p class="meta">${m.time} · ${m.mode} · ${m.length}</p>
+            <p class="tick"><span class="tick-l">시작까지</span><span class="num" id="tick">${countdown()}</span></p></div></div>
+        <div class="row-between meet-foot"><span class="meta">${conf ? '모두 수락했어요' : `수락 ${accepted()}/${voters().length} · 내 응답 ${mine}`}</span>
+          <button class="btn small ${!conf && mine === '대기' ? 'primary' : ''}" data-action="go" data-to="negotiate">조율 과정 확인</button></div></section>`;
+    }
+    // 새 회의 잡기는 다음 회의와 따로(팀장만). 회의가 없으면 강조
+    const newMeetBtn = () => isLeader() ? `<button class="newmeet" data-action="go" data-to="newmeet"><span class="plus">+</span>
+        <span><b>${S.fresh ? '첫 회의 잡기' : '새 회의 잡기'}</b><span class="meta">기간과 길이만 정하면 에이전트 ${DATA.members.length}명이 시간을 조율해요</span></span></button>` : '';
+    // Component: MiniTodo (홈의 내 할 일 한 줄)
+    const miniRow = (t, right) => `<button class="mini" data-action="check" data-id="${t.id}" data-done="${t.status === 'done'}">
+        <span class="check"></span><span class="t">${t.title}${riskOf(t) && t.status !== 'done' ? ` <span class="badge ${RISK_SEV[riskOf(t)]}">${riskOf(t)}</span>` : ''}${t.autoDone ? ' <span class="badge ok">회의에서 완료</span>' : ''}</span><span class="tag num">${right}</span></button>`;
+    function myTasks() {
+      const mine = tasksAll().filter(t => t.owner === S.me).sort((a, b) => dueN(a) - dueN(b));
+      const open = mine.filter(t => t.status !== 'done'), done = mine.filter(t => t.status === 'done');
+      const T = P.todayN, B = [['기한 지남', t => dueN(t) < T, 'var(--danger)'], ['오늘', t => dueN(t) === T, 'var(--point)'], ['내일', t => dueN(t) === T + 1, 'var(--point)'],
+        ['그 이후', t => dueN(t) > T + 1, 'var(--text)']];
+      const body = B.map(([label, f, col]) => [label, col, open.filter(f)]).filter(g => g[2].length).map(([label, col, list]) =>
+        `<span class="cat" style="--mc:${col}">${label} <span class="n num">${list.length}</span></span>${list.map(t => miniRow(t, t.due)).join('')}`).join('');
+      const doneHTML = done.length ? `<span class="cat">완료 <span class="n num">${done.length}</span></span>${done.map(t => miniRow(t, t.due)).join('')}` : '';
+      const empty = !tasksAll().length ? `<p class="strong" style="margin-top:8px">아직 할 일이 없어요</p><p class="meta">회의를 기록하면 에이전트가 할 일을 뽑아 제안해요. 회의 상세에서 확정하면 여기에 들어와요.</p><button class="link sm" data-action="go" data-to="schedule">일정으로 가기</button>`
+        : '<p class="meta" style="margin-top:8px">남은 할 일이 없어요.</p>';
+      return `<section class="sec"><h2 style="margin:0">내 할 일</h2>
+        ${body || empty}${doneHTML}
+        ${mine.length ? '<button class="link sm" data-action="go" data-to="tasks" style="margin-top:4px">팀 할 일 보기</button>' : ''}</section>`;
+    }
+    // 방 막 만든 직후: 초대 현황
+    function inviteCard() {
+      const n = S.fresh ? 1 : DATA.members.length;
+      return `<section class="sec"><div class="row-between"><h2 style="margin:0">팀원 초대</h2><span class="meta num">${n}/${DATA.members.length} 들어옴</span></div>
+        <div class="row-between" style="margin-top:8px"><span class="code num" style="font-size:22px">${P.code}</span><button class="pill go" data-action="toast" data-msg="초대 링크를 복사했어요">링크 복사</button></div>
+        <div class="members-in">${DATA.members.map((m, k) => k < n ? av(m.id) : `<span class="av" data-in="false">?</span>`).join('')}</div>
+        <p class="meta" style="margin-top:6px">들어온 팀원은 질문 네 개에 답하면 에이전트가 준비돼요.</p></section>`;
+    }
+    // 홈 맨 위: 왼쪽 마감 디데이 | 오른쪽 오늘 + 기간 막대(오늘 위치) + 시작·마감일
+    function periodCard() {
+      const T = P.totalDays, passed = S.fresh ? 0 : T - P.daysLeft, now = Math.round(passed / T * 100);
+      return `<section class="sec hero home-hero"><div class="hh">
+          <div><span class="w-label">마감까지</span><b class="hero-n num">D-${T - passed}</b></div>
+          <div style="min-width:0"><span class="meta num" style="color:var(--point-ink);font-weight:700">오늘 ${S.fresh ? P.start : P.today}</span>
+            <div class="period" role="img" aria-label="전체 ${T}일 중 ${passed}일 지남"><i style="width:${now}%"></i><b style="left:${now}%"></b></div>
+            <div class="row-between"><span class="meta num">${P.start} 시작</span><span class="meta num">${P.deadline} 마감</span></div></div></div></section>`;
+    }
+    function home() {
+      return `${periodCard()}
+        ${S.fresh ? inviteCard() : ''}
+        ${meetingCard()}
+        ${newMeetBtn()}
+        ${myTasks()}`;
+    }
+
+    /* ── 알림 (홈 오른쪽 위 종) ── */
+    // 받침 있으면 a, 없으면 b(서연이 / 지수가, '화면 시안 3종'을 / '…정리'가)
+    const jo = (w, a, b) => { const c = w.charCodeAt(w.length - 1) - 0xAC00; return c >= 0 && c < 11172 && c % 28 ? a : b; };
+    const daysOver = t => { const [m, d] = t.due.split('/').map(Number), T = P.todayN;
+      return Math.round((new Date(2026, Math.floor(T / 100) - 1, T % 100) - new Date(2026, m - 1, d)) / 864e5); };
+    // 알림 문장은 할 일 데이터(이름·담당자·기한·막힌 이유 note)에서 만든다
+    function riskText(r, t) {
+      const who = nameOf(t.owner) + jo(nameOf(t.owner), '이', '가'), what = `'${t.title}'`;
+      if (r.type === '늦음') return `${what} 기한 ${t.due}이 ${daysOver(t)}일 지났어요`;
+      if (r.type === '막힘') return `${who} ${what}${jo(t.title, '이', '가')} 막혔다고 표시했어요.${t.note ? ` "${t.note}"` : ''}`;
+      return `${who} ${what}${jo(t.title, '을', '를')} 끝냈어요`;
+    }
+    function riskCard(r) {
+      const t = r.t;
+      return `<article class="risk" data-type="${r.type}"><div class="row-between"><span class="badge ${RISK_SEV[r.type]}">${r.type}</span>
+          <button class="link sm" data-action="go" data-to="tasks">할 일 보기</button></div>
+        <p class="risk-reason">${riskText(r, t)}</p></article>`;
+    }
+    function alerts() {
+      const items = risks().map(riskCard);
+      if (S.clock && S.meeting === 'confirmed') items.splice(1, 0, `<article class="risk"><span class="badge ok">회의 30분 전</span>
+        <p class="risk-reason">중간 점검 전 회의가 16:00에 비대면으로 시작해요.</p>
+        <p class="meta">이번에 다룰 것: 지난 회의 보류 항목 '발표 순서', 다음 점검까지 남은 할 일 ${left()}개</p></article>`);
+      if (S.meeting === 'proposed') items.push(`<article class="risk"><span class="badge warn">확정 대기</span>
+        <p class="risk-reason">조율 결과가 나왔어요. 수요일 16:00–18:00, 비대면.</p><div class="row-between"><span class="meta">현우를 먼저 챙긴 결과예요</span>
+        <button class="link sm" data-action="go" data-to="proposal">조율 결과 보기</button></div></article>`);
+      return `<section class="sec"><h2>먼저 챙길 것</h2>${items.join('') || '<p class="strong">늦거나 막힌 일이 없어요</p><p class="meta">팀이 잘 가고 있어요. 챙길 일이 생기면 여기에 알려 드려요.</p>'}</section>
+        <section class="sec"><h2>에이전트 기록</h2>${(S.fresh ? [{ at: '10/13 14:02', what: '방을 만들었어요', why: '팀원이 들어와 조건을 알려 주면 회의 시간을 조율할 수 있어요.' }] : DATA.agentLog).map(l => `<div class="list-row"><div><p class="strong">${l.what}</p><p class="meta">${l.why}</p></div><span class="meta num">${l.at}</span></div>`).join('')}</section>
+        <section class="sec"><h2>양보 기록</h2>${S.fresh ? '<p class="meta">아직 잡은 회의가 없어요. 회의가 잡히면 누가 맞춰 줬는지 여기에 남겨요.</p>'
+          : DATA.history.map(h => `<div class="list-row"><div><p class="strong">${h.date}</p><p>${nameOf(h.who)}가 맞춰 줬어요</p><p class="meta">${h.why}</p></div></div>`).join('')}</section>`;
+    }
+
+    /* ── 회의 잡기 (팀장만) ── */
+    function newmeet() {
+      if (!isLeader()) return `<section class="sec"><h2>회의 잡기는 팀장만 할 수 있어요</h2><p class="meta">팀장 ${nameOf(DATA.leader)}가 회의를 잡으면 조율 과정을 같이 볼 수 있어요. 왼쪽 시연 장치에서 사용자를 지수로 바꿔 보세요.</p></section>`;
+      const n = S.nm, h = n.len / 60;
+      return `<section class="sec">
+          <label class="field-l">주제<input class="field" value="${n.title}" data-action="nm" data-k="title"></label>
+          <span class="field-l">언제부터 언제 사이에</span>
+          <div class="range"><input class="field num" type="date" value="${n.from}" data-action="nm" data-k="from" aria-label="시작일"><span>–</span>
+            <input class="field num" type="date" value="${n.to}" data-action="nm" data-k="to" aria-label="종료일"></div>
+          <span class="field-l">회의 길이 (30분 단위)</span>
+          <div class="stepper"><button data-action="nm-len" data-v="-30" aria-label="30분 줄이기">−</button><b class="num">${Number.isInteger(h) ? h + '시간' : Math.floor(h) ? Math.floor(h) + '시간 30분' : '30분'}</b><button data-action="nm-len" data-v="30" aria-label="30분 늘리기">+</button></div>
+          <span class="field-l">방식</span>
+          <div class="seg">${['대면', '비대면', '상관없음'].map(v => `<button data-action="nm-mode" data-v="${v}" aria-pressed="${n.mode === v}">${v}</button>`).join('')}</div></section>
+        <section class="sec"><p class="meta">팀원 ${DATA.members.length}명의 에이전트가 각자의 시간표와 조건으로 조율해요. 최대 3라운드, 30초쯤 걸려요. 회의 횟수 제한은 없어요.</p></section>
+        <div class="cta"><button class="btn primary" data-action="nm-start">조율 시작</button></div>`;
+    }
+
+    /* ── 조율 과정: 라운드별 판단 에이전트 제안 → 팀원 에이전트 응답. 결과 확인 버튼은 아래에 늘 고정 ── */
+    function msg(t, isNew) {
+      const cls = isNew ? ' enter' : '';
+      // 판단 에이전트: 상자 하나(양보 점수 변화 → 제안 시간) → 이유 문장
+      if (t.kind === 'judge') {
+        const ys = t.yields ? `<p class="meta">양보 점수</p>${t.yields.map(([id, from, to]) => `<div class="yrow"><span>${nameOf(id)}</span>${steps(to)}<span>${from === to ? YIELD[to] : `${YIELD[from]} → <b>${YIELD[to]}</b>`}</span></div>`).join('')}` : '';
+        const ps = t.picks ? t.picks.map(([l, v]) => `<div class="pick"><span>${l}</span><b class="num">${v}</b></div>`).join('') : '';
+        return `<div class="judge${cls}"><div class="judge-h">⚖ 판단 에이전트 (중립)</div>
+        ${ys || ps ? `<div class="box">${ys}${ys && ps ? '<div class="divider" style="margin:6px 0"></div>' : ''}${ps}</div>` : ''}
+        <p class="say">${t.text}</p></div>`;
+      }
+      // 팀원 에이전트: 이름 옆 뱃지 하나에 응답과 불편 정도(내 것만 숫자)
+      const me = t.who === S.me, ok = t.res === '수락';
+      return `<div class="msg${cls}" data-kind="${me ? 'me' : 'member'}">${av(t.who)}<div class="body">
+        <div class="who"><span class="name">${me ? '내 에이전트' : nameOf(t.who) + '의 에이전트'}</span><span class="badge ${ok ? 'ok' : 'danger'}">${ok ? '수락' : '거절'} · ${me ? `내 불편 <span class="num">${t.score}/5</span>` : LEVEL(t.score)}</span></div>
+        <p class="text">${t.text}</p></div></div>`;
+    }
+    const talkHTML = n => DATA.talk.slice(0, n).map((t, i) => t.round
+      ? `<div class="round-div">${t.round}라운드</div>` : msg(t, i === n - 1 && S.talk === 'play')).join('');
+    const talkDone = () => S.shown >= DATA.talk.length;
+    const roundNow = () => S.talk === 'fail' ? 3 : S.talk === 'none' ? 1 : Math.max(1, DATA.talk.slice(0, S.shown).filter(t => t.round).length);
+    function negHead() {
+      const m = DATA.meeting, r = roundNow(), done = S.talk === 'play' && talkDone();
+      return `<p class="topic">${m.title} ${choosing() ? '— 팀장이 골라야 해요' : S.pick != null ? '— 고른 안에 응답해요' : done ? '시간을 정했어요' : '시간 정하는 중'}</p>
+        <div class="chips-s"><span>${m.length}</span><span class="num">${m.range}</span><span>대면 · 비대면 상관없음</span></div>
+        <div class="rounds">${[1, 2, 3].map(k => `<i class="${k <= r ? 'on' : ''}"></i>`).join('')}<span class="num">${r} / 최대 3 라운드</span></div>`;
+    }
+    function negDock() {
+      const m = DATA.meeting;
+      let sum;
+      // 3라운드 실패·전원 가능한 시간 없음: 팀장이 안을 고르기 전에는 결과로 못 간다
+      if (choosing()) return `<div class="dock-sum">${S.talk === 'fail' ? `<span class="badge warn">합의 못 함</span> <span class="meta">3라운드 · 후보 ${DATA.candidates.length}개 중 팀장이 골라요</span>`
+          : '<span class="badge warn">전원 가능한 시간 없음</span> <span class="meta">1명 불참안을 팀장이 골라요</span>'}</div>
+        <button class="btn" disabled>${isLeader() ? '위에서 하나 골라 주세요' : `팀장 ${nameOf(DATA.leader)}가 고르는 중`}</button>`;
+      if (S.pick != null) sum = `<span class="badge warn">팀장이 고름</span> <b class="when num">${cands()[S.pick].label}</b><p class="meta">이 안으로 모두 수락 · 거절해요</p>`;
+      else if (!talkDone()) sum = `<span class="badge">조율 중</span> <span class="meta num">${roundNow()}라운드 진행 중 · 최대 3</span>`;
+      else sum = `<div class="row-between"><span><span class="badge ok">합의</span> <span class="meta">2라운드에서 합의</span></span><span class="yield-val">${nameOf(m.gets)} ${steps(1)}${YIELD[1]}</span></div>
+        <b class="when num">${m.short} ${m.mode}</b>
+        <p class="meta">왜: ${nameOf(m.cared.id)}의 앞선 양보를 먼저 챙기고, 이번엔 ${nameOf(m.gets)}가 맞춰 줬어요</p>`;
+      return `<div class="dock-sum">${sum}</div><button class="btn primary" data-action="to-result">조율 결과 확인하기</button>`;
+    }
+    function negotiate() {
+      const head = `<div class="neg-head" id="neg-head">${negHead()}</div>`, dock = `<div class="cta col" id="neg-dock">${negDock()}</div>`;
+      // 3라운드 실패·전원 가능한 시간 없음: 안은 팀장에게만 보이고 팀장이 고른다(팀원은 고르는 중) → 고른 안으로 전원 수락·거절
+      const none = S.talk === 'none';
+      const pickSec = isLeader() ? `<section class="sec"><h2>${none ? '불참안' : '후보'}</h2>${cands().map((c, i) => `<div class="list-row"><div><p class="strong">${c.label}</p><p class="meta">${c.why}</p></div>
+          ${S.pick === i ? '<span class="badge ok">고름</span>' : S.pick == null ? `<button class="btn small" data-action="pick" data-i="${i}">고르기</button>` : ''}</div>`).join('')}
+          ${none && S.pick == null ? '<div class="btn-row"><button class="btn small" data-action="toast" data-msg="기간을 넓혀 다시 조율합니다">기간 넓혀 다시 조율</button></div>' : ''}</section>` : '';
+      if (S.talk === 'fail') return head + `<div class="talk">${talkHTML(6)}<div class="round-div">2–3라운드</div>
+          ${msg({ kind: 'judge', text: '두 번 더 조율했지만 모두 맞는 시간을 찾지 못했어요. 좋은 안 세 개를 드릴게요. 팀장이 하나 골라 주세요.' })}</div>` + pickSec + dock;
+      if (none) return head + `<div class="talk"><div class="round-div">1라운드</div>
+          ${msg({ kind: 'judge', text: '이번 주에는 네 명 모두 되는 2시간이 없어요. 한 명이 빠지는 안을 드릴게요. 팀장이 이 안으로 갈지, 기간을 넓혀 다시 조율할지 골라 주세요.' })}</div>` + pickSec + dock;
+      return head + `<div class="talk" id="talk">${talkHTML(S.shown)}</div>`
+        + (talkDone() ? `<div style="text-align:center"><button class="link sm" data-action="replay-view">처음부터 다시 보기</button></div>` : '') + dock;
+    }
+    function play() {
+      clearInterval(timer);
+      if (S.talk !== 'play' || talkDone()) return;
+      timer = setInterval(() => {
+        S.shown++;
+        $('#talk').innerHTML = talkHTML(S.shown);
+        $('#neg-head').innerHTML = negHead();
+        $('#neg-dock').innerHTML = negDock();
+        $('#view').scrollTop = $('#view').scrollHeight;
+        if (talkDone()) { clearInterval(timer); S.coord = false; render(true); $('#view').scrollTop = $('#view').scrollHeight; }
+      }, 1600);
+    }
+
+    /* ── 조율 결과 확인: 시간 → 내 부담(나만) → 다른 사람 부담(말로만) → 판단 근거 → 사람별 응답 ── */
+    function proposal() {
+      const m = meet(), conf = S.meeting === 'confirmed', picked = S.talk !== 'play';
+      const my = m.burden.find(b => b.id === S.me);
+      const others = m.burden.filter(b => b.id !== S.me).map(b => `<div class="other">${av(b.id)}<span class="strong">${nameOf(b.id)}</span>
+        <span class="badge ${LEVEL_CLS(b.score)}">${LEVEL(b.score)}</span><span class="meta">${b.reason}</span></div>`).join('');
+      const gets = member(m.gets), isMe = m.gets === S.me, gs = m.burden.find(b => b.id === m.gets).score, pt = YIELD_PT(gs);
+      const from = gets.base ?? gets.yield, to = Math.min(from + 1, 2); // base: 확정 전 단계(autoConfirm이 남김)
+      const resp = voters().map(x => { const r = S.resp[x.id];
+        return `<div>${av(x.id)}<span>${x.name}${x.id === S.me ? ' (나)' : ''}</span><span class="badge ${r === '수락' ? 'ok' : r === '거절' ? 'danger' : ''}">${r === '수락' ? '✓ 수락' : r === '거절' ? '✕ 거절' : '대기'}</span></div>`; }).join('');
+      const mine = S.resp[S.me];
+      const waiting = voters().filter(x => S.resp[x.id] !== '수락').map(x => x.name).join(', ');
+      const cta = conf ? ''
+        : mine === '대기' ? `<button class="btn" data-action="reject">거절</button><button class="btn primary" data-action="accept">수락</button>`
+        : mine === '거절' ? `<button class="btn primary" data-action="replay">다음 라운드로 다시 조율</button>`
+        : `<button class="btn" disabled>${waiting}의 응답을 기다리는 중</button>`;
+      return `<section class="sec res-top"><div class="row-between"><span><span class="badge ${picked ? 'warn' : 'ok'}">${picked ? '팀장이 고름' : '합의'}</span> <span class="meta">${S.talk === 'none' ? '불참안' : picked ? '3라운드 뒤' : '2라운드'}</span></span>
+            <span class="badge ${conf ? 'ok' : 'warn'}">${conf ? '확정' : '확정 대기'}</span></div>
+          <span class="big num">${m.short}</span><p class="meta">${m.mode} · ${m.length} · ${m.title}</p>
+          ${m.out ? `<p class="meta">${nameOf(m.out)} 빠짐 · 회의록 요약을 따로 보내요</p>` : ''}</section>
+        <section class="sec mine-b"><div class="row-between"><div><span class="w-label">내 부담</span><p class="strong">내 불편 <span class="num">${my.score}/5</span> · ${my.reason}</p></div><span class="meta">나만 보여요</span></div></section>
+        <section class="sec"><h2>다른 사람 부담</h2>${others}</section>
+        <div class="judge judge-card"><div class="judge-h">⚖ 판단 에이전트 (중립)</div><p class="say">${m.judge}</p>
+          <div class="box"><p class="meta">이번에 양보 점수 받는 사람</p>
+            <div class="yrow" style="grid-template-columns:auto auto 1fr"><b>${isMe ? '나' : gets.name}${isMe ? ` <span class="num">+${pt}</span>` : ''}</b>${steps(to)}<span>${from === to ? `<b>${YIELD[to]}</b> · 가장 높은 단계라 그대로` : `${YIELD[from]} → <b>${YIELD[to]}</b>`}</span></div>
+            <p class="meta" style="margin-top:4px">${isMe ? `내 불편 <span class="num">${gs}/5</span>만큼 맞춰 줘서 <span class="num">+${pt}</span>이에요. 조금 불편하면 +1, 많이 불편하면 +2를 받아요.`
+              : `${gets.name}는 ${gs >= 4 ? '많이' : '조금'} 불편한 시간을 맞춰 줬어요. 불편한 만큼 양보 점수를 더 받아요.`}</p></div></div>
+        <section class="sec"><div class="row-between"><h2 style="margin:0">사람별 응답</h2><span class="strong num">${voters().length}명 중 ${accepted()}명 수락</span></div><div class="resp4">${resp}</div></section>
+        ${fbCard()}
+        ${cta ? `<div class="cta">${cta}</div>` : ''}`;
+    }
+    // 회의 일정 피드백: 수락·거절할 때 남긴 한 줄. 선호가 바뀌면 무엇이 바뀌었는지 보여 주고 되돌릴 수 있다
+    function fbCard() {
+      const f = S.fb; if (!f || S.resp[S.me] === '대기') return '';
+      const say = f.text.replace(/[<>]/g, '');
+      return `<section class="sec"><span class="w-label">이 시간에 남긴 한 줄</span><p class="strong">“${say}”</p>
+        ${!f.change ? '<p class="meta">남겨 줘서 고마워요. 시간 선호와는 상관없는 말이라 바꾼 건 없어요.</p>'
+          : `<div class="row-between"><span class="meta">${f.undone ? '되돌렸어요. 선호는 그대로예요.' : f.change}</span>${f.undone ? '' : '<button class="link sm" data-action="fb-undo">되돌리기</button>'}</div>`}</section>`;
+    }
+    // 남긴 말에서 다음 조율에 쓸 선호 한 가지를 고른다(시연용 간단 해석). 상관없는 말이면 아무것도 바꾸지 않는다
+    function fbChange(s) {
+      const d = s.match(/([월화수목금토일])요일/);
+      if (d) return `다음부터 ${d[1]}요일은 덜 잡을게요`;
+      if (/이르|일찍|아침|오전/.test(s)) return '다음부터 오전 이른 시간은 덜 잡을게요';
+      if (/늦|밤/.test(s)) return '다음부터 밤 늦은 시간은 덜 잡을게요';
+      if (/수업|빠듯|이동|바로 뒤/.test(s)) return '다음부터 수업 바로 뒤는 30분 띄워서 잡을게요';
+      return null;
+    }
+    function feedback(v) {
+      S.fb = typeof v === 'string' && v.trim() ? { text: v.trim(), change: fbChange(v), undone: false } : null;
+    }
+
+    /* ── 일정 = 회의 관리: 마감·오늘 위치 → 지금 회의 기록하기 → 조율 중 → 잡힌 회의 → 지난 회의 ── */
+    const dateBlk = (m, cls = '') => { const [mo, d] = m.date.split('/'); return dateBox(mo, d, m.dateL.slice(-1), cls); };
+    function schedule() {
+      const m = meet(), conf = S.meeting === 'confirmed';
+      const today = DATA.meetings.find(x => x.id === 'm3'), past = meetings();
+      const recNow = `<button class="rec-now" data-action="rec-now"><span class="rec-ic">${ic('mic', '')}</span><span><b>지금 회의 받아적기</b>
+          <span>${!S.recorded ? `오늘 ${S.adhoc ? '지금' : today.time} '${today.topic}' 회의를 받아적어요` : '잡힌 회의가 없어도 주제 한 줄만 쓰고 바로 받아적어요'}</span></span></button>`;
+      const coordLabel = choosing() ? (isLeader() ? '내가 골라야 해요' : `팀장 ${nameOf(DATA.leader)}가 고르는 중`) : S.pick != null ? '팀장이 고른 안 응답 중' : '조율 중';
+      const coord = S.coord ? `<div class="sec-h"><h2>조율 중인 회의</h2></div>
+        <section class="sec"><button class="mrow" data-action="go" data-to="negotiate"><span class="dateblock coord"><b>–</b></span>
+          <span class="body"><span class="strong">${m.title}</span><span class="meta num">조율 중 · ${m.range} 사이 · ${m.length}</span></span>
+          <span class="badge ${S.talk === 'play' ? '' : 'warn'}">${coordLabel}</span></button></section>` : '';
+      const booked = [];
+      if (!S.recorded) booked.push(`<div class="mrow">${dateBlk(today)}<span class="body"><span class="strong">${today.topic}</span>
+          <span class="meta num">오늘 ${S.adhoc ? '지금' : today.time} · ${today.mode}</span></span>
+          <button class="btn small primary" data-action="go-mtg" data-id="${today.id}">기록 시작</button></div>`);
+      if (!S.coord && S.meeting !== 'none') booked.push(`<button class="mrow" data-action="go" data-to="proposal">
+          ${dateBox(11, m.day, m.wd, conf ? 'conf' : 'wait')}
+          <span class="body"><span class="strong">${m.title}</span><span class="meta num">${m.time} · ${m.mode} · ${m.length}</span>
+            <span class="meta num">${conf ? '모두 수락했어요' : `수락 ${accepted()}/${voters().length} · 내 응답 ${S.resp[S.me]}`}</span></span>
+          <span class="badge ${conf ? 'ok' : 'warn'}">${conf ? '확정' : '확정 대기'}</span></button>`);
+      const pastRow = x => `<button class="mrow" data-action="go-mtg" data-id="${x.id}">${dateBlk(x, 'past')}
+          <span class="body"><span class="strong">${x.topic}</span><span class="meta">${x.length} · 회의록 열기</span></span>
+          ${pendingCount(x) ? `<span class="badge ai num">제안 ${pendingCount(x)}개</span>` : ''}</button>`;
+      return `${recNow}${coord}
+        <div class="sec-h"><h2>잡힌 회의</h2></div>
+        <section class="sec">${booked.join('') || `<p class="meta">잡힌 회의가 없어요.${isLeader() ? ' 새 회의를 잡으면 에이전트끼리 시간을 조율해요.' : ` 팀장 ${nameOf(DATA.leader)}가 회의를 잡으면 알려 드려요.`}</p>`}</section>
+        <div class="sec-h"><h2>지난 회의</h2><span class="meta num">${past.length}개</span></div>
+        <section class="sec">${past.map(pastRow).join('') || '<p class="meta">아직 지난 회의가 없어요. 회의를 기록하면 요약과 할 일 제안이 여기에 쌓여요.</p>'}</section>`;
+    }
+
+    /* ── 회의 상세(일정 탭에서 회의를 누름): 기록 전이면 기록 → 기록 뒤엔 요약·원문 → 끝난 일(자동 완료) → AI 제안(여기서만 보임) ── */
+    function recCard() {
+      if (S.rec === 'live') return `<section class="sec"><div class="row-between"><span class="rec-dot">받아적는 중</span><span class="meta">참석 ${DATA.members.length}명</span></div>
+          <p class="rec-clock num" id="rec-clock">00:00</p>
+          <p class="meta">음성은 저장하지 않고 글자만 남겨요.</p>
+          <div class="live" id="live">${liveLines()}</div>
+          <p class="meta" style="margin-top:10px">말한 사람은 목소리로 나눠 두고, 끝나면 누군지 한 번만 확인해요.</p>
+          <button class="btn primary block" data-action="rec" data-to="voice">정지</button></section>`;
+      if (S.rec === 'voice') return voiceCard();
+      if (S.rec === 'paste') return `<section class="sec"><h2>회의록 직접 쓰기</h2><p class="meta">메모나 다른 곳에 적은 회의록을 붙여 넣으세요.</p>
+          <textarea class="field" aria-label="회의록" style="min-height:min(52vh, 420px)">${DATA.meetings[0].lines.map(([w, t]) => `${nameOf(w)}: ${t}`).join('\n')}</textarea>
+          <div class="btn-row"><button class="btn" data-action="rec" data-to="idle">취소</button><button class="btn primary" data-action="rec" data-to="work">정리하기</button></div></section>`;
+      // AI가 멈춰도 에러 화면 대신 한 줄 안내 + 다시 하기(원문은 이미 저장)
+      if (S.rec === 'fail') return `<section class="sec"><span class="badge warn">정리 못 함</span><p class="strong" style="margin-top:6px">정리를 잠시 못 했어요. 잠시 후 다시 해 주세요</p>
+          <p class="meta">받아적은 원문은 저장했어요. 다시 하면 그 원문으로 정리해요.</p>
+          <div class="btn-row"><button class="btn primary" data-action="rec" data-to="work">다시 하기</button></div></section>`;
+      if (S.rec === 'work') return `<section class="sec"><p class="strong">회의록을 정리하고 할 일을 뽑는 중이에요</p>${bar(60)}<p class="meta">원문은 먼저 저장했어요. 지난 할 일 중 끝났다고 한 것도 같이 찾아요.</p></section>`;
+      return `<section class="sec"><p class="strong">회의 기록</p><p class="meta">할 일 제안은 회의가 끝난 뒤 여기서 확정해야 할 일 탭에 들어가요</p>
+          <button class="btn primary block big" data-action="rec" data-to="live">${ic('mic', '')}받아적기 시작</button>
+          <p class="meta" style="margin-top:6px;text-align:center">음성은 저장하지 않고 글자만 남겨요</p>
+          <div style="text-align:center"><button class="link sm" data-action="rec" data-to="paste">직접 쓰기</button></div></section>`;
+    }
+    // 받아적힌 글: 받아적는 동안은 누군지 모르니 목소리 A·B…로만 적는다
+    const voices = () => [...new Set(DATA.meetings[0].lines.map(l => l[0]))];
+    const voiceOf = w => `목소리 ${'ABCDEF'[voices().indexOf(w)]}`;
+    const liveLines = () => S.live.length ? `<ol class="lines">${S.live.map(([w, t]) => `<li class="line"><b>${voiceOf(w).slice(-1)}</b><span>${t}</span></li>`).join('')}</ol>`
+      : '<p class="wait">말을 시작하면 여기에 글자로 쌓여요</p>';
+    // Component: VoiceCheckCard — 녹음이 끝나면 목소리마다 누군지 한 번만 고른다(AI가 먼저 짐작해 둠)
+    const voiceCard = () => `<section class="sec"><div class="row-between"><h2 style="margin:0">말한 사람 확인</h2><span class="badge ai">AI가 나눔</span></div>
+          <p class="meta">목소리 ${voices().length}개로 나눴어요. 누군지 한 번만 고르면 회의록 전체에 반영돼요.</p>
+          ${voices().map(w => `<div class="list-row"><div style="min-width:0"><p class="strong">${voiceOf(w)}</p><p class="meta">'${DATA.meetings[0].lines.find(l => l[0] === w)[1]}'</p></div>
+            <select class="field" aria-label="${voiceOf(w)}는 누구" style="flex:none">${DATA.members.map(x => `<option${x.id === w ? ' selected' : ''}>${x.name}</option>`).join('')}</select></div>`).join('')}
+          <button class="btn primary block" data-action="rec" data-to="work" style="margin-top:12px">맞아요, 정리하기</button></section>`;
+    // Component: SuggestionCard — 두 줄: ① AI 제안 + 제목 ② 담당자·기한 | 삭제·확정
+    function sugCard(m, s, i) {
+      const t = DATA.tasks.find(x => x.id === s.task);
+      if (!t || s.state === 'deleted') return '';
+      const ref = `data-m="${m.id}" data-i="${i}"`;
+      if (s.kind === 'del') {
+        if (s.state === 'kept') return `<article class="sug done"><div class="sug-h"><span class="badge">유지함</span><span class="strong">${t.title}</span></div>
+          <p class="meta num">${nameOf(t.owner)} · ${t.due}까지</p></article>`;
+        return `<article class="sug"><div class="sug-h"><span class="badge ai">AI 제안</span><span class="strong">${t.title}</span></div>
+          <p class="meta">${nameOf(t.owner)} 담당 · ${s.why}</p>
+          <div class="sug-act"><button class="btn small quiet" data-action="sug-keep" ${ref}>유지</button><button class="btn small danger" data-action="sug-del" ${ref}>삭제</button></div></article>`;
+      }
+      if (!isPending(s)) return `<article class="sug done"><div class="sug-h"><span class="badge ok">확정 · ${nameOf(t.by)}</span><span class="strong">${t.title}</span></div>
+          <p class="meta num">${t.owner ? nameOf(t.owner) : '담당자 없음'} · ${t.due}까지</p></article>`;
+      return `<article class="sug"><div class="sug-h"><span class="badge ai">AI 제안</span><input class="title" value="${t.title}" data-action="edit" data-id="${t.id}" data-k="title" aria-label="제목"></div>
+        <div class="sug-row"><select class="field" data-action="edit" data-id="${t.id}" data-k="owner" aria-label="담당자">${ownerOpts(t.owner)}</select>
+          ${dueInput(`data-action="edit" data-id="${t.id}" data-k="due"`, t.due)}
+          <button class="btn small del" data-action="sug-drop" ${ref}>삭제</button><button class="btn small primary" data-action="sug-ok" ${ref}>확정</button></div></article>`;
+    }
+    const ownerOpts = sel => `<option value="">담당자 없음</option>${DATA.members.map(x => `<option value="${x.id}"${x.id === sel ? ' selected' : ''}>${x.name}</option>`).join('')}`;
+    // 회의에서 끝났다고 한 일: 할 일 행과 같은 모양(체크됨 + 회의에서 완료 뱃지 + 되돌리기)
+    function autoRow(m, s, i) {
+      const t = DATA.tasks.find(x => x.id === s.task), undone = s.state === 'undone';
+      if (!t) return ''; // 할 일 탭에서 삭제한 일
+      return `<li class="todo" data-done="${!undone}">
+        <div class="todo-head"><div class="todo-title"><button class="check" data-action="auto-toggle" data-m="${m.id}" data-i="${i}" aria-label="${t.title} 완료 표시"></button><span class="name">${t.title}</span></div>
+          <div class="todo-badges"><span class="badge ${undone ? '' : 'ok'}">${undone ? '진행 중으로 되돌림' : '회의에서 완료'}</span></div></div>
+        <div class="meta-row todo-meta"><span class="num">${nameOf(t.owner)} · ${t.due}까지</span></div></li>`;
+    }
+    // 직접 추가: 회의 상세면 그 회의 출처로 바로 확정(제안을 거치지 않음), 할 일 탭(m = null)이면 출처 "직접 추가"
+    function addCard(m) {
+      const key = m ? m.id : 'tasks';
+      if (S.add !== key) return `<button class="btn dashed small add-btn" data-action="add-open" data-id="${key}">${m ? '+ 직접 추가' : '+ 할 일 추가'}</button>`;
+      const d = S.addDraft;
+      return `<article class="sug done"><div class="sug-h"><span class="badge">직접 추가</span><input class="title" value="${d.title}" data-action="add-f" data-k="title" placeholder="할 일 제목" aria-label="제목"></div>
+        <div class="sug-row"><select class="field" data-action="add-f" data-k="owner" aria-label="담당자">${ownerOpts(d.owner)}</select>
+          ${dueInput('data-action="add-f" data-k="due"', d.due)}
+          <button class="btn small quiet" data-action="add-cancel">취소</button><button class="btn small primary" data-action="add-ok" data-id="${key}">추가</button></div></article>`;
+    }
+    function meetingDetail() {
+      const m = DATA.meetings.find(x => x.id === S.mtg) || DATA.meetings[0];
+      const who0 = `<span>참석 ${DATA.members.map(x => x.name).join(' · ')}</span>`;
+      if (m.id === 'm3' && !S.recorded) return `<section class="sec"><p class="topic">${m.topic}</p>
+          <div class="meta-row"><span>오늘 ${S.adhoc ? '지금' : m.time}</span><span>${m.mode}</span>${who0}</div></section>${recCard()}`;
+      const sum = Object.entries(m.summary).filter(([, v]) => v.length).map(([k, v]) => `<div class="sum-g"><b>${k}</b>
+        ${v.map(t => `<div class="sum">${t}</div>`).join('')}</div>`).join('');
+      const pick = (f, card) => m.sugs.map((s, i) => (f(s) ? card(m, s, i) : '')).filter(Boolean);
+      const autos = pick(s => s.kind === 'done', autoRow), main = pick(counted, sugCard), dels = pick(s => s.kind === 'del', sugCard);
+      const total = m.sugs.filter(counted).length, pend = pendingCount(m);
+      return `<section class="sec"><p class="topic">${m.topic}</p>
+          <div class="meta-row"><span>${m.dateL}</span><span>${m.length}</span>${who0}</div>
+          <button class="btn small block" data-action="raw">${S.raw ? '원문 접기' : `원문 전체 보기 (${m.lines.length}줄)`}</button>
+          ${S.raw ? `<ol class="lines">${m.lines.map(([w, t]) => `<li class="line"><b>${nameOf(w)}</b><span>${t}</span></li>`).join('')}</ol>` : ''}</section>
+        ${sum ? `<section class="sec">${sum}</section>` : ''}
+        ${autos.length ? `<div class="sec-h"><h2>회의에서 끝난 일</h2><span class="meta">직접 체크 안 해도 돼요</span></div><ul class="todos auto-list">${autos.join('')}</ul>` : ''}
+        <div class="sug-top"><div style="flex:1"><p class="strong">이 회의에서 나온 할 일 ${total}개</p>
+            ${total ? `<p class="meta">확정 ${total - pend} · 확정 전 제안 ${pend} — 확정해야 할 일 탭에 보여요</p>${bar(Math.round((total - pend) / total * 100))}` : ''}</div>
+          ${pend ? `<button class="btn primary small" data-action="sug-all">모두 확정</button>` : ''}</div>
+        ${main.join('') || '<section class="sec"><p class="meta">이 회의에서 뽑은 할 일이 없어요. 필요하면 아래에서 직접 추가하세요.</p></section>'}
+        ${addCard(m)}
+        ${dels.length ? `<div class="sec-h"><h2>필요 없어 보이는 일</h2><span class="meta">따로 확인해요</span></div>${dels.join('')}` : ''}`;
+    }
+
+    /* ── 할 일(팀 전체, 확정된 것만, 사람별로 묶음) ── */
+    // 할 일 한 줄: 제목 | 기한 · 상태 칩. 칩을 누르면 상태 네 가지 메뉴, 길게 누르면(우클릭도) 고치기
+    function todoRow(t) {
+      const [st, cls] = STATUS[t.status];
+      const open = S.open === t.id, menu = open && S.openMode === 'more', edit = open && S.openMode === 'edit';
+      const mine = t.owner === S.me, rk = riskOf(t); // 상태 칩·체크는 담당자만. 남의 일은 막힘만 제목 옆 뱃지로
+      return `<li class="todo" data-done="${t.status === 'done'}">
+        <div class="todo-head" data-press="${t.id}"><div class="todo-title"><button class="check" data-action="check" data-id="${t.id}" aria-label="${t.title} 완료 표시"${mine ? '' : ' disabled'}></button>
+            <span class="name">${t.title}${rk === '늦음' || (rk === '막힘' && !mine) ? ` <span class="badge ${RISK_SEV[rk]}">${rk}</span>` : ''}</span></div>
+          <div class="todo-right"><span class="meta num">${t.due}</span>
+            ${mine ? `<button class="badge ${cls} st-chip" data-action="st-open" data-id="${t.id}" aria-haspopup="menu" aria-expanded="${menu}" aria-label="상태 ${st}, 눌러서 바꾸기">${st}</button>` : ''}
+            ${menu ? `<div class="st-menu" role="menu">${Object.entries(STATUS).map(([k, [l, c]]) => `<button role="menuitemradio" aria-checked="${k === t.status}" data-action="status" data-v="${k}" data-id="${t.id}"><span class="badge ${c}">${l}</span></button>`).join('')}</div>` : ''}</div></div>
+        ${!t.owner && !edit ? `<div class="todo-actions"><select class="field" data-action="edit" data-k="owner" data-id="${t.id}" aria-label="담당자 지정" style="min-height:32px;font-size:13px"><option value="">담당자 지정</option>${DATA.members.map(m => `<option value="${m.id}">${m.name}</option>`).join('')}</select></div>` : ''}
+        ${edit ? todoEdit(t) : ''}
+      </li>`;
+    }
+    // 고치기(길게 누름): 제목 / 담당자·기한 / 출처 | 삭제(빨간 글자) · 수정
+    function todoEdit(t) {
+      const src = t.mtg ? `<button class="src" data-action="go-mtg" data-id="${t.mtg}">${t.src}</button>` : t.src;
+      return `<div class="todo-panel edit"><input class="field" value="${t.title}" data-action="edit" data-k="title" data-id="${t.id}" aria-label="제목">
+          <div class="edit-row"><select class="field" data-action="edit" data-k="owner" data-id="${t.id}" aria-label="담당자">${ownerOpts(t.owner)}</select>
+            ${dueInput(`data-action="edit" data-k="due" data-id="${t.id}"`, t.due)}</div>
+          <div class="panel-act"><span class="meta">출처 ${src}${t.autoDone ? ` · <button class="src" data-action="go-mtg" data-id="${t.autoDone}">회의에서 완료</button>` : ''}</span>
+            <span class="btns"><button class="btn small del" data-action="del" data-id="${t.id}">삭제</button><button class="btn small primary" data-action="toggle" data-mode="edit" data-id="${t.id}">수정</button></span></div></div>`;
+    }
+    function tasks() {
+      const all = tasksAll();
+      if (!all.length) return `<section class="sec"><h2>아직 팀 할 일이 없어요</h2><p class="meta">회의 상세에서 할 일 제안을 확정하면 사람별로 여기에 모여요. 회의와 상관없는 일은 직접 추가해도 돼요.</p>
+        <button class="btn block" data-action="go" data-to="schedule">일정으로 가기</button></section>${addCard(null)}`;
+      // 사람별 남은 할 일 개수(모두 같은 색)
+      const load = DATA.members.map(m => ({ m, n: all.filter(t => t.owner === m.id && t.status !== 'done').length }));
+      const max = Math.max(1, ...load.map(l => l.n));
+      const F = { '전체': () => true, '시작 전': t => t.status === 'todo', '진행 중': t => t.status === 'doing', '막힘': t => t.status === 'blocked', '완료': t => t.status === 'done' };
+      const list = all.filter(F[S.filter]).sort((a, b) => (a.status === 'done') - (b.status === 'done') || dueN(a) - dueN(b));
+      const order = [null, S.me, ...DATA.members.map(m => m.id).filter(id => id !== S.me)];
+      const groups = order.map(id => [id, list.filter(t => t.owner === id)]).filter(([, l]) => l.length);
+      const pend = pendingAll();
+      return `<section class="sec"><h2>사람별 남은 할 일</h2>
+          ${load.map(l => `<div class="load"><span>${l.m.name}</span>${bar(Math.round(l.n / max * 100))}<span class="num meta">${l.n}개</span></div>`).join('')}</section>
+        ${pend ? `<div class="hint"><span>회의록에 확정 전 할 일 제안 <b class="num">${pend}</b>개가 있어요. 확정하면 여기에 들어와요.</span><button class="link sm" data-action="go" data-to="schedule">일정</button></div>` : ''}
+        ${addCard(null)}
+        <div class="chips">${Object.keys(F).map(k => `<button class="chip" data-action="filter" data-f="${k}" aria-pressed="${S.filter === k}">${k}</button>`).join('')}</div>
+        <p class="meta todo-guide">길게 누르면 고치기</p>
+        ${groups.map(([id, l]) => `<section class="sec"><span class="cat" style="margin-top:0">${id ? `${nameOf(id)}${id === S.me ? ' (나)' : ''}` : '담당자 없음'} <span class="n num">${l.length}</span></span>
+          <ul class="todos">${l.map(todoRow).join('')}</ul></section>`).join('')}
+        ${!list.length ? `<section class="sec"><p>조건에 맞는 할 일이 없어요.</p><button class="btn block" data-action="filter" data-f="전체">전체 보기</button></section>` : ''}`;
+    }
+
+    /* ── 나 ── */
+    const WD = ['월', '화', '수', '목', '금', '토', '일'];
+    const BLK_K = { class: '수업', busy: '일정' };
+    function weekGrid() {
+      const blocks = DATA.week.map((b, i) => ({ ...b, i }));
+      const mt = meet(), [ms, me] = mt.time.split('–').map(x => parseInt(x, 10));
+      if (S.week === 'next' && S.meeting !== 'none') blocks.push({ d: WD.indexOf(mt.wd), s: ms, e: me, k: S.meeting === 'confirmed' ? 'meet' : 'wait', label: S.meeting === 'confirmed' ? '팀 회의' : '회의 대기' });
+      const pos = (s, e) => `top:${(s - 9) / 12 * 100}%;height:${(e - s) / 12 * 100}%`;
+      return `<div class="week"><span></span>${WD.map(w => `<span class="wd">${w}</span>`).join('')}
+        <div class="hours">${[9, 12, 15, 18, 21].map(h => `<span style="top:${(h - 9) / 12 * 100}%">${h}</span>`).join('')}</div>
+        ${[0, 1, 2, 3, 4, 5, 6].map(d => `<div class="col">${blocks.filter(b => b.d === d).map(b => b.i == null ? `<span class="blk" data-k="${b.k}" style="${pos(b.s, b.e)}">${b.label}</span>`
+          : `<button class="blk" data-k="${b.k}" data-action="blk-edit" data-i="${b.i}" data-sel="${S.grp.includes(b.i)}" style="${pos(b.s, b.e)}" aria-label="${WD[b.d]} ${b.s}–${b.e}시 ${b.label} 고치기">${b.label}</button>`).join('')}</div>`).join('')}</div>
+        <div class="wlegend"><span><i style="background:color-mix(in srgb,var(--text) 14%,var(--card))"></i>수업</span><span><i style="background:var(--sub-soft)"></i>일정</span>
+          <span><i style="background:var(--point)"></i>팀 회의</span></div>`;
+    }
+    // 내 일정 추가·고치기(매주 반복). 이름·종류가 같은 칸을 한 일정으로 묶고 요일마다 시간을 따로 둔다. 캘린더에서 온 약속은 캘린더에서 고친다
+    function blkForm() {
+      const b = S.draft, isNew = S.blk === 'new';
+      const hrs = sel => Array.from({ length: 13 }, (_, i) => i + 9).map(h => `<option value="${h}"${h === sel ? ' selected' : ''}>${h}:00</option>`).join('');
+      const days = Object.keys(b.days).map(Number).sort();
+      return `<div class="blk-form" id="blk-form"><p class="strong">${isNew ? '일정 추가' : '일정 고치기'}</p>
+          <label class="field-l" style="margin-top:6px">이름 (나만 보여요)<input class="field" value="${b.label}" data-action="draft" maxlength="20"></label>
+          <span class="field-l">종류</span><div class="seg k2">${Object.entries(BLK_K).map(([k, v]) => `<button data-action="draft-k" data-k="k" data-v="${k}" aria-pressed="${b.k === k}">${v}</button>`).join('')}</div>
+          <span class="field-l">요일 (매주 반복 · 여러 개 고를 수 있어요)</span><div class="seg">${WD.map((w, d) => `<button data-action="draft-day" data-v="${d}" aria-pressed="${d in b.days}">${w}</button>`).join('')}</div>
+          <span class="field-l">시간 (요일마다 달라도 돼요)</span>
+          ${days.map(d => `<div class="day-t"><b>${WD[d]}</b><div class="range"><select class="field" data-action="draft-t" data-d="${d}" data-i="0" aria-label="${WD[d]} 시작">${hrs(b.days[d][0])}</select><span>–</span><select class="field" data-action="draft-t" data-d="${d}" data-i="1" aria-label="${WD[d]} 끝">${hrs(b.days[d][1])}</select></div></div>`).join('')}
+          <div class="panel-act">${isNew ? '<span></span>' : '<button class="btn small del" data-action="blk-del">삭제</button>'}
+            <span style="display:flex;gap:6px"><button class="btn small" data-action="blk-cancel">취소</button><button class="btn small primary" data-action="blk-save">저장</button></span></div></div>`;
+    }
+    const linkAct = l => l.act === '켜짐' ? '<span class="badge ok">켜짐</span>'
+      : l.ic === 'link' ? `<button class="pill" data-action="toast" data-msg="에브리타임에서 수업 4개를 다시 불러왔어요">${l.act}</button>`
+      : `<button class="pill" data-action="blk-edit" data-i="${DATA.week.findIndex(b => b.src === 'self')}">${l.act}</button>`;
+    function me() {
+      const my = member(S.me);
+      // 에이전트 말: 고치기를 누르면 문장을 직접 고친다(저장하면 조율에서 이 문장으로 말함)
+      const quote = S.quoteEdit
+        ? `<div class="quote"><p class="meta">내 에이전트가 이렇게 말해 줘요</p>
+            <textarea class="field" id="quote-in" maxlength="200" aria-label="에이전트가 할 말">${quotePlain()}</textarea>
+            <div class="panel-act"><button class="btn small quiet" data-action="quote-cancel">취소</button><button class="btn small primary" data-action="quote-save">저장</button></div></div>`
+        : `<div class="quote"><div class="row-between"><p class="meta">내 에이전트가 이렇게 말해 줘요</p><span>${S.quote ? '<button class="link sm" data-action="quote-reset">원래대로</button>' : ''}<button class="link sm" data-action="quote-edit">고치기</button></span></div><p>${myQuote()}</p></div>`;
+      return `
+        <div class="profile">${av(S.me)}<div class="who"><b>${my.name}</b> ${isLeader() ? '<span class="badge here">팀장</span>' : ''}<p class="meta">${P.name}</p></div></div>
+        ${quote}
+        <section class="sec"><div class="row-between"><h2 style="margin:0">내 일정 가져오기</h2><span class="meta sync">${S.synced ? '방금' : '10분 전'} 확인<button class="icon-btn" data-action="sync" aria-label="일정 다시 확인">${ic('repeat', '')}</button></span></div>
+          ${DATA.links.map(l => `<div class="link-row"><span class="ic">${ic(l.ic, '')}</span><div><p class="strong" style="font-size:14px">${l.name}</p><p class="meta">${l.desc}</p></div>
+            ${linkAct(l)}</div>`).join('')}
+          <div class="lock">${ic('lock')}<span>팀원에게는 <b>바쁨 / 비어 있음</b>만 보여요. 약속 이름은 아무도 못 봐요.</span></div></section>
+        <section class="sec"><div class="row-between"><h2 style="margin:0">내 시간 <span class="meta num" style="font-weight:400">${S.week === 'this' ? '11/9–11/15' : '11/16–11/22'}</span></h2>
+            <div class="seg-s"><button data-action="week" data-v="this" aria-pressed="${S.week === 'this'}">이번 주</button><button data-action="week" data-v="next" aria-pressed="${S.week === 'next'}">다음 주</button></div></div>
+          <p class="meta">칸을 누르면 고쳐요</p>
+          ${weekGrid()}
+          ${S.blk === null ? '<button class="btn small dashed block" data-action="blk-new">+ 일정 추가 (수업 · 알바 · 약속 같은 개인 일정)</button>' : blkForm()}</section>
+        <section class="sec"><h2>내가 좋아하는 방식</h2>${prefForm()}</section>
+        <section class="sec"><h2>팀원 양보 점수</h2>${DATA.members.map(m => `<div class="list-row"><div style="display:flex;gap:10px;align-items:center">${av(m.id)}<p class="strong">${m.name}${m.id === S.me ? ' (나)' : ''}</p></div>
+            <span class="yield-val">${YIELD[m.yield]} ${steps(m.yield)}</span></div>`).join('')}
+          <p class="meta" style="margin-top:6px">회의마다 누가 맞춰 줬는지는 알림의 양보 기록에서 봐요.</p>
+          <button class="btn small block" data-action="toast" data-msg="초대 코드 ${P.code}를 복사했어요">팀원 초대</button></section>`;
+    }
+
+    const bell = () => { const n = unread();
+      return `<button class="icon-btn" data-action="go" data-to="alerts" aria-label="알림 ${n}개"><svg class="i" viewBox="0 0 24 24">${ICON.bell}</svg>${n ? `<span class="count num">${n}</span>` : ''}</button>`; };
+    const SCREENS = {
+      welcome: { title: () => '', render: welcome },
+      create: { title: () => '방 생성하기', back: 'welcome', render: create },
+      join: { title: () => '초대 코드로 들어가기', back: 'welcome', render: join },
+      ob: { title: () => '내 조건 알려 주기', render: ob },
+      home: { title: () => '서비스디자인 팀플', tab: 'home', render: home, aux: bell },
+      alerts: { title: () => '알림', tab: 'home', back: 'home', render: alerts, aux: () => S.read ? '' : '<button class="link sm" data-action="read" style="padding:0 8px">모두 읽음</button>' },
+      // 회의 잡기·조율 화면은 들어온 탭(홈 또는 일정)으로 돌아간다
+      newmeet: { title: () => '회의 잡기', tab: () => S.from, back: () => S.from, render: newmeet },
+      negotiate: { title: () => '조율 과정', tab: () => S.from, back: () => S.from, render: negotiate },
+      proposal: { title: () => '조율 결과', tab: () => S.from, back: () => S.from, render: proposal },
+      schedule: { title: () => '일정', tab: 'schedule', render: schedule, aux: () => `<span class="meta num" style="padding-right:8px">10/13 – 12/11</span>` },
+      meeting: { title: () => '회의록', tab: 'schedule', back: 'schedule', render: meetingDetail },
+      tasks: { title: () => '팀 할 일', tab: 'tasks', render: tasks },
+      me: { title: () => '나', tab: 'me', render: me }
+    };
+
+    const val = v => (typeof v === 'function' ? v() : v);
+    function render(keepScroll) {
+      const sc = SCREENS[S.screen], view = $('#view'), y = view.scrollTop;
+      $('#title').textContent = sc.title();
+      $('#back').hidden = !sc.back;
+      $('#aux').innerHTML = sc.aux ? sc.aux() : '';
+      FULL.includes(S.screen) ? $('.app').setAttribute('data-full', '') : $('.app').removeAttribute('data-full');
+      view.innerHTML = sc.render();
+      const cta = view.querySelector(':scope > .cta'); $('#dock').replaceChildren(...(cta ? [cta] : []));
+      view.scrollTop = keepScroll ? y : 0;
+      document.querySelectorAll('.tab').forEach(t => t.dataset.to === val(sc.tab) ? t.setAttribute('aria-current', 'page') : t.removeAttribute('aria-current'));
+      const pend = pendingAll();
+      $('#pending').textContent = pend; $('#pending').hidden = !pend;
+      $('#me-btns').innerHTML = DATA.members.map(m => `<button data-action="me" data-id="${m.id}" aria-pressed="${m.id === S.me}">${m.name} · ${m.id === DATA.leader ? '팀장' : '팀원'}</button>`).join('');
+      document.querySelectorAll('[data-action="state"]').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === S.mock));
+      $('#clock-btn').textContent = S.clock ? '시계: 11/10 화 09:00으로' : '시계: 11/18 수 15:30으로';
+      const lv = $('#live'); if (lv) lv.scrollTop = lv.scrollHeight;
+      if (S.scrollTo) { document.getElementById(S.scrollTo)?.scrollIntoView({ block: 'center' }); S.scrollTo = null; }
+    }
+    function go(to) {
+      clearInterval(timer);
+      if (to === 'negotiate' && S.talk === 'play' && !talkDone()) S.shown = 0;
+      if (to === 'create') S.made = 'form';
+      if (to === 'proposal') S.coord = false;
+      if (S.screen === 'home' || S.screen === 'schedule') S.from = S.screen;
+      S.screen = to; render();
+      if (to === 'negotiate') play();
+    }
+    // 시연 장치: 상태 버튼 하나 = 화면 + 데이터 상태 묶음
+    function setState(v) {
+      S.mock = v; S.adhoc = false; S.rec = 'idle';
+      if (v === 'welcome') return go('welcome');
+      if (v === 'ob') { obReset(); return go('ob'); }
+      if (v === 'linkfail') { obReset(); S.ob = 1; S.et = { url: 'everytime.kr/timetable/2026/2', st: 'fail' }; return go('ob'); }
+      S.fresh = v === 'fresh'; if (S.fresh || v === 'newmeet' || v === 'fail' || v === 'none') S.me = DATA.leader;
+      if (v === 'failm' || v === 'nonem') { v = v.slice(0, -1); S.me = 'minji'; }
+      S.meeting = v === 'nomeeting' || v === 'fresh' ? 'none' : S.meeting === 'none' ? 'proposed' : S.meeting;
+      S.noTasks = v === 'notasks'; S.quiet = v === 'quiet'; S.read = false;
+      if (S.quiet) { S.meeting = 'confirmed'; DATA.members.forEach(x => { S.resp[x.id] = '수락'; }); }
+      S.talk = v === 'fail' || v === 'none' ? v : 'play';
+      S.coord = v === 'fail' || v === 'none'; S.pick = null;
+      DATA.members.forEach(x => { S.resp[x.id] ??= '대기'; }); // 불참안을 고른 뒤에도 응답자 네 명으로 되돌림
+      S.recorded = v !== 'norec' && v !== 'live' && v !== 'aifail'; S.add = null;
+      if (v === 'aifail') { S.mtg = 'm3'; S.rec = 'fail'; }
+      // 받아적는 중: 세 줄쯤 받아적힌 상태에서 시작
+      if (v === 'live') { const L = DATA.meetings[0].lines; S.mtg = 'm3'; S.rec = 'live'; S.recAt = Date.now() - 3 * LIVE_MS; S.live = L.slice(0, 3); }
+      go({ fail: 'negotiate', none: 'negotiate', norec: 'schedule', newmeet: 'newmeet', live: 'meeting', aifail: 'meeting', notasks: 'tasks', quiet: 'alerts' }[v] || 'home');
+    }
+    // 전원이 수락하면 따로 누르지 않아도 바로 확정하고 모두에게 알린다
+    function autoConfirm() {
+      if (S.meeting === 'confirmed' || accepted() < voters().length) return false;
+      const m = meet(), g = member(m.gets);
+      S.meeting = 'confirmed'; g.base ??= g.yield; g.yield = Math.min(g.base + 1, 2);
+      DATA.history.unshift({ date: `${m.date.split(' ').slice(0, 2).join(' ')} 회의`, who: m.gets, why: m.hist || '수업 바로 뒤지만 현우를 먼저 챙기려고 맞춰 줬어요.' });
+      if (S.screen === 'proposal') render(true);
+      toast('모두 수락해서 회의가 확정됐어요');
+      return true;
+    }
+    const sugOf = el => { const m = DATA.meetings.find(x => x.id === el.dataset.m); return [m, m.sugs[+el.dataset.i]]; };
+    function confirmSug(s) {
+      const t = DATA.tasks.find(x => x.id === s.task);
+      t.ai = false; t.by = S.me;
+    }
+
+    /* ── 이벤트 위임 ── */
+    document.addEventListener('click', async e => {
+      if (longPressed) { longPressed = false; return; } // 길게 누른 뒤 손 뗄 때의 클릭은 무시
+      if (S.open && S.openMode === 'more' && !e.target.closest('.st-menu, .st-chip')) { S.open = null; render(true); } // 상태 메뉴 바깥 누름 = 닫기
+      const el = e.target.closest('[data-action]');
+      if (!el || el.tagName === 'SELECT' || el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') return;
+      const a = el.dataset.action, id = el.dataset.id, task = DATA.tasks.find(t => t.id === id);
+      if (a === 'state') setState(el.dataset.v);
+      else if (a === 'me') { S.me = id; render(true); }
+      else if (a === 'tab' || a === 'go') go(el.dataset.to);
+      else if (a === 'back') go(val(SCREENS[S.screen].back));
+      else if (a === 'to-result') { if (S.talk === 'play') S.shown = DATA.talk.length; go('proposal'); }
+      else if (a === 'replay-view') { S.shown = 0; render(); play(); }
+      else if (a === 'replay') { S.talk = 'play'; S.pick = null; S.shown = 0; S.coord = true; S.resp[S.me] = '대기'; go('negotiate'); }
+      // 3라운드 실패 뒤 팀장이 후보 하나를 고름 → 그 안으로 전원 수락·거절
+      else if (a === 'pick') {
+        S.pick = +el.dataset.i; S.meeting = 'proposed';
+        S.resp = Object.fromEntries(voters().map(x => [x.id, '대기']));
+        go('proposal'); toast('고른 안을 팀원에게 보냈어요');
+      }
+      else if (a === 'toast') toast(el.dataset.msg);
+      // 처음 들어오기
+      else if (a === 'room-size') { S.room.size = +el.dataset.v; render(true); }
+      else if (a === 'room-make') {
+        if (await ask({ title: '방을 만들까요?', body: `'${S.room.name}' 방을 만들어요. 만든 사람이 팀장이 되고, 회의 잡기를 맡아요.`, ok: '방 만들기', irreversible: false })) {
+          S.made = 'done'; S.me = DATA.leader; S.fresh = true; S.meeting = 'none'; render();
+        }
+      }
+      else if (a === 'join-ok') { if (S.me === DATA.leader) S.me = 'minji'; obReset(); go('ob'); }
+      else if (a === 'ob-start') { obReset(); go('ob'); }
+      else if (a === 'ob-next') { S.ob = Math.min(S.ob + 1, 2); S.blk = null; render(); }
+      else if (a === 'ob-prev') { S.ob = Math.max(S.ob - 1, 0); S.blk = null; render(); }
+      else if (a === 'ob-done') { go('home'); toast('내 에이전트가 준비됐어요'); }
+      // 에브리타임 공유 링크: everytime.kr/@아이디 꼴만 읽힌다(시연용)
+      else if (a === 'et-load') {
+        if (!/everytime\.kr\/@[\w.-]+/.test(S.et.url)) { S.et.st = 'fail'; return render(true); }
+        S.et.st = 'reading'; render(true);
+        setTimeout(() => { S.et.st = 'ok'; if (S.screen === 'ob') render(true); }, 900);
+      }
+      else if (a === 'gcal') { S.gcal = true; render(true); toast('구글 캘린더를 연결했어요. 개인 약속 6개를 가져왔어요'); }
+      // 회의 잡기
+      else if (a === 'nm-len') { S.nm.len = Math.min(240, Math.max(30, S.nm.len + +el.dataset.v)); render(true); }
+      else if (a === 'nm-mode') { S.nm.mode = el.dataset.v; render(true); }
+      else if (a === 'nm-start') {
+        if (await ask({ title: '조율을 시작할까요?', body: `'${S.nm.title}' 회의를 팀원 ${DATA.members.length}명의 에이전트가 조율해요. 결과가 나오면 모두에게 알림이 가요.`, ok: '조율 시작', irreversible: false })) {
+          DATA.meeting.title = S.nm.title.trim() || DATA.meeting.title;
+          S.meeting = 'proposed'; S.talk = 'play'; S.shown = 0; S.fresh = false; S.fb = null; S.coord = true;
+          S.resp = { jisu: '대기', minji: '대기', hyunwoo: '대기', seoyeon: '대기' };
+          go('negotiate');
+        }
+      }
+      // 조율 결과
+      else if (a === 'accept') {
+        const say = await ask({ title: '이 시간으로 수락할까요?', body: '이 시간이 어떤지 한 줄 남기면 내 에이전트가 다음 회의부터 참고해요. 비워 둬도 돼요.', ok: '수락하기', irreversible: false, input: '예: 수업 바로 뒤라 조금 빠듯해요', label: '이 시간 어때요' });
+        if (!say) return;
+        feedback(say); S.resp[S.me] = '수락';
+        if (!autoConfirm()) { render(true); if (S.fb?.change) toast('수락했어요. 남긴 말은 다음 회의부터 참고해요'); }
+        const wait = Object.keys(S.resp).filter(k => S.resp[k] === '대기');
+        wait.forEach((w, k) => setTimeout(() => { S.resp[w] = '수락'; if (!autoConfirm()) toast(`${nameOf(w)}가 방금 수락했어요`); if (S.screen === 'proposal') render(true); }, 1500 * (k + 1)));
+      }
+      else if (a === 'reject') {
+        const why = await ask({ title: '조율 결과를 거절할까요?', body: '이유를 한 줄 남기면 판단 에이전트가 다음 라운드에 반영하고, 내 에이전트도 다음 회의부터 참고해요. 비워 둬도 돼요.', ok: '거절하기', irreversible: false, input: '예: 금요일은 역시 힘들어요' });
+        if (why) { feedback(why); S.resp[S.me] = '거절'; render(true); toast('거절을 전달했어요'); }
+      }
+      else if (a === 'fb-undo') { S.fb.undone = true; render(true); toast('선호를 되돌렸어요'); }
+      // 할 일
+      else if (a === 'toggle') { const m = el.dataset.mode; S.open = S.open === id && S.openMode === m ? null : id; S.openMode = m; render(true); }
+      else if (a === 'st-open') {
+        if (task.owner !== S.me) return toast(task.owner ? `상태는 ${nameOf(task.owner)}만 바꿀 수 있어요` : '담당자를 정하면 상태를 바꿀 수 있어요');
+        S.open = S.open === id && S.openMode === 'more' ? null : id; S.openMode = 'more'; render(true);
+      }
+      else if (a === 'status') {
+        const v = el.dataset.v; S.open = null;
+        if (v === 'blocked' && task.status !== 'blocked') {
+          const why = await ask({ title: '막힘으로 바꿀까요?', body: '팀에 바로 알려요. 막힌 이유를 한 줄 남기면 알림에 같이 보여요. 비워 둬도 돼요.', ok: '막힘으로 바꾸기', irreversible: false, input: '예: 인터뷰 녹취가 아직 안 왔어요', label: '막힌 이유' });
+          if (!why) return render(true);
+          task.note = typeof why === 'string' ? why.trim() : '';
+        }
+        if (v !== 'blocked') task.note = '';
+        task.status = v; if (v !== 'done') task.autoDone = null;
+        render(true); if (v === 'blocked') toast('막혔다고 팀에 알렸어요');
+      }
+      else if (a === 'check') {
+        if (task.owner !== S.me) return toast(`${task.owner ? nameOf(task.owner) + '의' : '담당자 없는'} 할 일은 담당자만 완료할 수 있어요`);
+        task.status = task.status === 'done' ? 'todo' : 'done'; if (task.status !== 'done') task.autoDone = null; render(true);
+      }
+      else if (a === 'del') {
+        if (await ask({ title: '이 할 일을 삭제할까요?', body: `'${task.title}'을 할 일에서 삭제해요. ${task.owner ? nameOf(task.owner) + '의 ' : ''}내 할 일에서도 사라져요.`, ok: '삭제', danger: true })) {
+          DATA.tasks.splice(DATA.tasks.indexOf(task), 1); S.open = null; render(true); toast('할 일을 삭제했어요');
+        }
+      }
+      else if (a === 'filter') { S.filter = el.dataset.f; render(true); }
+      else if (a === 'read') { S.read = true; render(true); }
+      else if (a === 'clock') { S.clock = !S.clock; if (S.clock && S.meeting !== 'confirmed') toast('회의를 확정해야 30분 전 알림이 떠요'); render(true); }
+      // 회의록
+      else if (a === 'rec') {
+        S.rec = el.dataset.to;
+        if (S.rec === 'live') { S.recAt = Date.now(); S.live = []; }
+        if (S.rec === 'work') setTimeout(() => { S.rec = 'idle'; S.recorded = true; S.mtg = 'm3'; S.raw = false;
+          if (S.screen === 'meeting') render(); toast('할 일 제안 4개를 만들고, 끝난 일 1개를 완료로 바꿨어요'); }, 1800);
+        render(true);
+      }
+      else if (a === 'go-mtg') { S.mtg = id; S.raw = false; S.add = null; go('meeting'); }
+      // 지금 회의 기록하기: 오늘 잡힌 회의가 있으면 거기에 붙고, 없으면 주제 한 줄(선택)만 받고 바로 시작
+      else if (a === 'rec-now') {
+        if (S.recorded) {
+          const topic = await ask({ title: '지금 회의를 기록할까요?', body: '잡힌 회의가 없어도 바로 시작해요. 끝나면 지난 회의 목록에 들어가요.', ok: '기록 시작', irreversible: false, input: '주제 한 줄 (비워 둬도 돼요)', label: '회의 주제' });
+          if (!topic) return;
+          if (typeof topic === 'string' && topic.trim()) DATA.meetings[0].topic = topic.trim();
+          S.recorded = false; S.adhoc = true;
+        }
+        S.mtg = 'm3'; S.rec = 'idle'; go('meeting');
+      }
+      else if (a === 'raw') { S.raw = !S.raw; render(true); }
+      else if (a === 'auto-toggle') {
+        const [m, s] = sugOf(el), t = DATA.tasks.find(x => x.id === s.task), back = s.state !== 'undone';
+        s.state = back ? 'undone' : 'done'; t.status = back ? 'doing' : 'done'; t.autoDone = back ? null : m.id;
+        render(true); toast(back ? '진행 중으로 되돌렸어요' : '다시 완료로 바꿨어요');
+      }
+      else if (a === 'sug-ok') { const [, s] = sugOf(el); confirmSug(s); render(true); toast(`확정했어요. 이제 할 일 탭에 보여요`); }
+      else if (a === 'sug-all') {
+        const m = DATA.meetings.find(x => x.id === S.mtg), list = m.sugs.filter(s => counted(s) && isPending(s));
+        if (await ask({ title: `할 일 ${list.length}개를 모두 확정할까요?`, body: `확정하면 할 일 탭에 들어가요. 담당자가 비어 있는 것은 담당자 없음으로 확정돼요. 확정한 사람은 ${nameOf(S.me)}로 남아요.`, ok: '모두 확정', irreversible: false })) {
+          list.forEach(confirmSug); render(true); toast(`${list.length}개를 확정했어요`);
+        }
+      }
+      else if (a === 'sug-drop') {
+        const [, s] = sugOf(el), t = DATA.tasks.find(x => x.id === s.task);
+        if (await ask({ title: '이 제안을 삭제할까요?', body: `'${t.title}' 제안을 삭제해요. 할 일로 등록되지 않아요.`, ok: '삭제', danger: true })) {
+          DATA.tasks.splice(DATA.tasks.indexOf(t), 1); s.state = 'deleted'; render(true);
+        }
+      }
+      else if (a === 'add-open') { S.add = id; S.addDraft = { title: '', owner: '', due: '' }; render(true); }
+      else if (a === 'add-cancel') { S.add = null; render(true); }
+      else if (a === 'add-ok') {
+        const d = S.addDraft, m = DATA.meetings.find(x => x.id === id);
+        if (!d.title.trim()) return toast('할 일 제목을 적어 주세요');
+        if (!d.due) return toast('기한을 골라 주세요');
+        const t = { id: 'u' + Date.now(), title: d.title.trim(), owner: d.owner || null, due: d.due, status: 'todo', src: m ? `${m.date} 회의` : '직접 추가', mtg: m?.id, by: S.me };
+        DATA.tasks.push(t); if (m) m.sugs.push({ kind: 'new', task: t.id }); else S.filter = '전체';
+        S.add = null; render(true); toast(m ? '추가했어요. 할 일 탭에 바로 보여요' : '할 일을 추가했어요');
+      }
+      else if (a === 'sug-keep') { const [, s] = sugOf(el); s.state = 'kept'; render(true); toast('할 일을 그대로 두었어요'); }
+      else if (a === 'sug-del') {
+        const [, s] = sugOf(el), t = DATA.tasks.find(x => x.id === s.task);
+        if (await ask({ title: '이 할 일을 삭제할까요?', body: `'${t.title}'(${nameOf(t.owner)} 담당)을 할 일에서 삭제해요. ${nameOf(t.owner)}의 내 할 일에서도 사라져요.`, ok: '삭제', danger: true })) {
+          DATA.tasks.splice(DATA.tasks.indexOf(t), 1); s.state = 'deleted'; render(true);
+        }
+      }
+      // 나
+      else if (a === 'pref') { S.pref[el.dataset.k] = el.dataset.v; S.quote = null; render(true); }
+      else if (a === 'pref-when') { const v = el.dataset.v, w = S.pref.when;
+        if (w.includes(v) && w.length === 1) return toast('하나는 골라야 해요');
+        S.pref.when = WHEN.filter(o => o === v ? !w.includes(v) : w.includes(o)); S.quote = null; render(true); }
+      else if (a === 'week') { S.week = el.dataset.v; render(true); }
+      else if (a === 'quote-edit') { S.quoteEdit = true; render(true); }
+      else if (a === 'quote-cancel') { S.quoteEdit = false; render(true); }
+      else if (a === 'quote-reset') { S.quote = null; render(true); toast('조건으로 만든 원래 문장으로 돌렸어요'); }
+      else if (a === 'sync') { S.synced = true; render(true); toast('에브리타임·구글 캘린더 일정을 다시 확인했어요'); }
+      else if (a === 'quote-save') {
+        const v = document.getElementById('quote-in').value.trim().replace(/[“”]/g, '');
+        if (!v) return toast('에이전트가 할 말을 한 줄은 써 주세요');
+        S.quote = v; S.quoteEdit = false; render(true); toast('저장했어요. 다음 조율부터 이 문장으로 말해요');
+      }
+      else if (a === 'blk-new') { S.blk = 'new'; S.grp = []; S.draft = { k: 'busy', label: '', src: 'self', days: { 0: [18, 20] } }; S.scrollTo = 'blk-form'; render(true); }
+      else if (a === 'blk-edit') {
+        const b = DATA.week[+el.dataset.i];
+        if (b.src === 'cal') return toast('구글 캘린더 약속은 캘린더에서 고쳐요. 이름은 팀원에게 안 보여요');
+        S.grp = DATA.week.map((w, j) => j).filter(j => { const w = DATA.week[j]; return w.label === b.label && w.k === b.k && w.src === b.src; });
+        S.blk = +el.dataset.i; S.draft = { k: b.k, label: b.label, src: b.src, days: Object.fromEntries(S.grp.map(j => [DATA.week[j].d, [DATA.week[j].s, DATA.week[j].e]])) };
+        S.scrollTo = 'blk-form'; render(true);
+      }
+      else if (a === 'draft-k') { S.draft[el.dataset.k] = el.dataset.v; render(true); }
+      else if (a === 'draft-day') {
+        const d = +el.dataset.v, D = S.draft.days, last = Object.values(D).at(-1);
+        if (d in D) { if (Object.keys(D).length === 1) return toast('요일을 하나는 골라야 해요'); delete D[d]; }
+        else D[d] = last ? [...last] : [18, 20];
+        render(true);
+      }
+      else if (a === 'blk-cancel') { S.blk = null; S.grp = []; render(true); }
+      else if (a === 'blk-save') {
+        const b = S.draft, isNew = S.blk === 'new', days = Object.keys(b.days).map(Number).sort();
+        const bad = days.find(d => b.days[d][1] <= b.days[d][0]);
+        if (bad !== undefined) return toast(`${WD[bad]}요일 끝나는 시간이 시작보다 늦어야 해요`);
+        if (!b.label.trim()) b.label = BLK_K[b.k];
+        [...S.grp].sort((x, y) => y - x).forEach(j => DATA.week.splice(j, 1));
+        days.forEach(d => DATA.week.push({ d, s: b.days[d][0], e: b.days[d][1], k: b.k, label: b.label, src: b.src }));
+        S.blk = null; S.grp = []; render(true);
+        toast(isNew ? `매주 ${days.map(d => WD[d]).join('·')}요일에 넣었어요. 에이전트가 이 시간은 빼고 조율해요` : '일정을 고쳤어요');
+      }
+      else if (a === 'blk-del') {
+        const b = S.draft, days = Object.keys(b.days).map(Number).sort();
+        if (await ask({ title: '이 일정을 삭제할까요?', body: `매주 ${days.map(d => `${WD[d]} ${b.days[d][0]}–${b.days[d][1]}시`).join(', ')} '${b.label}'을 내 시간에서 삭제해요. 다음 조율부터 이 시간은 비어 있는 것으로 봐요.`, ok: '삭제', danger: true })) {
+          [...S.grp].sort((x, y) => y - x).forEach(j => DATA.week.splice(j, 1)); S.blk = null; S.grp = []; render(true); toast('일정을 삭제했어요');
+        }
+      }
+    });
+    // 할 일 길게 누름(0.5초) = 고치기. 노트북 시연을 위해 마우스 길게 누름과 우클릭도 같은 동작
+    let pressTimer = null, longPressed = false;
+    const openEdit = id => { S.open = id; S.openMode = 'edit'; render(true); };
+    document.addEventListener('pointerdown', e => {
+      longPressed = false; const h = e.target.closest?.('[data-press]'); if (!h || e.button !== 0) return;
+      pressTimer = setTimeout(() => { longPressed = true; openEdit(h.dataset.press); }, 500);
+    });
+    ['pointerup', 'pointercancel', 'scroll'].forEach(ev => document.addEventListener(ev, () => clearTimeout(pressTimer), true));
+    document.addEventListener('contextmenu', e => { const h = e.target.closest('[data-press]'); if (h) { e.preventDefault(); clearTimeout(pressTimer); openEdit(h.dataset.press); } });
+    // 글자 칸은 다시 그리지 않고 값만 담는다(바로 옆 버튼 누름이 끊기지 않게)
+    document.addEventListener('input', e => {
+      const el = e.target.closest('[data-action]'); if (!el) return;
+      if (el.dataset.action === 'et-url') S.et.url = el.value.trim();
+      else if (el.dataset.action === 'add-f') S.addDraft[el.dataset.k] = el.dataset.k === 'due' ? dueOf(el.value) : el.value;
+      else if (el.dataset.action === 'pref-avoid') { S.pref.avoid = el.value.trim(); S.quote = null; }
+    });
+    document.addEventListener('change', e => {
+      const el = e.target.closest('[data-action]'); if (!el) return;
+      const a = el.dataset.action, task = DATA.tasks.find(t => t.id === el.dataset.id);
+      if (a === 'et-url' || a === 'pref-avoid' || a === 'add-f') return;      if (a === 'edit') {
+        const k = el.dataset.k;
+        if (k === 'owner') { task.owner = el.value || null; if (el.value) toast(`${nameOf(el.value)}에게 맡겼어요${task.ai ? '. 확정은 아직이에요' : ''}`); }
+        else task[k] = (k === 'due' ? dueOf(el.value) : el.value.trim()) || task[k];
+      }
+      else if (a === 'draft') { S.draft.label = el.value; return; }
+      else if (a === 'draft-t') { S.draft.days[el.dataset.d][+el.dataset.i] = +el.value; return; }
+      else if (a === 'pref-sel') { S.pref[el.dataset.k] = +el.value; S.quote = null; }
+      else if (a === 'room') S.room[el.dataset.k] = el.value;
+      else if (a === 'nm') S.nm[el.dataset.k] = el.value;
+      render(true);
+    });
+    setInterval(() => {
+      const t = $('#tick'); if (t) t.textContent = countdown();
+      const r = $('#rec-clock'); if (r) { const s = Math.floor((Date.now() - S.recAt) / 1000); r.textContent = `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`; }
+      // 받아적는 중(시연용): LIVE_MS마다 한 줄씩 쌓인다
+      const L = DATA.meetings[0].lines, lv = $('#live');
+      if (S.rec === 'live' && lv && S.live.length < Math.min(L.length, Math.floor((Date.now() - S.recAt) / LIVE_MS))) {
+        S.live.push(L[S.live.length]);
+        lv.innerHTML = liveLines(); lv.scrollTop = lv.scrollHeight;
+      }
+    }, 1000);
+
+    render();
+  </script>
+</body>
+</html>
