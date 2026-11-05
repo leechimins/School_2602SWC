@@ -6,7 +6,6 @@ MeetingDetailOut을 돌려줘서 조립을 한 곳에 둔다.
 
 from __future__ import annotations
 
-from sqlalchemy.orm import aliased
 from sqlmodel import Session, col, func, select
 
 from app.meeting.models import Meeting, MeetingResponse
@@ -14,14 +13,14 @@ from app.minutes.models import Minutes, MinutesItem, Task, TranscriptSegment
 from app.minutes.schemas import (
     MeetingDetailOut,
     MeetingSummaryOut,
-    MeetingTaskOut,
     MinutesOut,
     PersonOut,
     SuggestionOut,
     TranscriptLineOut,
 )
+from app.minutes.tasks import members, task_outs, user_names
 from app.shared.enums import MeetingStatus, MinutesItemKind, ResponseState
-from app.shared.models import Membership, User
+from app.shared.models import User
 
 # 회의록 목록에 나오는 회의. 회의안(proposed)과 취소된 회의는 기록할 대상이 아니다.
 RECORDABLE = (MeetingStatus.CONFIRMED, MeetingStatus.DONE)
@@ -29,12 +28,7 @@ RECORDABLE = (MeetingStatus.CONFIRMED, MeetingStatus.DONE)
 
 def member_names(db: Session, room_id: int) -> dict[str, int]:
     """이 방 팀원의 이름 → id. 직접 쓰기에서 화자를 가릴 때 쓴다."""
-    rows = db.exec(
-        select(User.name, User.id)
-        .join(Membership, Membership.user_id == User.id)
-        .where(Membership.room_id == room_id)
-    ).all()
-    return {name: user_id for name, user_id in rows}
+    return {user.name: user.id for user in members(db, room_id)}
 
 
 def _attendees(db: Session, meeting_id: int) -> list[PersonOut]:
@@ -72,25 +66,25 @@ def _minutes(db: Session, meeting_id: int) -> MinutesOut | None:
     )
 
 
-def meeting_detail(db: Session, meeting: Meeting) -> MeetingDetailOut:
+def meeting_detail(db: Session, meeting: Meeting, viewer_id: int) -> MeetingDetailOut:
+    """확정된 할 일은 할 일 목록과 같은 TaskOut이라 viewer_id(can_* 판단)가 필요하다."""
     assert meeting.id is not None
 
-    lines = db.exec(
-        select(TranscriptSegment, User.name)
-        .join(User, User.id == TranscriptSegment.speaker_user_id, isouter=True)
+    segments = db.exec(
+        select(TranscriptSegment)
         .where(TranscriptSegment.meeting_id == meeting.id)
         .order_by(TranscriptSegment.seq)
     ).all()
-
-    assignee = aliased(User)
-    confirmer = aliased(User)
-    task_rows = db.exec(
-        select(Task, assignee.name, confirmer.name)
-        .join(assignee, assignee.id == Task.assignee_user_id, isouter=True)
-        .join(confirmer, confirmer.id == Task.confirmed_by, isouter=True)
+    tasks = db.exec(
+        select(Task)
         .where(Task.meeting_id == meeting.id, col(Task.dropped).is_(False))
         .order_by(Task.id)
     ).all()
+    suggestions = [t for t in tasks if not t.confirmed]
+    names = user_names(
+        db,
+        {s.speaker_user_id for s in segments} | {t.assignee_user_id for t in suggestions},
+    )
 
     return MeetingDetailOut(
         id=meeting.id,
@@ -105,64 +99,25 @@ def meeting_detail(db: Session, meeting: Meeting) -> MeetingDetailOut:
             TranscriptLineOut(
                 seq=segment.seq,
                 speaker_user_id=segment.speaker_user_id,
-                speaker_name=name,
+                speaker_name=names.get(segment.speaker_user_id),
                 text=segment.text,
             )
-            for segment, name in lines
+            for segment in segments
         ],
         minutes=_minutes(db, meeting.id),
-        tasks=[
-            MeetingTaskOut(
-                id=task.id,
-                title=task.title,
-                due_date=task.due_date,
-                assignee_user_id=task.assignee_user_id,
-                assignee_name=assignee_name,
-                state=task.state,
-                confirmed_by_name=confirmer_name,
-                confirmed_at=task.confirmed_at,
-            )
-            for task, assignee_name, confirmer_name in task_rows
-            if task.confirmed
-        ],
-        suggestions=[
-            SuggestionOut(
-                id=task.id,
-                title=task.title,
-                due_date=task.due_date,
-                assignee_user_id=task.assignee_user_id,
-                assignee_name=assignee_name,
-            )
-            for task, assignee_name, _ in task_rows
-            if not task.confirmed
-        ],
+        tasks=task_outs(db, [t for t in tasks if t.confirmed], viewer_id),
+        suggestions=[suggestion_out(t, names) for t in suggestions],
     )
 
 
-def tasks_out(db: Session, task_ids: list[int]) -> list[MeetingTaskOut]:
-    """확정된 할 일들을 담당자·확정한 사람 이름과 함께. 제안 확정 응답에 쓴다."""
-    assignee = aliased(User)
-    confirmer = aliased(User)
-    rows = db.exec(
-        select(Task, assignee.name, confirmer.name)
-        .join(assignee, assignee.id == Task.assignee_user_id, isouter=True)
-        .join(confirmer, confirmer.id == Task.confirmed_by, isouter=True)
-        .where(col(Task.id).in_(task_ids))
-        .order_by(Task.id)
-    ).all()
-    return [
-        MeetingTaskOut(
-            id=task.id,
-            title=task.title,
-            due_date=task.due_date,
-            assignee_user_id=task.assignee_user_id,
-            assignee_name=assignee_name,
-            state=task.state,
-            confirmed_by_name=confirmer_name,
-            confirmed_at=task.confirmed_at,
-        )
-        for task, assignee_name, confirmer_name in rows
-    ]
+def suggestion_out(task: Task, names: dict[int, str]) -> SuggestionOut:
+    return SuggestionOut(
+        id=task.id,
+        title=task.title,
+        due_date=task.due_date,
+        assignee_user_id=task.assignee_user_id,
+        assignee_name=names.get(task.assignee_user_id),
+    )
 
 
 def meeting_list(db: Session, room_id: int) -> list[MeetingSummaryOut]:

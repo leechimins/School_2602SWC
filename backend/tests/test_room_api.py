@@ -7,9 +7,14 @@ from __future__ import annotations
 
 from datetime import datetime
 
+import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import Engine, text
+from sqlalchemy.exc import OperationalError
 from sqlmodel import Session, select
 
+from app.room.router import join_room
+from app.room.schemas import JoinIn
 from app.room.service import INVITE_ALPHABET
 from app.shared import demo_clock
 from app.shared.base import KST
@@ -265,6 +270,30 @@ def test_정원이_찬_방에는_못_들어간다(
 
     assert res.status_code == 409
     assert res.json()["code"] == "ROOM_FULL"
+
+
+def test_들어가기는_방_행을_잠그고_정원을_센다(
+    seeded: Session, test_engine: Engine
+) -> None:
+    """마지막 자리에 둘이 동시에 들어오면 정원을 넘을 수 있었다.
+
+    한 연결이 방 행을 잡고 있는 동안 다른 연결의 들어가기는 기다려야 한다.
+    TestClient는 세션 하나를 공유해 동시 요청을 못 만들므로 연결 둘로 본다.
+    """
+    joiner = _new_user(seeded, "다섯째")
+    seeded.commit()
+    first = Session(test_engine)
+    second = Session(test_engine)
+    try:
+        first.exec(select(Room).where(Room.invite_code == INVITE_CODE).with_for_update()).one()
+        second.exec(text("SET LOCAL lock_timeout = '300ms'"))
+        with pytest.raises(OperationalError):
+            join_room(JoinIn(invite_code=INVITE_CODE), user_id=joiner.id, db=second)
+    finally:
+        second.rollback()
+        first.rollback()
+        second.close()
+        first.close()
 
 
 def test_없는_초대_코드는_404다(client: TestClient, seeded, login) -> None:

@@ -64,6 +64,9 @@ def test_제안을_한꺼번에_확정하면_할_일이_된다(
     assert [t["id"] for t in tasks] == ids
     assert all(t["confirmed_by_name"] == "민지" for t in tasks)
     assert all(t["confirmed_at"].startswith("2026-11-10T18:00:00") for t in tasks)
+    # 할 일 목록과 같은 모양
+    assert all(t["source"]["topic"] == "중간 발표 자료 나누기" for t in tasks)
+    assert all(t["can_edit"] is True and t["is_late"] is False for t in tasks)
     # 담당자 없이도 확정된다
     assert sum(t["assignee_user_id"] is None for t in tasks) == 2
 

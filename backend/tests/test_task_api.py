@@ -251,6 +251,20 @@ def test_풀렸다가_다시_막히면_다시_알린다(
     assert len(_notes(seeded, NotificationKind.BLOCKED, task)) == 6
 
 
+def test_시계를_멈춰_둬도_다시_막히면_다시_알린다(
+    client: TestClient, seeded: Session, room: Room, login
+) -> None:
+    """시연 중에는 시계를 멈춰 둔다. 시계 시각이 같아도 두 번째 막힘이 가야 한다."""
+    task = _task(seeded, "발표 슬라이드 초안")
+    login("민지")
+
+    client.patch(_url(room, f"/{task.id}/status"), json={"state": "blocked"})
+    client.patch(_url(room, f"/{task.id}/status"), json={"state": "doing"})
+    client.patch(_url(room, f"/{task.id}/status"), json={"state": "blocked"})
+
+    assert len(_notes(seeded, NotificationKind.BLOCKED, task)) == 6
+
+
 def test_완료로_바꾸면_완료_알림이_간다(
     client: TestClient, seeded: Session, room: Room, login
 ) -> None:

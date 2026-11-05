@@ -40,9 +40,12 @@ def _constraint(exc: IntegrityError) -> str | None:
     return None
 
 
-def _room_by_code(db: Session, code: str) -> Room:
+def _room_by_code(db: Session, code: str, *, lock: bool = False) -> Room:
     # 소문자로 쳐도 들어가게 한다. 코드는 대문자로만 만든다.
-    room = db.exec(select(Room).where(Room.invite_code == code.strip().upper())).first()
+    query = select(Room).where(Room.invite_code == code.strip().upper())
+    if lock:
+        query = query.with_for_update()
+    room = db.exec(query).first()
     if room is None:
         raise HTTPException(
             status.HTTP_404_NOT_FOUND,
@@ -123,7 +126,9 @@ def join_room(
     - 정원이 다 찼으면 409 `ROOM_FULL`.
     - 없는 코드면 404 `NOT_FOUND`.
     """
-    room = _room_by_code(db, body.invite_code)
+    # 방 행을 잠가 둔다. 두 사람이 마지막 자리에 동시에 들어오면 둘 다
+    # 정원 검사를 통과해 정원을 넘을 수 있다. 뒤에 온 쪽은 앞쪽 커밋을 기다린다.
+    room = _room_by_code(db, body.invite_code, lock=True)
     assert room.id is not None
 
     already = db.exec(
