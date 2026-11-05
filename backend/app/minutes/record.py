@@ -139,6 +139,32 @@ def meeting_detail(db: Session, meeting: Meeting) -> MeetingDetailOut:
     )
 
 
+def tasks_out(db: Session, task_ids: list[int]) -> list[MeetingTaskOut]:
+    """확정된 할 일들을 담당자·확정한 사람 이름과 함께. 제안 확정 응답에 쓴다."""
+    assignee = aliased(User)
+    confirmer = aliased(User)
+    rows = db.exec(
+        select(Task, assignee.name, confirmer.name)
+        .join(assignee, assignee.id == Task.assignee_user_id, isouter=True)
+        .join(confirmer, confirmer.id == Task.confirmed_by, isouter=True)
+        .where(col(Task.id).in_(task_ids))
+        .order_by(Task.id)
+    ).all()
+    return [
+        MeetingTaskOut(
+            id=task.id,
+            title=task.title,
+            due_date=task.due_date,
+            assignee_user_id=task.assignee_user_id,
+            assignee_name=assignee_name,
+            state=task.state,
+            confirmed_by_name=confirmer_name,
+            confirmed_at=task.confirmed_at,
+        )
+        for task, assignee_name, confirmer_name in rows
+    ]
+
+
 def meeting_list(db: Session, room_id: int) -> list[MeetingSummaryOut]:
     meetings = db.exec(
         select(Meeting)
