@@ -88,7 +88,7 @@
 | Meeting | ~~후보 중 팀이 고르기~~ | ~~POST~~ | ~~`/rooms/{room_id}/schedulings/{id}/pick`~~ | A | — | **빗금 11/5**: 사람이 고르는 단계를 없앴습니다. 3라운드 실패·전원 가능한 시간 없음 둘 다 판단 에이전트가 불편·양보 점수로 정하고 **바로 확정**합니다 | 안 만듦 | 안 만듦 |
 | Meeting | 기간 넓혀 다시 조율 | POST | `/rooms/{room_id}/schedulings/{id}/widen` | A | Medium | 새 scheduling_id를 받음 | 미착수 | 미착수 |
 | Meeting | ~~불참안 받아들이기~~ | ~~POST~~ | ~~`/rooms/{room_id}/schedulings/{id}/accept-absent`~~ | A | — | **빗금 11/5**: `pick`과 같은 이유입니다. 전원 가능한 시간이 없으면 판단 에이전트가 불참안까지 포함해 불편·양보 점수로 정하고 바로 확정하므로, 사람이 "받아들이기"를 누를 자리가 없습니다 | 안 만듦 | 안 만듦 |
-| Meeting | 거절 뒤 다시 조율 | POST | `/rooms/{room_id}/schedulings/{id}/rerun` | A | Medium | 권한 미정 — 팀원도 되는지 | 미착수 | 미착수 |
+| Meeting | 거절 뒤 다시 조율 | POST | `/rooms/{room_id}/schedulings/{id}/rerun` | A | Medium | **11/5**: 권한 정해졌습니다 — **거절한 사람이 누구든 자동으로 돕니다.** 팀장 승인을 기다리지 않습니다. 거절할 때 고른 구간(이 시간만 / 그날 종일)이 그 사람 시간표에 일회성 일정으로 들어간 뒤 돕니다. 라운드는 조율 하나에 3이 예산이라 **남은 만큼만** 돌고(`scheduling.rounds_used`), 예산이 0이면 다시 조율하지 않고 그 사람을 불참으로 둔 채 회의를 유지합니다 | 미착수 | 미착수 |
 | Meeting | 회의안 목록 보기 | GET | `/rooms/{room_id}/proposals` | A | Low | **11/5**: `GET /rooms/{room_id}/schedule`이 같은 일을 합니다(조율 중·잡힘·지남 세 묶음). 따로 쓸 화면이 생기면 만듭니다 | 안 만듦 | 안 만듦 |
 | Meeting | 회의안 보기 | GET | `/rooms/{room_id}/proposals/{id}` | A | High | 차선책 빠짐. 보는 사람마다 내용이 다름 | **완료** | 미착수 |
 | Meeting | 수락·거절하기 | POST | `/rooms/{room_id}/proposals/{id}/respond` | A | High | 피드백 한 줄 함께. 전원 수락 시 자동 확정. **조정된 회의(`settled`)는 이미 확정이라 피드백만 받습니다** | **완료** | 미착수 |
