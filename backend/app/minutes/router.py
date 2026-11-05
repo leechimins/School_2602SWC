@@ -398,8 +398,11 @@ def list_tasks(
 
     - 확정 전 AI 제안은 나오지 않습니다. 대신 `suggestion_count`로 수를 줍니다.
     - "필요 없음"으로 뺀 할 일은 나오지 않습니다.
+    - 부를 때 늦음 판정도 돌려서 늦은 할 일에 늦음 알림을 냅니다 (같은 건은 한 번만).
     """
     require_member(db, room_id, user_id)
+    task_calc.emit_late(db, room_id)
+    db.commit()
 
     query = task_calc.live_tasks(room_id)
     if state is not None:
@@ -434,6 +437,8 @@ def list_my_tasks(
 ) -> MyTaskListOut:
     """내가 담당인 확정된 할 일. 기한 순이고 기한이 없으면 맨 뒤입니다."""
     require_member(db, room_id, user_id)
+    task_calc.emit_late(db, room_id)
+    db.commit()
 
     tasks = db.exec(
         task_calc.live_tasks(room_id).where(Task.assignee_user_id == user_id)
@@ -507,6 +512,7 @@ def change_status(
     """시작 전 · 진행 중 · 막힘 · 완료 사이를 어느 방향으로든 바꿉니다.
 
     - 담당자만 바꿀 수 있습니다. 아니면 403 `NOT_ASSIGNEE`. 담당자가 없는 할 일은 전원.
+    - 막힘·완료로 바뀌면 나머지 팀원에게 알림이 갑니다.
     - 지금과 같은 상태를 보내면 아무 일도 일어나지 않습니다.
     """
     require_member(db, room_id, user_id)
@@ -523,6 +529,9 @@ def change_status(
     if task.state != body.state:
         task.state = body.state
         db.add(task)
+        actor = db.get(User, user_id)
+        assert actor is not None
+        task_calc.emit_status(db, task, actor, demo_clock.now(db))
         db.commit()
         db.refresh(task)
     return _task_out(db, task, user_id)

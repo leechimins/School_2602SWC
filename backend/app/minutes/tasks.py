@@ -1,12 +1,12 @@
-"""할 일 계산 — 늦음 판정, 목록 정렬, 사람별 개수.
+"""할 일 계산 — 늦음 판정, 목록 정렬, 사람별 개수, 알림.
 
 AI를 쓰지 않는다. "지금"은 전부 시연 시계에서 읽는다 — 시계를 옮기면
-늦음 뱃지가 같이 움직여야 한다.
+늦음 뱃지와 늦음 알림이 같이 움직여야 한다.
 """
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 
 from sqlmodel import Session, col, select
 
@@ -15,8 +15,9 @@ from app.minutes.models import Task
 from app.minutes.schemas import TaskCountOut, TaskOut, TaskSourceOut
 from app.shared import demo_clock
 from app.shared.base import KST
-from app.shared.enums import TaskState
+from app.shared.enums import NotificationKind, TaskState
 from app.shared.models import Membership, User
+from app.shared.notify import emit
 
 
 def today(db: Session) -> date:
@@ -147,3 +148,65 @@ def task_counts(db: Session, room_id: int) -> list[TaskCountOut]:
         for user in members(db, room_id)
     ]
 
+
+# ── 알림 ────────────────────────────────────────────────────────────
+
+
+def emit_late(db: Session, room_id: int) -> int:
+    """늦은 할 일마다 늦음 알림을 낸다. 새로 생긴 장수를 돌려준다.
+
+    여러 번 불러도 된다. 중복 방지 키에 기한을 넣어서 같은 할 일·같은
+    기한이면 한 번만 뜨고, 기한이 바뀌면 다시 뜬다.
+
+    받는 사람은 담당자. 담당자가 없으면 방 팀원 전원 — 누구 일도 아닌 채로
+    늦어지는 게 팀이 가장 놓치기 쉬운 경우다.
+
+    커밋하지 않는다. 부르는 쪽이 자기 트랜잭션에서 커밋한다.
+    """
+    on = today(db)
+    late = [t for t in db.exec(live_tasks(room_id)).all() if is_late(t, on)]
+    if not late:
+        return 0
+    everyone = [u.id for u in members(db, room_id)]
+
+    created = 0
+    for task in late:
+        assert task.due_date is not None
+        created += emit(
+            db,
+            room_id=room_id,
+            user_ids=[task.assignee_user_id] if task.assignee_user_id else everyone,
+            kind=NotificationKind.LATE,
+            reason=f"'{task.title}' 기한({task.due_date.month}/{task.due_date.day})이 지났습니다.",
+            dedupe=f"task{task.id}:due{task.due_date:%Y%m%d}",
+            task_id=task.id,
+        )
+    return created
+
+
+def emit_status(db: Session, task: Task, actor: User, at: datetime) -> int:
+    """막힘·완료로 바뀌었을 때 나머지 팀원에게 알린다. 다른 상태면 0.
+
+    바꾼 사람 본인에게는 보내지 않는다. 중복 방지 키에 바뀐 시각을 넣어
+    막혔다가 풀렸다가 다시 막히면 다시 알린다.
+    """
+    if task.state == TaskState.BLOCKED:
+        kind = NotificationKind.BLOCKED
+        # 조사를 제목 받침에 맞추지 않아도 되는 문장으로 쓴다 ("에", "할 일을")
+        reason = f"{actor.name}님이 '{task.title}'에서 막혔다고 표시했습니다."
+    elif task.state == TaskState.DONE:
+        kind = NotificationKind.DONE
+        reason = f"{actor.name}님이 '{task.title}' 할 일을 완료했습니다."
+    else:
+        return 0
+
+    others = [u.id for u in members(db, task.room_id) if u.id != actor.id]
+    return emit(
+        db,
+        room_id=task.room_id,
+        user_ids=others,
+        kind=kind,
+        reason=reason,
+        dedupe=f"task{task.id}:at{at:%Y%m%d%H%M%S%f}",
+        task_id=task.id,
+    )
