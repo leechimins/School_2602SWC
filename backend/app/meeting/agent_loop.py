@@ -480,7 +480,7 @@ def _propose(
         meeting.id,
         [c.user_id for c in costs],
         NotificationKind.MEETING_PROPOSED,
-        f"{scheduling.topic} 회의 시간이 나왔습니다. 수락·거절해 주세요.",
+        f"{scheduling.topic} 회의 일정이 나왔습니다. 수락·거절해 주세요.",
     )
     db.commit()
 
