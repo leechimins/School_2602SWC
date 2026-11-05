@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
@@ -110,6 +111,12 @@ def test_회의록에_원문_요약_할_일_제안이_다_온다(
     # 직접 추가한 할 일은 출처 회의가 없어 여기 안 나온다
     assert len(body["tasks"]) == 5
     assert all(t["confirmed_by_name"] == "지수" for t in body["tasks"])
+    # 할 일 목록과 같은 모양이라 프론트가 할 일 행 하나로 그린다
+    task = next(t for t in body["tasks"] if t["title"] == "프로토타입 화면 구현")
+    assert task["source"]["topic"] == "중간 발표 자료 나누기"
+    assert task["can_change_status"] is True  # 현우가 담당
+    assert task["can_edit"] is True
+    assert "is_late" in task
     assert len(body["suggestions"]) == 3
     assert [a["name"] for a in body["attendees"]] == ["지수", "민지", "현우", "서연"]
 
@@ -184,10 +191,39 @@ def test_잡힌_회의에_기록을_붙인다(client: TestClient, seeded: Sessio
     meeting = _meeting(seeded, "역할 나누기")
     login("서연")
 
+    before = len(seeded.exec(select(Meeting)).all())
+
     res = client.post(_url(room), json={"meeting_id": meeting.id})
 
-    assert res.status_code == 201
+    # 새로 만든 게 아니라 있는 회의를 돌려주므로 201이 아니라 200
+    assert res.status_code == 200, res.text
     assert res.json()["id"] == meeting.id
+    assert len(seeded.exec(select(Meeting)).all()) == before
+
+
+@pytest.mark.parametrize("status", [MeetingStatus.PROPOSED, MeetingStatus.CANCELLED])
+def test_확정_전이나_취소된_회의에는_직접_쓸_수_없다(
+    client: TestClient, seeded: Session, login, status: MeetingStatus
+) -> None:
+    room = _room(seeded)
+    meeting = Meeting(
+        room_id=room.id,
+        topic="조율 중",
+        start_at=datetime(2026, 11, 12, 14, tzinfo=KST),
+        end_at=datetime(2026, 11, 12, 16, tzinfo=KST),
+        mode=Mode.ONLINE,
+        status=status,
+    )
+    seeded.add(meeting)
+    seeded.commit()
+    login("지수")
+
+    res = client.put(_url(room, f"/{meeting.id}/transcript"), json={"text": "지수: 안녕"})
+
+    assert res.status_code == 409
+    assert res.json()["code"] == "NOT_CONFIRMED"
+    seeded.refresh(meeting)
+    assert meeting.transcript_mode is None
 
 
 def test_회의안에는_기록을_붙일_수_없다(
