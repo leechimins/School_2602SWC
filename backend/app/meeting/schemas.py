@@ -75,7 +75,7 @@ class SchedulingOut(SQLModel):
 
 
 class ResponderOut(SQLModel):
-    """회의안에 답할 사람 한 명. 내 칸이든 남의 칸이든 같은 모양이다.
+    """회의에 답할 사람 한 명. 내 칸이든 남의 칸이든 같은 모양이다.
 
     **score가 없다.** 남의 불편은 burden 세 단계로만 나간다(명세 권장
     규칙 3). 내 숫자는 ProposalOut.my_score에 따로 담는다 — 그래야 이
@@ -97,7 +97,7 @@ class ResponderOut(SQLModel):
 
 
 class ProposalOut(SQLModel):
-    """회의안 하나. "회의 일정 조율 확인" 화면이 이걸로 그려진다.
+    """회의 하나. "회의 일정 조율 확인" 화면이 이걸로 그려진다.
 
     보는 사람마다 내용이 다르다 — my_*는 요청한 사람 것이다. 명세에
     "보는 사람마다 내용이 다름"이라고 적힌 이유다.

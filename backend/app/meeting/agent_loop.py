@@ -62,7 +62,7 @@ def run_rounds(db: Session, scheduling: Scheduling) -> Iterator[Utterance]:
       팀원이 각자 원하는 시간을 어필 → 판단이 그중에서 고름 → 수락·거절
 
     끝 상태를 여기서 정한다:
-      agreed   3라운드 안에 전원이 수락 → 회의안(proposed)
+      agreed   3라운드 안에 전원이 수락 → 회의(proposed)
       settled  합의 실패 또는 전원 가능한 시간 없음 → 판단이 정하고 **바로 확정**
       failed   후보가 아예 없음
     """
@@ -457,7 +457,7 @@ def _propose(
     candidate: CandidateSlot,
     costs: Sequence[SlotCost],
 ) -> None:
-    """합의됐다. 회의안을 만든다 — 아직 확정이 아니라 proposed다.
+    """합의됐다. 회의를 만든다 — 아직 확정이 아니라 proposed다.
 
     팀원 수만큼 meeting_response를 pending으로 깔아 둔다. 그래야 "누가 아직
     안 답했는지"를 이름으로 보여 줄 수 있다(브리프).
@@ -480,7 +480,7 @@ def _propose(
         meeting.id,
         [c.user_id for c in costs],
         NotificationKind.MEETING_PROPOSED,
-        f"{scheduling.topic} 회의안이 나왔습니다. 수락·거절해 주세요.",
+        f"{scheduling.topic} 회의 시간이 나왔습니다. 수락·거절해 주세요.",
     )
     db.commit()
 
@@ -546,7 +546,7 @@ def _tell(
 ) -> None:
     """알림을 깐다. 못 오는 사람도 받는다 — 자기가 빠지는 회의라서 더 알아야 한다.
 
-    dedupe가 회의 하나당 하나다. 같은 회의의 회의안 알림과 확정 알림은
+    dedupe가 회의 하나당 하나다. 같은 회의의 회의 알림과 확정 알림은
     kind가 달라 서로를 막지 않는다(shared/notify.emit이 앞에 kind를 붙인다).
     """
     emit(
@@ -578,7 +578,7 @@ def _make_meeting(
         mode=_decide_mode(db, scheduling.mode, [c.user_id for c in costs]),
         status=status,
         rationale=_rationale(db, scheduling.id),
-        # 회의안 화면이 이걸로 slot_cost를 찾아 "내 불편 3/5"를 보여 준다.
+        # 회의 화면이 이걸로 slot_cost를 찾아 "내 불편 3/5"를 보여 준다.
         # 안 채우면 (scheduling_id, start_at)으로 되짚어야 한다.
         candidate_slot_id=candidate.id,
     )
@@ -623,7 +623,7 @@ def award_yield(
 
 
 def _rationale(db: Session, scheduling_id: int) -> str:
-    """판단 에이전트의 마지막 말. 회의안 화면이 "왜 이 시간인지"로 쓴다."""
+    """판단 에이전트의 마지막 말. 회의 화면이 "왜 이 시간인지"로 쓴다."""
     last = db.exec(
         select(Utterance)
         .where(

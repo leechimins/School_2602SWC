@@ -2,7 +2,7 @@
 
 여기서 지켜야 하는 것이 둘 있다.
 
-**남의 점수가 안 샌다.** 회의안 응답의 responders에는 score가 없고 burden
+**남의 점수가 안 샌다.** 회의 응답의 responders에는 score가 없고 burden
 세 단계만 있다(명세 권장 규칙 3). JSON 키 자체를 확인한다 — 값만 보면
 나중에 누가 필드를 더해도 테스트가 통과한다.
 
@@ -142,8 +142,8 @@ def _후보(
     return slot
 
 
-def _합의된_회의안(session: Session, 방: 팀) -> Meeting:
-    """1라운드에 합의되는 조율을 돌려 proposed 회의안을 만든다.
+def _합의된_회의(session: Session, 방: 팀) -> Meeting:
+    """1라운드에 합의되는 조율을 돌려 proposed 회의를 만든다.
 
     점수를 전부 거절선(4) 아래로 둬서 전원이 수락한다. 지수 1(괜찮음),
     현우 2·민지 3(조금)이라 확정 때 현우·민지만 양보 점수를 받는다.
@@ -183,14 +183,14 @@ def _응답(client: TestClient, room_id: int, meeting_id: int, **body) -> object
     )
 
 
-# ── 회의안 보기 ─────────────────────────────────────────────────────
+# ── 회의 보기 ─────────────────────────────────────────────────────
 
 
 def test_내_점수는_숫자로_남의_점수는_단계로_나간다(
     client: TestClient, session: Session, 방: 팀, login
 ) -> None:
     """명세 권장 규칙 3. 숫자를 내보내면 제품의 핵심 약속이 깨진다."""
-    meeting = _합의된_회의안(session, 방)
+    meeting = _합의된_회의(session, 방)
     login("현우")
 
     body = client.get(f"{API}/rooms/{방.room_id}/proposals/{meeting.id}").json()
@@ -206,10 +206,10 @@ def test_내_점수는_숫자로_남의_점수는_단계로_나간다(
     assert 단계 == {"지수": "ok", "현우": "some", "민지": "some"}
 
 
-def test_회의안이_왜_이_시간인지와_받을_양보_점수를_같이_준다(
+def test_회의가_왜_이_시간인지와_받을_양보_점수를_같이_준다(
     client: TestClient, session: Session, 방: 팀, login
 ) -> None:
-    meeting = _합의된_회의안(session, 방)
+    meeting = _합의된_회의(session, 방)
     login("민지")
 
     body = client.get(f"{API}/rooms/{방.room_id}/proposals/{meeting.id}").json()
@@ -221,16 +221,16 @@ def test_회의안이_왜_이_시간인지와_받을_양보_점수를_같이_준
     assert body["feedback_only"] is False
 
 
-def test_다른_방의_회의안은_404다(
+def test_다른_방의_회의는_404다(
     client: TestClient, session: Session, 방: 팀, login
 ) -> None:
-    """방을 안 보면 id만 바꿔 남의 방 회의안을 열 수 있다.
+    """방을 안 보면 id만 바꿔 남의 방 회의를 열 수 있다.
 
     내가 **속한** 다른 방으로 물어본다. 안 속한 방은 require_member가 먼저
     403으로 끊어서 이 검사를 지나가지 않는다 — 그게 방이 있는지조차 안
     알려 주는 쪽이라 더 맞다.
     """
-    meeting = _합의된_회의안(session, 방)
+    meeting = _합의된_회의(session, 방)
     옆방 = Room(
         name="캡스톤 팀 프로젝트",
         start_date=date(2026, 10, 20),
@@ -251,10 +251,10 @@ def test_다른_방의_회의안은_404다(
     )
 
 
-def test_로그인_없이는_회의안을_못_본다(
+def test_로그인_없이는_회의를_못_본다(
     client: TestClient, session: Session, 방: 팀
 ) -> None:
-    meeting = _합의된_회의안(session, 방)
+    meeting = _합의된_회의(session, 방)
     res = client.get(f"{API}/rooms/{방.room_id}/proposals/{meeting.id}")
     assert res.status_code == 401
 
@@ -266,7 +266,7 @@ def test_마지막_수락이_회의를_확정한다(
     client: TestClient, session: Session, 방: 팀, login
 ) -> None:
     """확정 버튼이 없다. 이 요청 하나가 유일한 기회다."""
-    meeting = _합의된_회의안(session, 방)
+    meeting = _합의된_회의(session, 방)
 
     login("지수")
     첫번째 = _응답(client, 방.room_id, meeting.id).json()  # type: ignore[union-attr,attr-defined]
@@ -292,7 +292,7 @@ def test_확정될_때_양보_장부와_합계가_같이_올라간다(
     client: TestClient, session: Session, 방: 팀, login
 ) -> None:
     """합계를 안 올리면 다음 조율의 차등이 영원히 안 생긴다."""
-    meeting = _합의된_회의안(session, 방)
+    meeting = _합의된_회의(session, 방)
     for 이름 in ("지수", "현우", "민지"):
         login(이름)
         _응답(client, 방.room_id, meeting.id)  # type: ignore[union-attr]
@@ -312,7 +312,7 @@ def test_확정될_때_양보_장부와_합계가_같이_올라간다(
 def test_확정되면_확정_알림이_뜬다(
     client: TestClient, session: Session, 방: 팀, login
 ) -> None:
-    meeting = _합의된_회의안(session, 방)
+    meeting = _합의된_회의(session, 방)
     for 이름 in ("지수", "현우", "민지"):
         login(이름)
         _응답(client, 방.room_id, meeting.id)  # type: ignore[union-attr]
@@ -326,11 +326,11 @@ def test_확정되면_확정_알림이_뜬다(
     assert all(n.meeting_id == meeting.id for n in 확정알림)
 
 
-def test_거절하면_회의안이_그대로_남는다(
+def test_거절하면_회의가_그대로_남는다(
     client: TestClient, session: Session, 방: 팀, login
 ) -> None:
     """거절은 기록만 한다. 팀장이 다시 조율한다."""
-    meeting = _합의된_회의안(session, 방)
+    meeting = _합의된_회의(session, 방)
     login("현우")
 
     body = _응답(client, 방.room_id, meeting.id, accept=False).json()  # type: ignore[union-attr,attr-defined]
@@ -347,7 +347,7 @@ def test_거절하면_회의안이_그대로_남는다(
 def test_한_명이_거절하면_나머지가_수락해도_확정되지_않는다(
     client: TestClient, session: Session, 방: 팀, login
 ) -> None:
-    meeting = _합의된_회의안(session, 방)
+    meeting = _합의된_회의(session, 방)
     login("현우")
     _응답(client, 방.room_id, meeting.id, accept=False)  # type: ignore[union-attr]
     for 이름 in ("지수", "민지"):
@@ -361,7 +361,7 @@ def test_한_명이_거절하면_나머지가_수락해도_확정되지_않는�
 def test_피드백_한_줄이_남는다(
     client: TestClient, session: Session, 방: 팀, login
 ) -> None:
-    meeting = _합의된_회의안(session, 방)
+    meeting = _합의된_회의(session, 방)
     login("민지")
     _응답(
         client,
@@ -381,7 +381,7 @@ def test_답할_사람이_아니면_403이다(
     client: TestClient, session: Session, 방: 팀, login
 ) -> None:
     """1명 불참안에서 빠지는 사람에게는 응답칸이 없다."""
-    meeting = _합의된_회의안(session, 방)
+    meeting = _합의된_회의(session, 방)
     session.exec(
         select(MeetingResponse).where(MeetingResponse.user_id == 방.민지.id)
     ).one()
@@ -401,7 +401,7 @@ def test_답할_사람이_아니면_403이다(
 def test_로그인_없이는_못_답한다(
     client: TestClient, session: Session, 방: 팀
 ) -> None:
-    meeting = _합의된_회의안(session, 방)
+    meeting = _합의된_회의(session, 방)
     assert _응답(client, 방.room_id, meeting.id).status_code == 401  # type: ignore[union-attr,attr-defined]
 
 
@@ -475,7 +475,7 @@ def test_조정된_회의에_양보_점수가_두_번_들어가지_않는다(
 def test_일정이_조율_중과_잡힌_것과_지난_것으로_갈린다(
     client: TestClient, session: Session, 방: 팀, login
 ) -> None:
-    meeting = _합의된_회의안(session, 방)
+    meeting = _합의된_회의(session, 방)
     # 아직 안 끝난 조율 하나를 따로 둔다.
     _조율(session, 방)
     session.commit()
@@ -486,7 +486,7 @@ def test_일정이_조율_중과_잡힌_것과_지난_것으로_갈린다(
     assert [c["topic"] for c in body["coordinating"]] == ["중간 발표 준비"]
     assert [m["id"] for m in body["upcoming"]] == [meeting.id]
     assert body["past"] == []
-    # 회의안도 자리를 잡아 둔다 — 아직 수락 전인데 목록에 보인다.
+    # 회의도 자리를 잡아 둔다 — 아직 수락 전인데 목록에 보인다.
     assert body["upcoming"][0]["status"] == "proposed"
     assert body["upcoming"][0]["pending_count"] == 3
     assert body["upcoming"][0]["my_state"] == "pending"
@@ -496,7 +496,7 @@ def test_끝난_회의는_지난_것으로_간다(
     client: TestClient, session: Session, 방: 팀, login
 ) -> None:
     """가르는 기준은 시연 시계다. 프론트가 자기 시계로 가르면 어긋난다."""
-    meeting = _합의된_회의안(session, 방)
+    meeting = _합의된_회의(session, 방)
     meeting.start_at = MON - timedelta(days=7)
     meeting.end_at = MON - timedelta(days=7) + timedelta(hours=2)
     session.add(meeting)
@@ -525,7 +525,7 @@ def test_조정으로_정해진_회의는_조정으로_표시된다(
 def test_합의로_정해진_회의는_조정_표시가_없다(
     client: TestClient, session: Session, 방: 팀, login
 ) -> None:
-    _합의된_회의안(session, 방)
+    _합의된_회의(session, 방)
     login("지수")
     body = client.get(f"{API}/rooms/{방.room_id}/schedule").json()
     assert body["upcoming"][0]["settled"] is False
@@ -535,7 +535,7 @@ def test_남이_아닌_내_응답_상태가_나온다(
     client: TestClient, session: Session, 방: 팀, login
 ) -> None:
     """일정 목록은 보는 사람 기준이다."""
-    meeting = _합의된_회의안(session, 방)
+    meeting = _합의된_회의(session, 방)
     login("현우")
     _응답(client, 방.room_id, meeting.id)  # type: ignore[union-attr]
 

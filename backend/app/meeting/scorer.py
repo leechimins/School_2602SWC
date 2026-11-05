@@ -269,7 +269,7 @@ def yield_points(score: int, available: bool = True) -> int:
     0이다 — 빠지는 것은 맞춰 주는 것이 아니다.
 
     장부를 쓰는 쪽(agent_loop.award_yield)과 "이 회의로 내가 받을 점수"를
-    보여 주는 쪽(라우터의 회의안 화면)이 같은 함수를 봐야 한다. 두 번
+    보여 주는 쪽(라우터의 회의 화면)이 같은 함수를 봐야 한다. 두 번
     적으면 화면에 +1이라고 떠 놓고 장부에 +2가 들어간다.
     """
     if not available or score < BURDEN_SOME_FROM_SCORE:
@@ -282,7 +282,7 @@ def rejecting_count(costs: Sequence[Cost], reject_at: int) -> int:
 
     조정이 이걸 먼저 본다. 조정은 어차피 누군가의 거절을 꺾는 일이라,
     **적게 꺾는 쪽**이 낫다 — 양보 가중 합이 조금 나빠도 그렇다. 둘을 꺾으면
-    회의안이 거의 확실히 깨진다.
+    회의가 거의 확실히 깨진다.
     """
     return sum(1 for c in costs if c.available and c.score >= reject_at)
 
