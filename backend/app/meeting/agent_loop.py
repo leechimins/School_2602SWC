@@ -531,7 +531,8 @@ def _confirm(
         meeting.id,
         [c.user_id for c in costs],
         NotificationKind.MEETING_CONFIRMED,
-        f"{scheduling.topic} 회의가 조정으로 확정됐습니다.",
+        f"{scheduling.topic} 회의가 확정됐습니다. "
+        "모두 맞는 시간이 없어 판단 에이전트가 정했어요.",
     )
     db.commit()
 
