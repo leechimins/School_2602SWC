@@ -55,7 +55,7 @@ def enabled() -> bool:
     return bool(_api_key())
 
 
-def complete_json(prompt: str, *, max_tokens: int = 1200) -> dict | None:
+def complete_json(prompt: str, *, max_tokens: int = 700) -> dict | None:
     """프롬프트를 보내고 JSON 객체를 받는다. 안 되면 None.
 
     response_format(JSON 모드)을 쓰지 않는다. Gemini의 OpenAI 호환 층이
@@ -85,6 +85,10 @@ def complete_json(prompt: str, *, max_tokens: int = 1200) -> dict | None:
                 # 프롬프트에서 추론 1377 + 출력 43으로 잘려 content가 중간에
                 # 끊겼고, 파싱이 실패해 늘 템플릿으로 떨어졌다. 조용히
                 # 떨어지므로 발언을 눈으로 읽어 보기 전까지 몰랐다.
+                #
+                # 추론을 끈 뒤 4명 라운드의 실제 출력은 324 토큰이다. 기본
+                # 상한 700은 그 두 배가 조금 넘는다 — 6명이어도 남고, 모델이
+                # 장황해지면 잘려서 템플릿으로 떨어진다(앱은 계속 돈다).
                 "reasoning_effort": "none",
             },
             timeout=TIMEOUT_SEC,
