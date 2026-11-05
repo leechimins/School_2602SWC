@@ -1,29 +1,67 @@
-"""조율 엔드포인트 — /rooms/{room_id}/schedulings.
+"""조율·회의안·일정 엔드포인트 — /rooms/{room_id} 아래.
 
-지금은 조율을 열고(1~3번) 다시 읽는 둘뿐이다. 라운드를 돌리는 stream·pick·
-widen·accept-absent·rerun은 LLM이 붙은 뒤에 여기에 붙는다.
+세 묶음이 있다.
+
+조율    POST /schedulings, GET /schedulings/{id}, GET /schedulings/{id}/stream
+회의안  GET /proposals/{id}, POST /proposals/{id}/respond
+일정    GET /schedule
+
+pick은 없앴다(11/5) — 사람이 후보를 고르는 단계가 없어졌다. widen·rerun은
+아직 없다. 한 파일에 둔 이유는 셋이 같은 네 테이블(scheduling,
+candidate_slot, meeting, meeting_response)을 보고 같은 약속 하나를 지켜야
+하기 때문이다: **남의 불편 점수는 응답에 담지 않는다**(명세 권장 규칙 3).
+나눠 두면 한쪽만 burden()을 거쳐 내보내는 일이 생긴다.
 """
 
 from __future__ import annotations
 
+import json
+import time
+from collections.abc import Iterator, Mapping, Sequence
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import StreamingResponse
 from psycopg.errors import UniqueViolation
 from sqlalchemy.exc import IntegrityError
-from sqlmodel import Session, func, select
+from sqlmodel import Session, col, func, select
 
 from app.meeting.models import (
     RUNNING_SCHEDULING_INDEX,
     CandidateSlot,
+    Meeting,
+    MeetingResponse,
     Scheduling,
+    SlotCost,
     Utterance,
 )
-from app.meeting.schemas import SchedulingOut, SchedulingStartIn, UtteranceOut
-from app.meeting.service import start_scheduling
+from app.meeting.schemas import (
+    CoordinatingBrief,
+    MeetingBrief,
+    ProposalOut,
+    ResponderOut,
+    RespondIn,
+    RespondOut,
+    ScheduleOut,
+    SchedulingOut,
+    SchedulingStartIn,
+    UtteranceOut,
+)
+from app.meeting.agent_loop import award_yield, member_names, run_rounds
+from app.meeting.scorer import yield_points
+from app.meeting.service import burden, start_scheduling
+from app.room.service import yield_level
+from app.shared import demo_clock
 from app.shared.auth import current_user_id, require_member
 from app.shared.db import session_dep
-from app.shared.models import Room, User
+from app.shared.enums import (
+    MeetingStatus,
+    NotificationKind,
+    ResponseState,
+    SchedulingStatus,
+)
+from app.shared.models import Membership, Room, User
+from app.shared.notify import emit
 
 router = APIRouter(prefix="/rooms/{room_id}", tags=["meeting"])
 
@@ -98,7 +136,7 @@ def _to_out(db: Session, scheduling: Scheduling) -> SchedulingOut:
         utterances=[
             UtteranceOut(
                 seq=utterance.seq,
-                round_no=utterance.round_no,
+                        round_no=utterance.round_no,
                 speaker_kind=utterance.speaker_kind,
                 speaker_user_id=utterance.speaker_user_id,
                 speaker_name=name,
@@ -188,3 +226,410 @@ def read(
             detail={"code": "NOT_FOUND", "message": "그 조율이 없습니다."},
         )
     return _to_out(db, scheduling)
+
+
+STEP_SEC = 1.6
+"""발언 하나와 다음 발언 사이. 브리프가 전체를 30초 안팎으로 잡았다."""
+
+
+def _sse(utterance: Utterance, names: Mapping[int, str]) -> str:
+    body = UtteranceOut(
+        seq=utterance.seq,
+        round_no=utterance.round_no,
+        speaker_kind=utterance.speaker_kind,
+        speaker_user_id=utterance.speaker_user_id,
+        # 이름을 채운다. 비워 두면 화면에 "1: 지수는…"처럼 숫자가 나온다.
+        speaker_name=names.get(utterance.speaker_user_id or 0),
+        text=utterance.text,
+        created_at=utterance.created_at,
+    )
+    return f"data: {body.model_dump_json()}\n\n"
+
+
+@router.get("/schedulings/{scheduling_id}/stream")
+def stream(
+    room_id: int,
+    scheduling_id: int,
+    user_id: int = Depends(current_user_id),
+    db: Session = Depends(session_dep),
+) -> StreamingResponse:
+    """발언을 하나씩 흘려보낸다. 이 화면이 시연에서 가장 중요하다.
+
+    스피너를 돌리지 않는다. 브리프: "이 10~20초는 로딩이 아니라 구경거리라서,
+    스피너를 돌리면 시연에서 가장 중요한 장면을 덮습니다."
+
+    **라운드를 여기서 직접 돌린다.** 백그라운드 작업을 두지 않는 이유는,
+    조율 시작에서 미리 다 돌리면 POST가 10~20초 멈춰 그동안 화면이 비기
+    때문이다. 발언이 생기는 대로 흘러가야 쌓이는 것이 보인다.
+
+    두 사람이 같이 열어도 루프는 한 번만 돈다. 맨 앞에서 scheduling 행을
+    잠그고, 이미 돈 조율이면 쌓인 발언을 재생한다.
+    """
+    require_member(db, room_id, user_id)
+
+    # FOR UPDATE. 두 번째 요청은 첫 번째가 상태를 정할 때까지 여기서 기다린다.
+    scheduling = db.exec(
+        select(Scheduling).where(Scheduling.id == scheduling_id).with_for_update()
+    ).first()
+    if scheduling is None or scheduling.room_id != room_id:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail={"code": "NOT_FOUND", "message": "그 조율이 없습니다."},
+        )
+
+    # == 로 비교한다. DB에서 읽은 열거값은 str이라 is가 항상 거짓이다
+    # (backend/README.md 지킬 것 4번). is를 쓰면 루프가 한 번도 안 돈다.
+    names = member_names(db, room_id)
+    처음인가 = (
+        scheduling.status == SchedulingStatus.RUNNING
+        and not scheduling.rounds_used
+    )
+
+    def 흘려보내기() -> Iterator[str]:
+        if 처음인가:
+            for utterance in run_rounds(db, scheduling):
+                yield _sse(utterance, names)
+                time.sleep(STEP_SEC)
+        else:
+            # 재진입. 이미 쌓인 것을 같은 속도로 다시 보여 준다.
+            쌓인것 = db.exec(
+                select(Utterance)
+                .where(Utterance.scheduling_id == scheduling_id)
+                .order_by(col(Utterance.seq))
+            ).all()
+            for utterance in 쌓인것:
+                yield _sse(utterance, names)
+                time.sleep(STEP_SEC)
+        # 끝났다는 신호. 화면이 여기서 회의안으로 넘어간다.
+        # str()로 감싼다. DB에서 읽은 열거값은 str이라 .value가 없다
+        # (backend/README.md 지킬 것 4번). StrEnum이든 str이든 둘 다 된다.
+        done = json.dumps({"status": str(scheduling.status)})
+        yield f"event: done\ndata: {done}\n\n"
+
+    return StreamingResponse(
+        흘려보내기(),
+        media_type="text/event-stream",
+        # 프록시가 버퍼링하면 발언이 한꺼번에 쏟아진다.
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+# ── 회의안 ──────────────────────────────────────────────────────────
+
+
+def _meeting(db: Session, room_id: int, meeting_id: int, lock: bool = False) -> Meeting:
+    """회의 한 행. lock이면 FOR UPDATE로 잠근다.
+
+    방까지 맞는지 본다. 안 보면 다른 방의 회의안을 id만 바꿔 열 수 있다.
+    """
+    statement = select(Meeting).where(Meeting.id == meeting_id)
+    if lock:
+        statement = statement.with_for_update()
+    meeting = db.exec(statement).first()
+    if meeting is None or meeting.room_id != room_id:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail={"code": "NOT_FOUND", "message": "그 회의안이 없습니다."},
+        )
+    return meeting
+
+
+def _slot_costs(db: Session, candidate_slot_id: int | None) -> list[SlotCost]:
+    """회의가 나온 후보의 사람별 불편. 조율 없이 만든 회의면 빈 목록이다."""
+    if candidate_slot_id is None:
+        return []
+    return list(
+        db.exec(
+            select(SlotCost).where(SlotCost.candidate_slot_id == candidate_slot_id)
+        ).all()
+    )
+
+
+def _yield_totals(db: Session, room_id: int) -> dict[int, int]:
+    return {
+        m.user_id: m.yield_total
+        for m in db.exec(select(Membership).where(Membership.room_id == room_id)).all()
+    }
+
+
+def _count(responses: Sequence[MeetingResponse], state: ResponseState) -> int:
+    return sum(1 for r in responses if r.state == state)
+
+
+@router.get("/proposals/{meeting_id}", response_model=ProposalOut)
+def read_proposal(
+    room_id: int,
+    meeting_id: int,
+    user_id: int = Depends(current_user_id),
+    db: Session = Depends(session_dep),
+) -> ProposalOut:
+    """회의안 하나. "회의 일정 조율 확인" 화면이 이걸로 그려진다.
+
+    **보는 사람마다 내용이 다르다.** my_score는 요청한 사람 것이고, 남의
+    점수는 burden 세 단계로만 나간다(명세 권장 규칙 3).
+    """
+    require_member(db, room_id, user_id)
+    meeting = _meeting(db, room_id, meeting_id)
+
+    costs = {c.user_id: c for c in _slot_costs(db, meeting.candidate_slot_id)}
+    names = member_names(db, room_id)
+    totals = _yield_totals(db, room_id)
+    responses = db.exec(
+        select(MeetingResponse)
+        .where(MeetingResponse.meeting_id == meeting_id)
+        .order_by(col(MeetingResponse.id))
+    ).all()
+
+    responders: list[ResponderOut] = []
+    for response in responses:
+        cost = costs.get(response.user_id)
+        # 점수가 없으면(조율 없이 만든 회의) 괜찮음으로 둔다. 빈 칸을 보여
+        # 주는 것보다 낫고, 숫자를 지어내지도 않는다.
+        score = cost.score if cost else 1
+        responders.append(
+            ResponderOut(
+                user_id=response.user_id,
+                name=names.get(response.user_id, ""),
+                state=response.state,
+                burden=burden(score),
+                reason=cost.reason if cost else "",
+                yield_level=yield_level(totals.get(response.user_id, 0)),
+                feedback=response.feedback,
+                responded_at=response.responded_at,
+            )
+        )
+
+    mine = next((r for r in responses if r.user_id == user_id), None)
+    my_cost = costs.get(user_id)
+    scheduling = (
+        db.get(Scheduling, meeting.scheduling_id)
+        if meeting.scheduling_id is not None
+        else None
+    )
+
+    return ProposalOut(
+        id=meeting_id,
+        topic=meeting.topic,
+        start_at=meeting.start_at,
+        end_at=meeting.end_at,
+        mode=meeting.mode,
+        status=meeting.status,
+        rationale=meeting.rationale,
+        scheduling_status=scheduling.status if scheduling else None,
+        my_score=my_cost.score if my_cost else None,
+        my_reason=my_cost.reason if my_cost else "",
+        my_yield_points=(
+            yield_points(my_cost.score, my_cost.available) if my_cost else 0
+        ),
+        my_state=mine.state if mine else None,
+        can_respond=(
+            mine is not None
+            and meeting.status == MeetingStatus.PROPOSED
+            and mine.state == ResponseState.PENDING
+        ),
+        # 이미 확정된 회의에는 피드백만 남긴다. 조정으로 확정된 안이 주로 이
+        # 길로 온다(브리프 11/5) — 전원 수락으로 확정된 회의도 같다.
+        feedback_only=mine is not None and meeting.status == MeetingStatus.CONFIRMED,
+        responders=responders,
+    )
+
+
+@router.post("/proposals/{meeting_id}/respond", response_model=RespondOut)
+def respond(
+    room_id: int,
+    meeting_id: int,
+    body: RespondIn,
+    user_id: int = Depends(current_user_id),
+    db: Session = Depends(session_dep),
+) -> RespondOut:
+    """수락·거절. 전원이 수락하면 **이 요청 안에서 확정된다.**
+
+    확정 버튼이 없다(브리프). 마지막으로 수락한 사람의 이 요청이 유일한
+    기회라서, 상태·확정 시각·양보 장부·합계·알림이 한 트랜잭션에 들어간다.
+
+    맨 앞에서 meeting 행을 FOR UPDATE로 잠근다. 안 잠그면 마지막 두 사람이
+    같은 순간에 누를 때 둘 다 "아직 한 명 남았다"를 읽어 아무도 확정하지
+    않거나, 둘 다 확정해서 양보 점수가 두 번 들어간다. 시연이 한 창에 폰
+    화면 둘을 띄우는 구조라 실제로 일어난다.
+
+    거절은 기록만 하고 회의안을 proposed로 남긴다. 화면이 누가 거절했는지
+    보여 주고, 팀장이 다시 조율한다.
+    shortcut: 거절이 다음 라운드를 자동으로 돌리지 않는다. rerun에서 잇는다.
+    """
+    require_member(db, room_id, user_id)
+    meeting = _meeting(db, room_id, meeting_id, lock=True)
+
+    mine = db.exec(
+        select(MeetingResponse).where(
+            MeetingResponse.meeting_id == meeting_id,
+            MeetingResponse.user_id == user_id,
+        )
+    ).first()
+    if mine is None:
+        # 1명 불참안에서 빠지는 사람이다. 안 오는 회의를 수락·거절할 자리는
+        # 없다(브리프: "빠지는 사람은 응답자에서 빠지고").
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "FORBIDDEN",
+                "message": "이 회의안에 답할 사람이 아닙니다.",
+            },
+        )
+
+    now = demo_clock.now(db)
+    siblings = db.exec(
+        select(MeetingResponse).where(MeetingResponse.meeting_id == meeting_id)
+    ).all()
+
+    if meeting.status == MeetingStatus.CONFIRMED:
+        # 이미 확정됐다. 피드백만 받는다(브리프 11/5의 B안). accept는 보지
+        # 않는다 — 확정된 회의를 뒤집는 길이 아니다. 조정으로 확정된 안이
+        # 주로 이 길로 오고, 그때 내 state는 accepted로 깔려 있다.
+        mine.feedback = body.feedback
+        if mine.responded_at is None:
+            mine.responded_at = now
+        db.add(mine)
+        db.commit()
+        return RespondOut(
+            meeting_id=meeting_id,
+            my_state=mine.state,
+            meeting_status=MeetingStatus.CONFIRMED,
+            pending_count=_count(siblings, ResponseState.PENDING),
+            declined_count=_count(siblings, ResponseState.DECLINED),
+            feedback_only=True,
+        )
+
+    if meeting.status != MeetingStatus.PROPOSED:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail={"code": "CLOSED", "message": "끝난 회의입니다."},
+        )
+
+    mine.state = ResponseState.ACCEPTED if body.accept else ResponseState.DECLINED
+    mine.feedback = body.feedback
+    mine.responded_at = now
+    db.add(mine)
+    db.flush()  # siblings에 내 새 상태가 보이게.
+
+    확정됐나 = all(s.state == ResponseState.ACCEPTED for s in siblings)
+    if 확정됐나:
+        meeting.status = MeetingStatus.CONFIRMED
+        meeting.confirmed_at = now
+        db.add(meeting)
+        award_yield(db, room_id, meeting_id, _slot_costs(db, meeting.candidate_slot_id))
+        emit(
+            db,
+            room_id=room_id,
+            user_ids=[s.user_id for s in siblings],
+            kind=NotificationKind.MEETING_CONFIRMED,
+            reason=f"{meeting.topic} 회의가 확정됐습니다."[:200],
+            dedupe=f"meeting{meeting_id}",
+            meeting_id=meeting_id,
+        )
+    db.commit()
+
+    return RespondOut(
+        meeting_id=meeting_id,
+        my_state=mine.state,
+        meeting_status=meeting.status,
+        confirmed_now=확정됐나,
+        pending_count=_count(siblings, ResponseState.PENDING),
+        declined_count=_count(siblings, ResponseState.DECLINED),
+    )
+
+
+# ── 일정 보기 ───────────────────────────────────────────────────────
+
+
+@router.get("/schedule", response_model=ScheduleOut)
+def schedule(
+    room_id: int,
+    user_id: int = Depends(current_user_id),
+    db: Session = Depends(session_dep),
+) -> ScheduleOut:
+    """일정 보기(회의 관리) 한 화면. 브리프 순서 그대로다.
+
+    조율 중인 회의 → 잡힌 회의 → 지난 회의. 받아적기 버튼은 잡힌 회의 각
+    줄에 프론트가 붙인다(B 레인).
+
+    지난 것과 다가오는 것을 **서버가** 가른다. 기준은 시연 시계다 —
+    프론트가 자기 시계로 가르면 시연에서 날짜를 앞으로 옮겼을 때 서버가
+    보내는 목록과 화면이 어긋난다.
+    """
+    require_member(db, room_id, user_id)
+    now = demo_clock.now(db)
+
+    coordinating = [
+        CoordinatingBrief(
+            id=s.id or 0,
+            topic=s.topic,
+            window_start=s.window_start,
+            window_end=s.window_end,
+            status=s.status,
+        )
+        for s in db.exec(
+            select(Scheduling)
+            .where(
+                Scheduling.room_id == room_id,
+                Scheduling.status == SchedulingStatus.RUNNING,
+            )
+            .order_by(col(Scheduling.created_at))
+        ).all()
+    ]
+
+    # 취소된 회의는 어느 칸에도 넣지 않는다. 브리프의 세 묶음에 자리가 없다.
+    meetings = db.exec(
+        select(Meeting)
+        .where(
+            Meeting.room_id == room_id,
+            col(Meeting.status).in_(
+                [MeetingStatus.PROPOSED, MeetingStatus.CONFIRMED, MeetingStatus.DONE]
+            ),
+        )
+        .order_by(col(Meeting.start_at))
+    ).all()
+    ids = [m.id for m in meetings if m.id is not None]
+
+    내응답: dict[int, ResponseState] = {}
+    대기수: dict[int, int] = {}
+    if ids:
+        for response in db.exec(
+            select(MeetingResponse).where(col(MeetingResponse.meeting_id).in_(ids))
+        ).all():
+            if response.user_id == user_id:
+                내응답[response.meeting_id] = response.state
+            if response.state == ResponseState.PENDING:
+                대기수[response.meeting_id] = 대기수.get(response.meeting_id, 0) + 1
+
+    # 조정으로 정해진 회의인가. 화면이 "확정 · 조정"으로 그린다.
+    조정된조율 = {
+        s.id
+        for s in db.exec(
+            select(Scheduling).where(
+                Scheduling.room_id == room_id,
+                Scheduling.status == SchedulingStatus.SETTLED,
+            )
+        ).all()
+    }
+
+    upcoming: list[MeetingBrief] = []
+    past: list[MeetingBrief] = []
+    for meeting in meetings:
+        brief = MeetingBrief(
+            id=meeting.id or 0,
+            topic=meeting.topic,
+            start_at=meeting.start_at,
+            end_at=meeting.end_at,
+            mode=meeting.mode,
+            status=meeting.status,
+            settled=meeting.scheduling_id in 조정된조율,
+            my_state=내응답.get(meeting.id or 0),
+            pending_count=대기수.get(meeting.id or 0, 0),
+        )
+        # 끝난 시각으로 가른다. 회의 중인 것은 아직 다가오는 것에 둔다 —
+        # 받아적기 버튼이 거기 붙는다.
+        지났나 = meeting.end_at < now or meeting.status == MeetingStatus.DONE
+        (past if 지났나 else upcoming).append(brief)
+
+    past.reverse()  # 최근 것이 위로.
+    return ScheduleOut(coordinating=coordinating, upcoming=upcoming, past=past)

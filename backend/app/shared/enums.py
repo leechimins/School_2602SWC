@@ -27,18 +27,41 @@ class Mode(StrEnum):
     ANY = "any"
 
 
-class SchedulingStatus(StrEnum):
-    """조율의 상태. 화면 세 갈래와 1:1이다.
+class SchedulingPhase(StrEnum):
+    """조율이 어느 단계의 후보를 보고 있나.
 
-    agreed    → 회의 일정 조율 확인 화면
-    needs_pick → 3라운드 안에 합의 실패, 후보 2~3개를 사람이 고른다
-    no_common  → 전원 가능한 시간이 없다, 1명 불참안
+    all     → 전원 가능한 후보로 최대 3라운드
+    absent  → 거기서 합의가 안 되면, 한 명이 못 오는 후보로 다시 3라운드
+
+    라운드 번호는 단계마다 1부터 다시 센다. 그래서 round_no의
+    CHECK(1~3)을 넓히지 않아도 되고, 브리프의 "라운드 구분: 몇 번째인지,
+    최대 3"도 그대로 맞는다.
+    """
+
+    ALL = "all"
+    ABSENT = "absent"
+
+
+class SchedulingStatus(StrEnum):
+    """조율의 상태. 끝났을 때의 값 셋이 화면 세 갈래와 1:1이다.
+
+    running   → 라운드를 도는 중
+    agreed    → 3라운드 안에 전원이 수락. 회의안이 나가고 사람이 수락·거절한다
+    settled   → 합의가 안 돼서 판단 에이전트가 정했다. **바로 확정된다**
+    failed    → 후보가 아예 없다. 팀장이 기간을 넓혀야 한다
+
+    사람이 후보를 고르는 단계는 없다(11/5). 3라운드 실패와 전원 가능한 시간
+    없음 둘 다 settled로 간다 — 양보 차등이 가장 필요한 순간은 아무도 편하지
+    않을 때인데, 그때를 사람에게 넘기면 그 장치가 쓰일 자리가 없어진다.
+    사람의 통제권은 수락·거절로 이미 확보돼 있다.
+
+    settled가 수락·거절 없이 확정되는 이유: 3라운드까지 돌고도 결정이 안 나면
+    팀플이 멈춘다. 대신 피드백 한 줄은 받는다(브리프 11/5).
     """
 
     RUNNING = "running"
     AGREED = "agreed"
-    NEEDS_PICK = "needs_pick"
-    NO_COMMON = "no_common"
+    SETTLED = "settled"
     FAILED = "failed"
 
 
@@ -65,6 +88,22 @@ class ResponseState(StrEnum):
     PENDING = "pending"
     ACCEPTED = "accepted"
     DECLINED = "declined"
+
+
+class Burden(StrEnum):
+    """남의 불편을 내보낼 때 쓰는 세 단계. 화면 문구: 괜찮음 / 조금 / 많이.
+
+    내 불편은 1~5 숫자로 보이고 남의 불편은 이 단계로만 나간다(명세 권장
+    규칙 3). 숫자를 내보내면 "내가 4인데 저 사람은 2네"가 되고, 그건 제품이
+    하려는 일의 반대다.
+
+    경계값은 app/meeting/service.py에 있다. 양보 점수 차등(+1/+2)과 거절선
+    (4점)이 같은 자리에서 갈린다.
+    """
+
+    OK = "ok"
+    SOME = "some"
+    MUCH = "much"
 
 
 class ScheduleSource(StrEnum):

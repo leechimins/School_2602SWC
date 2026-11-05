@@ -191,26 +191,108 @@ def total_cost(costs: Sequence[Cost]) -> float:
 # 누적 양보가 높은 사람의 불편을 더 무겁게 센다. 0 → 1.0, 4 이상 → 2.0.
 # 숫자는 고른 값이고 조정할 수 있다. 저장되는 score는 건드리지 않고
 # **순서만** 바꾼다 — 사람이 느끼는 불편을 시스템이 고쳐 쓰면 안 된다.
+# 양보 점수가 붙기 시작하는 불편. service.BURDEN_SOME_FROM과 같은 수다 —
+# "조금이라도 불편한데 와 준 것"이 양보라서 경계가 같다. service를
+# import하면 순환이 되므로 여기 둔다.
+BURDEN_SOME_FROM_SCORE = 2
+
 YIELD_WEIGHT_STEP = 0.25
 YIELD_WEIGHT_CAP = 4
 
 
-def yield_weighted_cost(costs: Sequence[Cost], yield_totals: dict[int, int]) -> float:
+def yield_weighted_cost(
+    costs: Sequence[Cost], yield_totals: Mapping[int, int]
+) -> float:
     """후보를 고를 때 쓰는 값. 낮은 쪽이 먼저다.
 
     브리프: "현우는 지난 두 번의 회의에서 많이 맞춰 줬어요. 이번엔 현우
     쪽을 먼저 챙겨…" — 그 판단이 이 한 줄이다.
+
+    **안 오는 사람은 세지 않는다.** 1명 불참안에서 그 사람의 5점까지 더하면
+    후보마다 불참자가 다를 때 그 5점이 차이를 덮어 버린다. 못 오는 사람에게
+    그 시간은 불편한 게 아니라 그냥 해당이 없다 — 재어야 할 것은 "오는
+    사람들이 얼마나 불편한가"다.
     """
     total = 0.0
     for cost in costs:
+        if not cost.available:
+            continue
         earned = min(yield_totals.get(cost.user_id, 0), YIELD_WEIGHT_CAP)
         total += cost.score * (1 + YIELD_WEIGHT_STEP * earned)
     return total
 
 
+def yield_points(score: int, available: bool = True) -> int:
+    """이 불편을 감수해 준 사람이 받는 양보 점수. 0·1·2 중 하나다.
+
+    조금 불편(2~3) +1, 많이 불편(4~5) +2, 괜찮음(1)은 0. 안 오는 사람도
+    0이다 — 빠지는 것은 맞춰 주는 것이 아니다.
+
+    장부를 쓰는 쪽(agent_loop.award_yield)과 "이 회의로 내가 받을 점수"를
+    보여 주는 쪽(라우터의 회의안 화면)이 같은 함수를 봐야 한다. 두 번
+    적으면 화면에 +1이라고 떠 놓고 장부에 +2가 들어간다.
+    """
+    if not available or score < BURDEN_SOME_FROM_SCORE:
+        return 0
+    return 1 if score <= 3 else 2
+
+
+def rejecting_count(costs: Sequence[Cost], reject_at: int) -> int:
+    """이 후보를 거절할 사람 수. 못 오는 사람은 세지 않는다.
+
+    조정이 이걸 먼저 본다. 조정은 어차피 누군가의 거절을 꺾는 일이라,
+    **적게 꺾는 쪽**이 낫다 — 양보 가중 합이 조금 나빠도 그렇다. 둘을 꺾으면
+    회의안이 거의 확실히 깨진다.
+    """
+    return sum(1 for c in costs if c.available and c.score >= reject_at)
+
+
+def best_for(
+    user_id: int,
+    scored: Sequence[tuple[tuple[datetime, datetime], list[Cost]]],
+) -> tuple[datetime, datetime] | None:
+    """그 사람이 가장 원하는 후보. 자기 점수가 가장 낮은 것.
+
+    이게 어필이다. 못 오는 후보는 고르지 않는다 — 올 수 없는 시간을
+    "원한다"고 말하면 안 된다. 같은 점수면 이른 시각.
+    """
+    mine = [
+        (next((c for c in costs if c.user_id == user_id), None), slot)
+        for slot, costs in scored
+    ]
+    가능한것 = [(c, slot) for c, slot in mine if c is not None and c.available]
+    if not 가능한것:
+        return None
+    return min(가능한것, key=lambda pair: (pair[0].score, pair[1][0]))[1]
+
+
+def settle_order(
+    scored: Sequence[tuple[tuple[datetime, datetime], list[Cost]]],
+    yield_totals: Mapping[int, int],
+    reject_at: int,
+) -> list[tuple[tuple[datetime, datetime], list[Cost]]]:
+    """합의가 안 됐을 때 판단 에이전트가 고르는 순서. 앞의 것이 답이다.
+
+    네 단계로 따진다:
+      1. 못 오는 사람 수      전원 가능한 게 있으면 그걸 쓴다
+      2. 거절할 사람 수        적게 꺾는 쪽 (위 rejecting_count)
+      3. 양보 가중 합          누적이 쌓인 사람의 불편을 무겁게 센다
+      4. 이른 시각            같으면 빨리 끝나는 쪽. 순서가 매번 같아야 한다
+    """
+    return sorted(
+        scored,
+        key=lambda pair: (
+            unavailable_count(pair[1]),
+            rejecting_count(pair[1], reject_at),
+            yield_weighted_cost(pair[1], yield_totals),
+            pair[0][0],
+        ),
+    )
+
+
 def pick_order(
     scored: Sequence[tuple[tuple[datetime, datetime], list[Cost]]],
-    yield_totals: dict[int, int],
+    yield_totals: Mapping[int, int],
 ) -> list[tuple[tuple[datetime, datetime], list[Cost]]]:
     """후보를 제안할 순서로 늘어놓는다.
 
