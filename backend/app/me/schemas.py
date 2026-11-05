@@ -96,5 +96,10 @@ class PreferenceOut(SQLModel):
     # 에이전트가 다듬어서"라고 적었으므로, 복사하면 조율이 사람 말을 그대로
     # 읊는다. 빈 칸이 "아직 안 다듬었다"를 정확히 말한다.
     avoid_polished: str | None = None
+    # 같은 한 줄에서 뽑은 구간. 점수에 쓰이는 건 이 셋이다. 못 뽑으면 셋 다
+    # None이고 그때는 avoid_polished만 쓰인다(발언에만, 점수에는 안 들어감).
+    avoid_weekdays: list[int] | None = None
+    avoid_start_min: int | None = None
+    avoid_end_min: int | None = None
     # 아직 온보딩을 안 한 사람은 행이 없어서 null이다.
     updated_at: datetime | None = None

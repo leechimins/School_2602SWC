@@ -20,6 +20,16 @@ from app.shared.models import User
 API = "/api/v1"
 
 
+@pytest.fixture(autouse=True)
+def LLM을_끈다(monkeypatch: pytest.MonkeyPatch) -> None:
+    """이 파일은 저장·검증만 본다. 다듬기는 tests/test_avoid.py가 본다.
+
+    안 끄면 온보딩 테스트가 실제 모델을 부른다 — 네트워크가 없으면 깨지고,
+    있으면 같은 입력에 다른 답이 와서 들쭉날쭉해진다.
+    """
+    monkeypatch.setenv("LLM_ENABLED", "false")
+
+
 @pytest.fixture
 def client(session: Session) -> Iterator[TestClient]:
     """라우터가 테스트 DB를 쓰게 바꿔치기한다.
@@ -115,16 +125,26 @@ def test_네_답이_분과_열거값으로_저장된다(client: TestClient, 지�
     assert client.get(f"{API}/me/preferences").json()["day_start_min"] == 540
 
 
-def test_다듬은_문장은_비어_있다(client: TestClient, 지수: User) -> None:
-    """LLM 공급자를 아직 안 골랐다. 원문을 복사해 넣지 않는 이유는
-    브리프가 "그대로 인용하지 않고 에이전트가 다듬어서"라고 적었기 때문이다.
+def test_모델이_없으면_다듬은_문장도_구간도_비어_있다(
+    client: TestClient, 지수: User
+) -> None:
+    """원문을 복사해 넣지 않는다.
+
+    브리프가 "그대로 인용하지 않고 에이전트가 다듬어서"라고 적었다. 다듬지
+    않은 말이 그대로 조율 발언으로 나가는 게 다듬기가 막으려는 일이라,
+    모델이 못 돌면 차라리 비워 둔다. 구간도 마찬가지다 — 없는 구간으로
+    점수를 매기면 엉뚱한 시간이 거절된다.
     """
     _login(client)
-    res = client.post(
+    body = client.post(
         f"{API}/me/onboarding/interpret",
         json={"avoid_raw": "금요일 저녁은 피하고 싶어요"},
-    )
-    assert res.json()["avoid_polished"] is None
+    ).json()
+    assert body["avoid_raw"] == "금요일 저녁은 피하고 싶어요"  # 원문은 남는다
+    assert body["avoid_polished"] is None
+    assert body["avoid_weekdays"] is None
+    assert body["avoid_start_min"] is None
+    assert body["avoid_end_min"] is None
 
 
 def test_네_칸을_다_비워도_넘어간다(client: TestClient, 지수: User) -> None:
@@ -224,15 +244,23 @@ def test_원문을_고치면_다듬은_문장이_비워진다(
     _login(client)
     client.post(f"{API}/me/onboarding/interpret", json={"avoid_raw": "오전은 힘들어요"})
 
-    # 에이전트가 다듬어 둔 상태를 손으로 만든다 (LLM이 붙으면 저절로 찬다).
+    # 에이전트가 다듬어 둔 상태를 손으로 만든다. 구간까지 차 있어야
+    # "원문이 바뀌면 구간도 같이 비워지는지"를 볼 수 있다.
     pref = session.exec(select(Preference).where(Preference.user_id == 지수.id)).one()
     pref.avoid_polished = "오전에는 수업이 연달아 있어 어렵습니다"
+    pref.avoid_weekdays = [0, 1, 2, 3, 4]
+    pref.avoid_start_min = 9 * 60
+    pref.avoid_end_min = 12 * 60
     session.add(pref)
     session.commit()
 
     res = client.patch(f"{API}/me/preferences", json={"avoid_raw": "저녁이 힘들어요"})
     assert res.json()["avoid_raw"] == "저녁이 힘들어요"
     assert res.json()["avoid_polished"] is None
+    # 구간도 같이 비워진다. 안 비우면 "저녁이 힘들다"는 사람이 오전에
+    # 벌점을 받는다.
+    assert res.json()["avoid_weekdays"] is None
+    assert res.json()["avoid_start_min"] is None
 
 
 def test_한쪽만_보내도_합친_범위를_검사한다(client: TestClient, 지수: User) -> None:

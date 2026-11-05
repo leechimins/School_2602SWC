@@ -14,6 +14,7 @@ from enum import StrEnum
 from typing import Any
 
 from sqlalchemy import Column, DateTime, String
+from sqlalchemy import Integer
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlmodel import Field
 
@@ -61,6 +62,18 @@ def enum_text(*, nullable: bool = False, index: bool = False, length: int = 20) 
 def enum_text_array(*, nullable: bool = True) -> Any:
     """열거값 여러 개를 담는 text[] 열. 온보딩 질문 3(시간대 여러 개)에 쓴다."""
     column = Column(ARRAY(String(20)), nullable=nullable)
+    if nullable:
+        return Field(default=None, sa_column=column)
+    return Field(sa_column=column)
+
+
+def int_array(*, nullable: bool = True) -> Any:
+    """정수 여러 개를 담는 integer[] 열. 피하고 싶은 요일(0~6)에 쓴다.
+
+    요일을 따로 테이블로 빼지 않는 이유는 enum_text_array와 같다 — 값이
+    고정이고 조건 검색을 안 한다. 한 사람이 한 구간만 갖는다.
+    """
+    column = Column(ARRAY(Integer), nullable=nullable)
     if nullable:
         return Field(default=None, sa_column=column)
     return Field(sa_column=column)
