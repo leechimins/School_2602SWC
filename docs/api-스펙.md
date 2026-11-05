@@ -12,7 +12,7 @@
 
 | 레인 | 맡는 도메인 |
 | --- | --- |
-| **A** | `Onboard` · `Home` · `Notice` · `Meeting` · `MyPage` 중 시간표·프로필<br>— 온보딩, 홈, 알림, 회의 조율·회의안·일정, 내 조건  @이진희 |
+| **A** | `Onboard` · `Home` · `Notice` · `Meeting` · `MyPage` 중 시간표·프로필<br>— 온보딩, 홈, 알림, 회의 조율·회의·일정, 내 조건  @이진희 |
 | **B** | `Room` · `Record` · `Suggest` · `Task` · `MyPage` 중 외부 연동<br>— 방, 회의록, 할 일 제안, 할 일, 내 조건  @장연우 |
 | **공통** | `Demo` (실시간 · 시연 장치) |
 
@@ -89,8 +89,8 @@
 | Meeting | 기간 넓혀 다시 조율 | POST | `/rooms/{room_id}/schedulings/{id}/widen` | A | Medium | 새 scheduling_id를 받음 | 미착수 | 미착수 |
 | Meeting | ~~불참안 받아들이기~~ | ~~POST~~ | ~~`/rooms/{room_id}/schedulings/{id}/accept-absent`~~ | A | — | **빗금 11/5**: `pick`과 같은 이유입니다. 전원 가능한 시간이 없으면 판단 에이전트가 불참안까지 포함해 불편·양보 점수로 정하고 바로 확정하므로, 사람이 "받아들이기"를 누를 자리가 없습니다 | 안 만듦 | 안 만듦 |
 | Meeting | 거절 뒤 다시 조율 | POST | `/rooms/{room_id}/schedulings/{id}/rerun` | A | Medium | **11/5**: 권한 정해졌습니다 — **거절한 사람이 누구든 자동으로 돕니다.** 팀장 승인을 기다리지 않습니다. 거절할 때 고른 구간(이 시간만 / 그날 종일)이 그 사람 시간표에 일회성 일정으로 들어간 뒤 돕니다. 라운드는 조율 하나에 3이 예산이라 **남은 만큼만** 돌고(`scheduling.rounds_used`), 예산이 0이면 다시 조율하지 않고 그 사람을 불참으로 둔 채 회의를 유지합니다 | 미착수 | 미착수 |
-| Meeting | 회의안 목록 보기 | GET | `/rooms/{room_id}/proposals` | A | Low | **11/5**: `GET /rooms/{room_id}/schedule`이 같은 일을 합니다(조율 중·잡힘·지남 세 묶음). 따로 쓸 화면이 생기면 만듭니다 | 안 만듦 | 안 만듦 |
-| Meeting | 회의안 보기 | GET | `/rooms/{room_id}/proposals/{id}` | A | High | 차선책 빠짐. 보는 사람마다 내용이 다름 | **완료** | 미착수 |
+| Meeting | 회의 목록 보기 | GET | `/rooms/{room_id}/proposals` | A | Low | **11/5**: `GET /rooms/{room_id}/schedule`이 같은 일을 합니다(조율 중·잡힘·지남 세 묶음). 따로 쓸 화면이 생기면 만듭니다 | 안 만듦 | 안 만듦 |
+| Meeting | 회의 보기 | GET | `/rooms/{room_id}/proposals/{id}` | A | High | 차선책 빠짐. 보는 사람마다 내용이 다름 | **완료** | 미착수 |
 | Meeting | 수락·거절하기 | POST | `/rooms/{room_id}/proposals/{id}/respond` | A | High | 피드백 한 줄 함께. 전원 수락 시 자동 확정. **조정된 회의(`settled`)는 이미 확정이라 피드백만 받습니다** | **완료** | 미착수 |
 | Meeting | 선호 변경 되돌리기 | POST | `/me/preference-changes/{id}/undo` | A | Medium | 말없이 바꾸면 안 되므로 필요. **11/5**: 피드백 한 줄을 `meeting_response.feedback`에 저장만 하고 선호를 자동으로 바꾸지 않으므로 되돌릴 것이 아직 없습니다. 자동 반영을 넣을 때 같이 만듭니다 | 미착수 | 미착수 |
 | Meeting | 일정 보기(회의 관리) | GET | `/rooms/{room_id}/schedule` | A | High | 회의 관리로 바뀜 (전 timeline). 조율 중도 자리 잡음 | **완료** | 미착수 |
