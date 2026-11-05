@@ -30,7 +30,7 @@
 School_2602SWC/
 ├─ frontend/   # React + TypeScript 웹앱 (화면, 시연용 목 데이터, 시연 화면)
 ├─ backend/    # API 서버·에이전트 로직 (PostgreSQL + FastAPI + SQLModel)
-├─ docs/       # DB 설계·API 스펙·디자인 브리프
+├─ docs/       # DB 설계·API 스펙·디자인 브리프·화면 목업(mockup/)
 └─ .github/    # 이슈·PR·커밋 템플릿
 ```
 
@@ -56,4 +56,5 @@ School_2602SWC/
 | **[SUPPORT.md](SUPPORT.md)** | **개발 환경 및 지원**: 실행 방법, 환경 변수, FAQ |
 | **[docs/api-스펙.md](docs/api-스펙.md)** | **API 스펙**: 엔드포인트 목록, 공통 규칙, 레인 분담 |
 | **[docs/디자인-브리프.md](docs/디자인-브리프.md)** | **디자인 브리프**: 화면별로 무엇이 들어가는지 |
+| **[docs/mockup/index.html](docs/mockup/index.html)** | **화면 목업**: 브라우저로 바로 여는 단일 HTML. 왼쪽 시연 장치로 화면 상태를 바꿔 봅니다 |
 | **[backend/db-설계.md](backend/db-설계.md)** | **DB 설계**: 테이블 22개, ERD, 접점 세 곳 |
