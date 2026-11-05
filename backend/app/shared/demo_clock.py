@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlmodel import Session
 
 from app.shared.base import KST, real_now
@@ -23,11 +24,31 @@ def _state(session: Session):
 
     import를 함수 안에서 하는 이유: shared가 demo를 모듈 수준에서
     끌어오면 방향이 거꾸로 걸린다.
+
+    **ON CONFLICT로 넣는다.** 읽기 요청은 커밋을 안 하므로 여기서 만든
+    행이 매번 버려지고, 그래서 시드를 안 돌린 DB에서는 행이 영영 안 생긴다.
+    그 상태로 두 사람이 동시에 누르면 한쪽이 UniqueViolation으로 500이 되고
+    그 요청이 통째로 사라진다. 한 문장이면 틈이 없다(shared/notify.emit과
+    같은 길).
+
+    created/updated를 직접 넣는 이유도 같다 — Core insert는 SQLModel 필드의
+    default_factory를 안 돌려서 비워 두면 NOT NULL에 걸린다.
     """
     from app.demo.models import DemoState
 
     state = session.get(DemoState, 1)
     if state is None:
+        session.execute(
+            pg_insert(DemoState)
+            .values(id=1, now_at=None, updated_at=real_now())
+            .on_conflict_do_nothing(index_elements=["id"])
+        )
+        session.flush()
+        state = session.get(DemoState, 1)
+    if state is None:
+        # DO NOTHING은 "다른 트랜잭션이 넣는 중"일 때도 아무것도 안 넣는다.
+        # 그쪽이 되돌리면 행이 없는 채로 돌아온다. 드물지만 None을 내보내면
+        # 부르는 쪽이 전부 터지므로 그냥 한 번 더 만든다.
         state = DemoState(id=1, now_at=None)
         session.add(state)
         session.flush()

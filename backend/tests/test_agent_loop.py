@@ -25,9 +25,11 @@ from app.meeting.models import (
     Utterance,
     YieldEntry,
 )
+from app.notice.models import Notification
 from app.shared.base import KST
 from app.shared.enums import (
     MeetingStatus,
+    NotificationKind,
     Mode,
     ResponseState,
     SchedulingPhase,
@@ -388,3 +390,67 @@ def test_발언이_쌓인_순서대로_남는다(session: Session, 방: 팀) -> 
     assert [u.seq for u in 쌓인것] == list(range(1, len(쌓인것) + 1))
     assert 쌓인것[0].round_no == 1
     assert 쌓인것[-1].round_no >= 1
+
+
+def test_한_번만_돌고_조정이면_한_번이라고_말한다(
+    session: Session, 방: 팀
+) -> None:
+    """전원 가능한 후보가 하나뿐인데 거절당하면 2라운드에 쓸 것이 없다.
+
+    그래도 전에는 발언과 알림이 둘 다 "세 번 돌았지만"이라고 했다. 시연
+    레시피 중 "수요일만 2시간"이 정확히 이 경우라 화면에 그대로 나갔다.
+    """
+    s = _조율(session, 방)
+    # 현우가 5점이라 거절한다(REJECT_AT = 4). 전원 가능한 후보는 이것 하나다.
+    _후보(session, s, hour=10, 점수={방.지수.id: 1, 방.현우.id: 5})  # type: ignore[dict-item]
+
+    list(run_rounds(session, s))
+
+    session.refresh(s)
+    assert s.rounds_used == 1
+    assert s.status == SchedulingStatus.SETTLED
+
+    판단 = session.exec(
+        select(Utterance)
+        .where(Utterance.speaker_kind == SpeakerKind.JUDGE)
+        .order_by(col(Utterance.seq).desc())
+    ).first()
+    assert 판단 is not None
+    assert "한 번 돌았지만" in 판단.text, 판단.text
+    assert "세 번" not in 판단.text
+
+    알림 = session.exec(
+        select(Notification).where(
+            Notification.kind == NotificationKind.MEETING_CONFIRMED
+        )
+    ).first()
+    assert 알림 is not None
+    assert "한 번 조율했지만" in 알림.reason, 알림.reason
+
+
+def test_전원_가능한_후보가_없으면_라운드_수를_말하지_않는다(
+    session: Session, 방: 팀
+) -> None:
+    """이 길은 라운드를 한 번도 안 돈다. "조율했지만"이라고 하면 거짓이다."""
+    s = _조율(session, 방)
+    _후보(
+        session,
+        s,
+        hour=10,
+        점수={방.지수.id: 1, 방.현우.id: 5},  # type: ignore[dict-item]
+        못_오는_사람=방.현우.id,
+    )
+
+    list(run_rounds(session, s))
+
+    # rounds_used는 0이 아니다 — 조정 발언이 1라운드 자리에 붙으며 1로 올린다.
+    # 그래서 알림 문구가 rounds_used를 읽으면 이 길을 "한 번 돌았다"로 오해한다.
+    # 조정 발언 전에 센 값을 넘기는 이유가 이 테스트다.
+    알림 = session.exec(
+        select(Notification).where(
+            Notification.kind == NotificationKind.MEETING_CONFIRMED
+        )
+    ).first()
+    assert 알림 is not None
+    assert "모두가 가능한 시간이 없어" in 알림.reason
+    assert "조율했지만" not in 알림.reason

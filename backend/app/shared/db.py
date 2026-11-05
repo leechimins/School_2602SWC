@@ -54,6 +54,15 @@ def session_dep() -> Iterator[Session]:
         yield db
 
 
+def background_session() -> Session:
+    """요청 밖에서 도는 일(조율 라운드)이 쓰는 세션.
+
+    session_dep을 못 쓴다. 세션은 스레드 사이에서 나눠 쓸 수 없고,
+    FastAPI 의존성은 요청이 끝나면 닫힌다 — 뒷단 작업은 그보다 오래 산다.
+    """
+    return Session(engine())
+
+
 def register_models() -> None:
     """SQLModel.metadata에 테이블을 등록한다.
 

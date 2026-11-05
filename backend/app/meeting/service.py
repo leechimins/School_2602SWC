@@ -12,9 +12,10 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select
 
 from app.me.models import Preference, ScheduleItem
+from app.meeting.agent_loop import yield_totals
 from app.meeting.models import CandidateSlot, Meeting, Scheduling, SlotCost
 from app.meeting.schemas import SchedulingStartIn
 from app.meeting.scorer import (
@@ -91,12 +92,12 @@ def start_scheduling(
 
     member_ids = _member_ids(db, room_id)
     prefs = _preferences(db, member_ids)
-    yield_totals = _yield_totals(db, room_id)
+    yields = yield_totals(db, room_id)
 
     personal_busy = expand_busy(
         _schedule_items(db, member_ids), body.window_start, body.window_end
     )
-    team_busy = _confirmed_meetings_as_busy(db, room_id, body)
+    team_busy = _booked_meetings_as_busy(db, room_id, body)
 
     found = find_candidates(
         body.window_start,
@@ -113,7 +114,7 @@ def start_scheduling(
     # 두 명 이상 못 오는 후보는 버린다. 브리프에 1명 불참안만 있다 — 두 명을
     # 빼는 회의는 제안할 수 없으므로, 저장하면 라운드가 쓸 수 없는 행만 쌓인다.
     usable = [pair for pair in scored if unavailable_count(pair[1]) <= 1]
-    ordered = pick_order(usable, yield_totals)
+    ordered = pick_order(usable, yields)
 
     # 두 단계를 한꺼번에 만들어 둔다. all에서 3라운드 안에 합의가 안 되면
     # 라운드 루프가 absent 쪽을 꺼내 쓴다 — 그때 다시 계산하지 않는다.
@@ -131,7 +132,7 @@ def start_scheduling(
             _save_candidate(db, scheduling.id, phase, start_at, end_at, costs)
 
     # 양쪽 다 비면 라운드를 돌 것이 없다. 괜히 스트림을 열게 하지 않는다.
-    # 그 밖의 끝 상태(agreed · no_common · failed)는 라운드 루프가 정한다.
+    # 그 밖의 끝 상태(agreed · settled · failed)는 라운드 루프가 정한다.
     if not everyone and not one_out:
         scheduling.status = SchedulingStatus.FAILED
 
@@ -203,15 +204,15 @@ def _schedule_items(db: Session, member_ids: Sequence[int]) -> list[ScheduleItem
     return list(rows.all())
 
 
-def _yield_totals(db: Session, room_id: int) -> dict[int, int]:
-    rows = db.exec(select(Membership).where(Membership.room_id == room_id))
-    return {row.user_id: row.yield_total for row in rows.all()}
-
-
-def _confirmed_meetings_as_busy(
+def _booked_meetings_as_busy(
     db: Session, room_id: int, body: SchedulingStartIn
 ) -> list[Busy]:
-    """이미 확정된 팀 회의. 팀 전체가 묶이므로 후보에서 아예 뺀다.
+    """이미 잡힌 팀 회의. 팀 전체가 묶이므로 후보에서 아예 뺀다.
+
+    **확정 대기(proposed)도 센다.** 확정된 것만 보면, 1차 조율이 합의되고
+    아직 아무도 수락을 안 눌렀을 때 2차 조율이 **같은 시간을 또 내놓고
+    둘 다 확정될 수 있다.** 아직 답을 기다리는 회의도 그 시간을 잡아 둔
+    것이 맞다.
 
     schedule_item에 회의를 넣지 않는 이유가 여기 있다 — 같은 걸 두 곳에
     쓰면 반드시 어긋나고, 빈칸 찾기가 그걸 제일 먼저 밟는다(me/models.py).
@@ -219,7 +220,9 @@ def _confirmed_meetings_as_busy(
     rows = db.exec(
         select(Meeting).where(
             Meeting.room_id == room_id,
-            Meeting.status == MeetingStatus.CONFIRMED,
+            col(Meeting.status).in_(
+                [MeetingStatus.PROPOSED, MeetingStatus.CONFIRMED]
+            ),
             Meeting.start_at < body.window_end,
             Meeting.end_at > body.window_start,
         )

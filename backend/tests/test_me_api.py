@@ -302,3 +302,32 @@ def test_남의_선호는_안_보인다(
 
     _login(client, "지수")
     assert client.get(f"{API}/me/preferences").json()["day_start_min"] is None
+
+
+def test_같은_한_줄을_다시_보내면_모델을_안_부른다(
+    client: TestClient, session: Session, 지수: User, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """전에는 키가 오기만 하면 값이 같아도 다시 불렀다.
+
+    화면이 객체 전체를 보내는 흔한 구조면 시간대만 바꿔도 모델을 기다린다 —
+    키가 없거나 공급자가 느리면 최대 20초다(shared/llm.py TIMEOUT_SEC).
+    """
+    부른횟수 = {"n": 0}
+
+    def 센다(raw: str | None):
+        부른횟수["n"] += 1
+        return None
+
+    monkeypatch.setattr("app.me.router.avoid.interpret", 센다)
+    _login(client, "지수")
+
+    한줄 = {"avoid_raw": "금요일 저녁은 피하고 싶어요"}
+    assert client.patch(f"{API}/me/preferences", json=한줄).status_code == 200
+    assert 부른횟수["n"] == 1
+
+    assert client.patch(f"{API}/me/preferences", json=한줄).status_code == 200
+    assert 부른횟수["n"] == 1, "같은 값인데 또 불렀습니다"
+
+    다른줄 = {"avoid_raw": "월요일 아침은 피하고 싶어요"}
+    assert client.patch(f"{API}/me/preferences", json=다른줄).status_code == 200
+    assert 부른횟수["n"] == 2, "바뀌었는데 안 불렀습니다"

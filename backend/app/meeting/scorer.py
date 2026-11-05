@@ -9,9 +9,21 @@ db-설계.md §6의 3번이다. 점수는 계산이 정하고 에이전트는 �
   4~5     많이
 본인에게만 숫자로 보이고, 남에게는 저 세 단어로만 나간다.
 
-**지금 쓰는 재료는 셋이다** — 온보딩 질문 1(가능 시간), 질문 3(선호 시간대),
-그리고 시간표. 질문 4(피하고 싶은 시간)는 자유 입력이라 계산으로 쓸 수 없고,
-LLM이 붙으면 reason을 다듬는 데 쓰인다.
+**재료는 넷이다** — 온보딩 질문 1(가능 시간), 질문 3(선호 시간대),
+질문 4(피하고 싶은 시간), 그리고 시간표.
+
+질문 4는 자유 입력 한 줄인데도 계산에 들어온다. **온보딩에서 한 번만**
+LLM이 그 줄을 읽어 둘을 만들어 두기 때문이다(me/avoid.py):
+
+    "금요일 저녁은 알바 끝나고 바로라 피하고 싶어요"
+        → avoid_polished  "금요일 저녁은 개인 일정이 있어 어렵습니다"  (발언에 쓴다)
+        → weekdays [4] · 1080~1320                                (여기서 +2)
+
+요일·시각을 못 뽑는 말("너무 이른 시간은 싫어요")이 흔하다. 그때는 문장만
+남고 점수는 안 건드린다 — 반쯤 맞는 구간이 가장 나쁘다.
+
+**조율마다 모델을 다시 부르지 않는다.** 이 파일에는 LLM이 아예 없고, 저장된
+숫자만 본다. 그래서 리허설과 본 시연이 같은 시간을 고른다.
 """
 
 from __future__ import annotations
@@ -306,47 +318,35 @@ def best_for(
     return min(가능한것, key=lambda pair: (pair[0].score, pair[1][0]))[1]
 
 
-def settle_order(
-    scored: Sequence[tuple[tuple[datetime, datetime], list[Cost]]],
-    yield_totals: Mapping[int, int],
-    reject_at: int,
-) -> list[tuple[tuple[datetime, datetime], list[Cost]]]:
-    """합의가 안 됐을 때 판단 에이전트가 고르는 순서. 앞의 것이 답이다.
-
-    네 단계로 따진다:
-      1. 못 오는 사람 수      전원 가능한 게 있으면 그걸 쓴다
-      2. 거절할 사람 수        적게 꺾는 쪽 (위 rejecting_count)
-      3. 양보 가중 합          누적이 쌓인 사람의 불편을 무겁게 센다
-      4. 이른 시각            같으면 빨리 끝나는 쪽. 순서가 매번 같아야 한다
-    """
-    return sorted(
-        scored,
-        key=lambda pair: (
-            unavailable_count(pair[1]),
-            rejecting_count(pair[1], reject_at),
-            yield_weighted_cost(pair[1], yield_totals),
-            pair[0][0],
-        ),
-    )
-
-
 def pick_order(
     scored: Sequence[tuple[tuple[datetime, datetime], list[Cost]]],
     yield_totals: Mapping[int, int],
+    reject_at: int | None = None,
 ) -> list[tuple[tuple[datetime, datetime], list[Cost]]]:
-    """후보를 제안할 순서로 늘어놓는다.
+    """후보를 고를 순서로 늘어놓는다. 앞의 것이 먼저다.
 
-    1. 전원 가능한 후보가 먼저다. 한 명이라도 안 되는 시간은 1명 불참안
-       재료일 뿐이라 뒤로 보낸다.
-    2. 그다음 양보 가중 합이 낮은 순.
-    3. 같으면 이른 시각 순 — 같은 점수면 빨리 끝나는 쪽이 낫고,
-       순서가 매번 같아야 리허설과 본 시연이 일치한다.
+    1. 못 오는 사람 수 — 전원 가능한 후보가 먼저다. 한 명이라도 안 되는
+       시간은 1명 불참안 재료일 뿐이라 뒤로 보낸다.
+    2. (reject_at을 줬을 때만) 거절할 사람 수 — 적게 꺾는 쪽.
+    3. 양보 가중 합이 낮은 순 — 누적이 쌓인 사람의 불편을 무겁게 센다.
+    4. 같으면 이른 시각 순 — 빨리 끝나는 쪽이 낫고, 순서가 매번 같아야
+       리허설과 본 시연이 일치한다.
+
+    **reject_at은 조정에서만 준다.** 조정은 어차피 누군가의 거절을 꺾는
+    일이라 적게 꺾는 쪽이 낫다 — 양보 가중 합이 조금 나빠도 그렇다. 둘을
+    꺾으면 회의가 거의 확실히 깨진다. 조율을 열 때(service)는 아직 아무도
+    거절하지 않았으므로 그 단계가 없다.
     """
-    return sorted(
-        scored,
-        key=lambda pair: (
+
+    def key(
+        pair: tuple[tuple[datetime, datetime], list[Cost]],
+    ) -> tuple[object, ...]:
+        꺾을사람 = () if reject_at is None else (rejecting_count(pair[1], reject_at),)
+        return (
             unavailable_count(pair[1]),
+            *꺾을사람,
             yield_weighted_cost(pair[1], yield_totals),
             pair[0][0],
-        ),
-    )
+        )
+
+    return sorted(scored, key=key)  # type: ignore[arg-type,return-value]
