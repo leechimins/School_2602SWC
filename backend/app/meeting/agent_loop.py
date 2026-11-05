@@ -531,10 +531,24 @@ def _confirm(
         meeting.id,
         [c.user_id for c in costs],
         NotificationKind.MEETING_CONFIRMED,
-        f"{scheduling.topic} 회의가 확정됐습니다. "
-        "모두 맞는 시간이 없어 판단 에이전트가 정했어요.",
+        f"{scheduling.topic} 회의가 확정됐습니다. {_왜조정(scheduling)}",
     )
     db.commit()
+
+
+def _왜조정(scheduling: Scheduling) -> str:
+    """조정으로 간 이유. 두 갈래를 구분해서 말한다.
+
+    한 문장으로 뭉뚱그리면 반은 거짓이 된다. 3라운드를 돌고 실패한 경우는
+    **모두 올 수는 있었고** 누군가 거절한 것이라, "모두가 가능한 시간이
+    없었다"고 말하면 틀린다. 반대도 마찬가지다.
+
+    rounds_used가 0이면 라운드가 한 번도 안 돈 것이고, 그건 전원 가능한
+    후보가 처음부터 없었다는 뜻이다. 새 칸이 필요 없는 구분이다.
+    """
+    if not scheduling.rounds_used:
+        return "모두가 가능한 시간이 없어 판단 에이전트가 정했어요."
+    return "세 번 조율했지만 전원이 좋다고 한 시간이 없어 판단 에이전트가 정했어요."
 
 
 def _tell(
