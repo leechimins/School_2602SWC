@@ -1,4 +1,4 @@
-"""Record — 회의록 목록·보기, 기록 시작, 직접 쓰기. 레인 B.
+"""Record — 회의록 목록·보기, 기록 시작, 직접 쓰기, 요약·할 일 뽑기. 레인 B.
 
 Swagger 그룹과 파일 이름은 노션 API 명세의 도메인(Record)과 맞춘다. 그룹 이름은 다른 레인처럼 소문자.
 """
@@ -8,10 +8,12 @@ from __future__ import annotations
 from datetime import timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from app.meeting.models import Meeting
-from app.minutes import transcript
+from app.minutes import summarize, transcript
+from app.minutes import tasks as task_calc
+from app.minutes.models import Minutes
 from app.minutes.record import (
     RECORDABLE,
     meeting_detail,
@@ -29,6 +31,7 @@ from app.shared.auth import current_user_id, require_member
 from app.shared.db import session_dep
 from app.shared.enums import (
     MeetingStatus,
+    MinutesStatus,
     TranscriptMode,
 )
 
@@ -181,3 +184,89 @@ def write_transcript(
     db.refresh(meeting)
     return meeting_detail(db, meeting, user_id)
 
+
+@router.post(
+    "/meetings/{meeting_id}/summarize",
+    response_model=MeetingDetailOut,
+    responses={503: {"description": "AI 실패 · 시간 초과. 다시 하기를 보여 주세요"}},
+    summary="요약·할 일 뽑기",
+)
+def summarize_meeting(
+    room_id: int,
+    meeting_id: int,
+    user_id: int = Depends(current_user_id),
+    db: Session = Depends(session_dep),
+) -> MeetingDetailOut:
+    """저장된 원문으로 주제 한 줄 · 결정 · 논의 · 보류 · 할 일 제안을 AI로 만듭니다. 최대 20초 걸립니다.
+
+    - 받아적기 정지나 직접 쓰기 저장 뒤에 바로 불러 주세요.
+    - 부르자마자 요약 상태가 `summarizing`이 됩니다. 다른 화면은 원문을 먼저 그리고 요약 자리만 비워 두세요.
+    - 할 일 제안은 회의록에만 "AI 제안"으로 붙습니다. 확정해야 할 일 목록에 들어갑니다.
+    - 담당자는 원문에서 분명할 때만 채워집니다. 기한은 회의 날짜 기준으로 계산합니다.
+    - 다시 부르면 요약을 바꾸고, 아직 확정하지 않은 AI 제안을 새 제안으로 바꿉니다. 확정된 할 일과 원문은 그대로입니다.
+    - AI가 실패하면 503 `AGENT_TIMEOUT`. 처음이면 요약 상태가 `failed`, 전에 요약이 있었으면 그 요약이 그대로 남습니다.
+    - 원문이 없으면 409 `NO_TRANSCRIPT`, 확정 전·취소된 회의면 409 `NOT_CONFIRMED`.
+    """
+    require_member(db, room_id, user_id)
+    meeting = _recordable_meeting(db, room_id, meeting_id)
+
+    users = task_calc.members(db, room_id)
+    names_by_id = {u.id: u.name for u in users if u.id is not None}
+    lines = summarize.load_lines(db, meeting_id, names_by_id)
+    if not lines:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail={"code": "NO_TRANSCRIPT", "message": "원문이 없어 정리할 수 없습니다."},
+        )
+
+    # 모델을 부르기 전에 "정리 중"을 먼저 커밋한다. 최대 20초 동안 다른
+    # 폰에서도 원문과 빈 요약 자리가 보여야 한다.
+    minutes = db.exec(select(Minutes).where(Minutes.meeting_id == meeting_id)).first()
+    previous = minutes.status if minutes else None
+    if minutes is None:
+        minutes = Minutes(
+            meeting_id=meeting_id,
+            headline=meeting.topic[: summarize.MAX_HEADLINE_CHARS],
+            status=MinutesStatus.SUMMARIZING,
+        )
+    minutes.status = MinutesStatus.SUMMARIZING
+    db.add(minutes)
+    db.commit()
+
+    titles = summarize.confirmed_titles(db, meeting_id)
+    prompt = summarize.build_prompt(
+        topic=meeting.topic,
+        held_on=summarize.held_on(meeting),
+        lines=lines,
+        member_names=[u.name for u in users],
+        confirmed_titles=titles,
+    )
+    draft = summarize.parse(
+        summarize.request(prompt),
+        lines=lines,
+        names={u.name: u.id for u in users if u.id is not None},
+        confirmed_titles=titles,
+    )
+
+    if draft is None:
+        # 다시 하기가 실패해도 전에 된 요약은 지우지 않는다
+        minutes = db.exec(
+            select(Minutes).where(Minutes.meeting_id == meeting_id).with_for_update()
+        ).one()
+        minutes.status = (
+            MinutesStatus.DONE if previous == MinutesStatus.DONE else MinutesStatus.FAILED
+        )
+        db.add(minutes)
+        db.commit()
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                "code": "AGENT_TIMEOUT",
+                "message": "정리를 잠시 못 했어요. 잠시 후 다시 해 주세요.",
+            },
+        )
+
+    summarize.save(db, meeting, draft)
+    db.commit()
+    db.refresh(meeting)
+    return meeting_detail(db, meeting, user_id)
