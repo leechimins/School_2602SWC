@@ -19,7 +19,7 @@ from app.minutes.record import (
     meeting_detail,
     meeting_list,
     member_names,
-    tasks_out,
+    suggestion_out,
 )
 from app.minutes.schemas import (
     ConfirmIn,
@@ -61,6 +61,20 @@ def _meeting(db: Session, room_id: int, meeting_id: int) -> Meeting:
     return meeting
 
 
+def _recordable_meeting(db: Session, room_id: int, meeting_id: int) -> Meeting:
+    """기록을 붙일 수 있는 회의. 회의안·취소된 회의면 409 `NOT_CONFIRMED`."""
+    meeting = _meeting(db, room_id, meeting_id)
+    if meeting.status not in RECORDABLE:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail={
+                "code": "NOT_CONFIRMED",
+                "message": "아직 확정되지 않은 회의입니다.",
+            },
+        )
+    return meeting
+
+
 @router.get("/meetings", response_model=MeetingListOut, summary="회의록 목록 보기")
 def list_meetings(
     room_id: int,
@@ -80,32 +94,31 @@ def list_meetings(
     "/meetings",
     response_model=MeetingDetailOut,
     status_code=status.HTTP_201_CREATED,
+    responses={
+        200: {"model": MeetingDetailOut, "description": "잡힌 회의에 붙임 (새로 만들지 않음)"},
+        201: {"description": "회의를 새로 만들어 기록 시작"},
+    },
     summary="회의 기록 시작하기",
 )
 def start_record(
     room_id: int,
     body: RecordStartIn,
+    response: Response,
     user_id: int = Depends(current_user_id),
     db: Session = Depends(session_dep),
 ) -> MeetingDetailOut:
     """잡힌 회의에 기록을 붙이거나, 잡힌 회의 없이 회의를 새로 만듭니다.
 
-    - `meeting_id`가 있으면 그 회의를 돌려줍니다. 확정 전 회의안이면 409 `NOT_CONFIRMED`.
-    - 없으면 `topic`이 필요합니다. 시작 시각은 시연 시계의 지금입니다.
+    - `meeting_id`가 있으면 새로 만들지 않고 그 회의를 200으로 돌려줍니다.
+      확정 전 회의안이나 취소된 회의면 409 `NOT_CONFIRMED`.
+    - 없으면 `topic`이 필요하고 회의를 새로 만들어 201로 돌려줍니다. 시작 시각은 시연 시계의 지금입니다.
     """
     require_member(db, room_id, user_id)
 
     if body.meeting_id is not None:
-        meeting = _meeting(db, room_id, body.meeting_id)
-        if meeting.status not in RECORDABLE:
-            raise HTTPException(
-                status.HTTP_409_CONFLICT,
-                detail={
-                    "code": "NOT_CONFIRMED",
-                    "message": "아직 확정되지 않은 회의입니다.",
-                },
-            )
-        return meeting_detail(db, meeting)
+        meeting = _recordable_meeting(db, room_id, body.meeting_id)
+        response.status_code = status.HTTP_200_OK
+        return meeting_detail(db, meeting, user_id)
 
     if body.topic is None:
         raise HTTPException(
@@ -129,7 +142,7 @@ def start_record(
     db.add(meeting)
     db.commit()
     db.refresh(meeting)
-    return meeting_detail(db, meeting)
+    return meeting_detail(db, meeting, user_id)
 
 
 @router.get(
@@ -147,7 +160,7 @@ def get_meeting(
     - AI 제안은 여기서만 보입니다. 할 일 목록에는 나오지 않습니다.
     """
     require_member(db, room_id, user_id)
-    return meeting_detail(db, _meeting(db, room_id, meeting_id))
+    return meeting_detail(db, _meeting(db, room_id, meeting_id), user_id)
 
 
 @router.put(
@@ -166,9 +179,10 @@ def write_transcript(
 
     - 줄마다 한 발언입니다. 빈 줄은 버립니다.
     - `이름: 내용` 꼴이고 이름이 이 방 팀원이면 말한 사람으로 나눕니다. 아니면 말한 사람 없음.
+    - 확정 전 회의안이나 취소된 회의면 409 `NOT_CONFIRMED`.
     """
     require_member(db, room_id, user_id)
-    meeting = _meeting(db, room_id, meeting_id)
+    meeting = _recordable_meeting(db, room_id, meeting_id)
 
     lines = transcript.parse(body.text, member_names(db, room_id))
     transcript.replace(db, meeting_id, lines)
@@ -176,7 +190,7 @@ def write_transcript(
     db.add(meeting)
     db.commit()
     db.refresh(meeting)
-    return meeting_detail(db, meeting)
+    return meeting_detail(db, meeting, user_id)
 
 
 # ── Suggest — 확정 전 AI 제안 ────────────────────────────────────────
@@ -295,7 +309,10 @@ def confirm_suggestions(
         task.confirmed_at = now
         db.add(task)
     db.commit()
-    return ConfirmOut(tasks=tasks_out(db, ids))
+    by_id = {task.id: task for task in tasks}
+    return ConfirmOut(
+        tasks=task_calc.task_outs(db, [by_id[i] for i in sorted(ids)], user_id)
+    )
 
 
 @router.patch(
@@ -323,14 +340,7 @@ def edit_suggestion(
     db.add(task)
     db.commit()
     db.refresh(task)
-    assignee = db.get(User, task.assignee_user_id) if task.assignee_user_id else None
-    return SuggestionOut(
-        id=task.id,
-        title=task.title,
-        due_date=task.due_date,
-        assignee_user_id=task.assignee_user_id,
-        assignee_name=assignee.name if assignee else None,
-    )
+    return suggestion_out(task, task_calc.user_names(db, {task.assignee_user_id}))
 
 
 @router.delete(
@@ -364,15 +374,16 @@ def drop_suggestion(
 # 할 일은 task 중 confirmed=true이고 dropped=false인 행이다.
 
 
-def _task(db: Session, room_id: int, task_id: int) -> Task:
+def _task(db: Session, room_id: int, task_id: int, *, lock: bool = True) -> Task:
     """이 방의 확정된 할 일 하나. 제안이나 필요 없음은 404.
 
-    상태·내용을 바꾸는 요청이 같이 쓰므로 행을 잠근다. 폰 화면 둘에서
-    같은 할 일을 동시에 바꿀 수 있다.
+    상태·내용을 바꾸는 요청은 행을 잠근다. 폰 화면 둘에서 같은 할 일을
+    동시에 바꿀 수 있다. 읽기만 하는 하나 보기는 `lock=False`.
     """
-    task = db.exec(
-        task_calc.live_tasks(room_id).where(Task.id == task_id).with_for_update()
-    ).first()
+    query = task_calc.live_tasks(room_id).where(Task.id == task_id)
+    if lock:
+        query = query.with_for_update()
+    task = db.exec(query).first()
     if task is None:
         raise HTTPException(
             status.HTTP_404_NOT_FOUND,
@@ -496,7 +507,7 @@ def get_task(
 ) -> TaskOut:
     """고치기 화면용. 확정 전 제안이나 필요 없음으로 뺀 할 일이면 404."""
     require_member(db, room_id, user_id)
-    return _task_out(db, _task(db, room_id, task_id), user_id)
+    return _task_out(db, _task(db, room_id, task_id, lock=False), user_id)
 
 
 @router.patch(
@@ -531,7 +542,7 @@ def change_status(
         db.add(task)
         actor = db.get(User, user_id)
         assert actor is not None
-        task_calc.emit_status(db, task, actor, demo_clock.now(db))
+        task_calc.emit_status(db, task, actor)
         db.commit()
         db.refresh(task)
     return _task_out(db, task, user_id)

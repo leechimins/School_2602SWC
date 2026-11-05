@@ -6,7 +6,8 @@ AI를 쓰지 않는다. "지금"은 전부 시연 시계에서 읽는다 — 시
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date
+from uuid import uuid4
 
 from sqlmodel import Session, col, select
 
@@ -62,14 +63,20 @@ def members(db: Session, room_id: int) -> list[User]:
     )
 
 
+def user_names(db: Session, user_ids: set[int | None]) -> dict[int, str]:
+    """id → 이름을 한 번에. 담당자·확정한 사람·말한 사람 이름 붙일 때 같이 쓴다."""
+    ids = {i for i in user_ids if i is not None}
+    if not ids:
+        return {}
+    return dict(db.exec(select(User.id, User.name).where(col(User.id).in_(ids))).all())
+
+
 def task_outs(db: Session, tasks: list[Task], viewer_id: int) -> list[TaskOut]:
     """이름과 출처 회의를 한 번에 읽어 붙인다. 할 일마다 따로 읽지 않는다."""
     on = today(db)
-    user_ids = {t.assignee_user_id for t in tasks if t.assignee_user_id}
-    names = (
-        dict(db.exec(select(User.id, User.name).where(col(User.id).in_(user_ids))).all())
-        if user_ids
-        else {}
+    names = user_names(
+        db,
+        {t.assignee_user_id for t in tasks} | {t.confirmed_by for t in tasks},
     )
     meeting_ids = {t.meeting_id for t in tasks if t.meeting_id}
     meetings = (
@@ -100,6 +107,8 @@ def task_outs(db: Session, tasks: list[Task], viewer_id: int) -> list[TaskOut]:
             assignee_name=names.get(task.assignee_user_id),
             state=task.state,
             source=source(task),
+            confirmed_by_name=names.get(task.confirmed_by),
+            confirmed_at=task.confirmed_at,
             is_late=is_late(task, on),
             can_change_status=can_change_status(task, viewer_id),
             can_edit=True,
@@ -184,11 +193,14 @@ def emit_late(db: Session, room_id: int) -> int:
     return created
 
 
-def emit_status(db: Session, task: Task, actor: User, at: datetime) -> int:
+def emit_status(db: Session, task: Task, actor: User) -> int:
     """막힘·완료로 바뀌었을 때 나머지 팀원에게 알린다. 다른 상태면 0.
 
-    바꾼 사람 본인에게는 보내지 않는다. 중복 방지 키에 바뀐 시각을 넣어
-    막혔다가 풀렸다가 다시 막히면 다시 알린다.
+    바꾼 사람 본인에게는 보내지 않는다. 상태가 실제로 바뀔 때만 불리고
+    (같은 상태를 보내면 라우터가 건너뜀) 행 잠금 아래에서 돌아서, 부를
+    때마다 새 알림이다. 그래서 중복 방지 키는 바뀔 때마다 새로 만든다.
+    시연 시계 시각을 키로 쓰면 시계를 멈춰 둔 채 막혔다 풀렸다 다시
+    막혔을 때 두 번째 알림이 사라진다.
     """
     if task.state == TaskState.BLOCKED:
         kind = NotificationKind.BLOCKED
@@ -207,6 +219,6 @@ def emit_status(db: Session, task: Task, actor: User, at: datetime) -> int:
         user_ids=others,
         kind=kind,
         reason=reason,
-        dedupe=f"task{task.id}:at{at:%Y%m%d%H%M%S%f}",
+        dedupe=f"task{task.id}:change{uuid4().hex}",
         task_id=task.id,
     )

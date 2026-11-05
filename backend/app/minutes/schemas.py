@@ -64,17 +64,31 @@ class MinutesOut(SQLModel):
     pendings: list[str] = Field(description="보류")
 
 
-class MeetingTaskOut(SQLModel):
-    """이 회의에서 확정된 할 일."""
+class TaskSourceOut(SQLModel):
+    """할 일이 나온 회의. 화면의 "11/5 회의" 출처 표시."""
+
+    meeting_id: int = Field(description="회의 ID")
+    held_on: date = Field(description="회의 날짜")
+    topic: str = Field(description="회의 주제")
+
+
+class TaskOut(SQLModel):
+    """할 일 한 줄. 할 일 목록 · 할 일 하나 · 회의록 안 · 제안 확정 응답이 모두 이 모양이다."""
 
     id: int = Field(description="할 일 ID")
     title: str = Field(description="제목")
     due_date: date | None = Field(description="기한. 없으면 null")
     assignee_user_id: int | None = Field(description="담당자. 없으면 null (담당자 없음)")
     assignee_name: str | None = Field(description="담당자 이름")
-    state: TaskState = Field(description="상태 (todo / doing / blocked / done)")
-    confirmed_by_name: str | None = Field(description="확정한 사람 이름")
+    state: TaskState = Field(description="상태 (todo 시작 전 / doing 진행 중 / blocked 막힘 / done 완료)")
+    source: TaskSourceOut | None = Field(description="출처 회의. 직접 추가면 null")
+    confirmed_by_name: str | None = Field(description='확정한 사람 이름. "확정 · 확정한 사람" 뱃지')
     confirmed_at: datetime | None = Field(description="확정한 시각")
+    is_late: bool = Field(description="늦음 뱃지. 기한이 시연 시계의 오늘보다 앞서고 완료가 아님")
+    can_change_status: bool = Field(
+        description="상태를 바꿀 수 있는지. 담당자만, 담당자가 없으면 전원"
+    )
+    can_edit: bool = Field(description="제목·담당자·기한 고치기와 필요 없음. 전원 true")
 
 
 class SuggestionOut(SQLModel):
@@ -102,7 +116,7 @@ class MeetingDetailOut(SQLModel):
     attendees: list[PersonOut] = Field(description="참석자 (수락한 사람)")
     transcript: list[TranscriptLineOut] = Field(description="원문. 줄 번호 순")
     minutes: MinutesOut | None = Field(description="요약. 요약 전이면 null")
-    tasks: list[MeetingTaskOut] = Field(description="이 회의에서 확정된 할 일")
+    tasks: list[TaskOut] = Field(description="이 회의에서 확정된 할 일. 할 일 목록과 같은 모양")
     suggestions: list[SuggestionOut] = Field(description="확정 전 AI 제안")
 
 
@@ -146,35 +160,10 @@ class SuggestionPatch(SQLModel):
 
 
 class ConfirmOut(SQLModel):
-    tasks: list[MeetingTaskOut] = Field(description="방금 확정된 할 일")
+    tasks: list[TaskOut] = Field(description="방금 확정된 할 일. 할 일 목록과 같은 모양")
 
 
 # ── Task ────────────────────────────────────────────────────────────
-
-
-class TaskSourceOut(SQLModel):
-    """할 일이 나온 회의. 화면의 "11/5 회의" 출처 표시."""
-
-    meeting_id: int = Field(description="회의 ID")
-    held_on: date = Field(description="회의 날짜")
-    topic: str = Field(description="회의 주제")
-
-
-class TaskOut(SQLModel):
-    """할 일 한 줄. 팀 할 일 · 내 할 일 · 할 일 하나가 같은 모양을 쓴다."""
-
-    id: int = Field(description="할 일 ID")
-    title: str = Field(description="제목")
-    due_date: date | None = Field(description="기한. 없으면 null")
-    assignee_user_id: int | None = Field(description="담당자. 없으면 null (담당자 없음)")
-    assignee_name: str | None = Field(description="담당자 이름")
-    state: TaskState = Field(description="상태 (todo 시작 전 / doing 진행 중 / blocked 막힘 / done 완료)")
-    source: TaskSourceOut | None = Field(description="출처 회의. 직접 추가면 null")
-    is_late: bool = Field(description="늦음 뱃지. 기한이 시연 시계의 오늘보다 앞서고 완료가 아님")
-    can_change_status: bool = Field(
-        description="상태를 바꿀 수 있는지. 담당자만, 담당자가 없으면 전원"
-    )
-    can_edit: bool = Field(description="제목·담당자·기한 고치기와 필요 없음. 전원 true")
 
 
 class TaskCountOut(SQLModel):
