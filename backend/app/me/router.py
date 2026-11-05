@@ -146,7 +146,10 @@ def update_preferences(
         pref.mode_pref = body.mode_pref
     if "dayparts" in sent:
         pref.dayparts = body.dayparts
-    if "avoid_raw" in sent:
+    # 값이 **달라졌을 때만** 다시 해석한다. 키가 오기만 하면 부르면, 화면이
+    # 객체 전체를 보내는 흔한 구조에서 시간대만 바꿔도 모델을 기다린다 —
+    # 키가 없거나 공급자가 느리면 최대 20초다(shared/llm.py TIMEOUT_SEC).
+    if "avoid_raw" in sent and body.avoid_raw != pref.avoid_raw:
         pref.avoid_raw = body.avoid_raw
         # 원문이 바뀌면 다듬은 문장도 구간도 더 이상 그 말이 아니다.
         _rewrite_avoid(pref)

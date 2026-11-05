@@ -17,6 +17,7 @@ from sqlalchemy import Engine, text
 from sqlmodel import Session, SQLModel
 
 from app.main import app
+from app.meeting import runner
 from app.shared.db import create_all, make_engine, reset_schema, session_dep
 from tools.seed import seed
 
@@ -33,6 +34,17 @@ def test_engine() -> Engine:
             "TEST_DATABASE_URL이 없습니다. .env.example을 .env로 복사하세요."
         )
     return make_engine(url)
+
+
+@pytest.fixture(autouse=True)
+def LLM을_끈다(monkeypatch: pytest.MonkeyPatch) -> None:
+    """테스트는 네트워크를 안 탄다.
+
+    조율 라운드가 뒷단으로 가면서 POST 한 번에 모델이 불린다. 끄지 않으면
+    거의 모든 테스트가 진짜 Gemini를 부르고, 키가 없으면 타임아웃만큼
+    멈춘다. 모델을 보는 테스트는 자기가 다시 켠다(test_avoid.py).
+    """
+    monkeypatch.setenv("LLM_ENABLED", "false")
 
 
 @pytest.fixture(scope="session")
@@ -56,12 +68,24 @@ def session(schema: Engine) -> Iterator[Session]:
     TRUNCATE는 테이블을 남기므로 그 일이 없고, DDL 23개가 한 문장으로 줄어
     훨씬 빠르다. RESTART IDENTITY로 id를 1부터 다시 세어 room/1을 가정하는
     테스트가 그대로 돈다.
+
+    **조율 라운드를 스레드 대신 같은 자리에서 돌린다.** 운영에서는 뒷단
+    스레드가 자기 세션을 열지만(meeting/runner.py), 테스트는 세션 하나를
+    공유하고 테스트가 끝나면 행이 통째로 지워져 뒤늦게 도는 스레드가
+    엉뚱한 데서 터진다. 세션은 운영과 똑같이 따로 연다 — 아래를 보라.
+    스레드 자체를 보는 테스트는 runner.start를 직접 부른다(test_runner.py).
     """
     with schema.begin() as conn:
         tables = ", ".join(f'"{name}"' for name in SQLModel.metadata.tables)
         conn.execute(text(f"TRUNCATE TABLE {tables} RESTART IDENTITY CASCADE"))
     with Session(schema) as db:
-        yield db
+        with pytest.MonkeyPatch.context() as mp:
+            # 뒷단 루프에게 **자기 세션**을 준다. 요청 세션을 같이 쓰면 한
+            # 세션이 두 군데서 add/commit을 받아 같은 발언이 두 번 들어간다
+            # (uq_utterance_seq로 터진다). 운영도 자기 세션을 쓴다.
+            mp.setattr("app.shared.db.background_session", lambda: Session(schema))
+            mp.setattr("app.meeting.runner.start", runner.run_to_end)
+            yield db
 
 
 # ── API 테스트 공용 (레인 B) ─────────────────────────────────────────

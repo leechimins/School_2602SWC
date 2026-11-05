@@ -19,10 +19,11 @@ from sqlmodel import Session, select
 from app.main import app
 from app.me.models import Preference, ScheduleItem
 from app.meeting import scorer
-from app.meeting.models import CandidateSlot, SlotCost, Utterance
+from app.meeting.models import CandidateSlot, Meeting, SlotCost, Utterance
 from app.shared.base import KST
 from app.shared.db import session_dep
 from app.shared.enums import (
+    MeetingStatus,
     Mode,
     Recurrence,
     ScheduleKind,
@@ -45,6 +46,17 @@ def client(session: Session) -> Iterator[TestClient]:
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def 열기만(monkeypatch: pytest.MonkeyPatch) -> None:
+    """조율을 **열기만** 하고 라운드는 안 돌린다.
+
+    운영에서는 POST가 뒷단 스레드를 띄우고 바로 돌아오므로, 응답 시점의
+    조율은 running이고 발언이 0개다. 테스트는 같은 자리에서 라운드를 돌려
+    (conftest) 이 모양이 안 나온다. 열기 자체를 보는 테스트가 이걸 쓴다.
+    """
+    monkeypatch.setattr("app.meeting.runner.start", lambda scheduling_id: None)
 
 
 class 팀:
@@ -128,7 +140,7 @@ def test_없는_방이면_404다(client: TestClient, 방: 팀) -> None:
 # ── 조율 시작 ────────────────────────────────────────────────────────
 
 
-def test_조율을_열면_후보가_생긴다(client: TestClient, 방: 팀) -> None:
+def test_조율을_열면_후보가_생긴다(client: TestClient, 방: 팀, 열기만: None) -> None:
     _login(client, "지수")
     res = _start(client, 방.room.id)  # type: ignore[union-attr]
     assert res.status_code == 201, res.text  # type: ignore[attr-defined]
@@ -158,7 +170,8 @@ def test_후보마다_사람_수만큼_점수가_생긴다(
 
 
 def test_후보는_다섯_개까지만_저장한다(
-    client: TestClient, session: Session, 방: 팀
+    client: TestClient, session: Session, 방: 팀,
+    열기만: None,
 ) -> None:
     """한 주 기간이면 채점기가 수십 개를 만든다. round_no의 뜻을 지킨다."""
     _login(client, "지수")
@@ -270,7 +283,7 @@ def test_가능_시간이_안_겹치면_후보가_없다(
     assert res.json()["candidate_count"] == 0  # type: ignore[attr-defined]
 
 
-def test_한_방에_도는_조율은_하나뿐이다(client: TestClient, 방: 팀) -> None:
+def test_한_방에_도는_조율은_하나뿐이다(client: TestClient, 방: 팀, 열기만: None) -> None:
     """조율 중에 팀장이 한 번 더 누르면 발언이 두 줄기로 섞인다."""
     _login(client, "지수")
     assert _start(client, 방.room.id).status_code == 201  # type: ignore[union-attr,attr-defined]
@@ -470,3 +483,34 @@ def test_두_번_열어도_루프는_한_번만_돈다(
     # 재생이라 발언 수가 늘지 않는다.
     assert len(session.exec(select(Utterance)).all()) == 쌓인것
     assert 처음.count("data: ") == 다시.count("data: ")
+
+
+def test_확정_대기_회의도_후보에서_빠진다(
+    client: TestClient, session: Session, 방: 팀
+) -> None:
+    """전에는 confirmed만 뺐다.
+
+    1차 조율이 합의되고 아직 아무도 수락을 안 눌렀을 때 팀장이 2차 조율을
+    열면, 같은 시간이 다시 후보로 나와 둘 다 확정될 수 있었다.
+    """
+    막힌때 = WINDOW_START.replace(hour=10)
+    session.add(
+        Meeting(
+            room_id=방.room.id,  # type: ignore[arg-type]
+            topic="1차 회의",
+            start_at=막힌때,
+            end_at=막힌때 + timedelta(hours=1),
+            mode=Mode.OFFLINE,
+            status=MeetingStatus.PROPOSED,  # 아직 수락 대기다
+        )
+    )
+    session.commit()
+
+    _login(client, "지수")
+    started = _start(client, 방.room.id).json()  # type: ignore[union-attr,attr-defined]
+
+    후보들 = session.exec(
+        select(CandidateSlot).where(CandidateSlot.scheduling_id == started["id"])
+    ).all()
+    assert 후보들, "후보가 아예 없으면 이 테스트가 뜻이 없다"
+    assert all(c.start_at != 막힌때 for c in 후보들)

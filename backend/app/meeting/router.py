@@ -47,7 +47,8 @@ from app.meeting.schemas import (
     SchedulingStartIn,
     UtteranceOut,
 )
-from app.meeting.agent_loop import award_yield, member_names, run_rounds
+from app.meeting import runner
+from app.meeting.agent_loop import award_yield, member_names, yield_totals
 from app.meeting.scorer import yield_points
 from app.meeting.service import burden, start_scheduling
 from app.room.service import yield_level
@@ -60,7 +61,7 @@ from app.shared.enums import (
     ResponseState,
     SchedulingStatus,
 )
-from app.shared.models import Membership, Room, User
+from app.shared.models import Room, User
 from app.shared.notify import emit
 
 router = APIRouter(prefix="/rooms/{room_id}", tags=["meeting"])
@@ -203,6 +204,14 @@ def start(
             },
         ) from exc
 
+    # 라운드를 뒷단에서 돌리기 시작한다. 여기서 다 돌리면 POST가 10~20초
+    # 멈춰 그동안 화면이 빈다. 스트림은 쌓이는 발언을 따라 읽기만 한다.
+    #
+    # 후보가 하나도 없어 failed로 끝난 조율은 돌릴 것이 없다.
+    if scheduling.status == SchedulingStatus.RUNNING:
+        assert scheduling.id is not None
+        runner.start(scheduling.id)
+
     return _to_out(db, scheduling)
 
 
@@ -231,6 +240,16 @@ def read(
 STEP_SEC = 1.6
 """발언 하나와 다음 발언 사이. 브리프가 전체를 30초 안팎으로 잡았다."""
 
+STALL_SEC = 40.0
+"""새 발언 없이 이만큼 지나면 스트림을 닫는다.
+
+바닥값이다. 라운드를 돌리는 쪽이 터지면 runner가 상태를 failed로 떨구므로
+보통은 여기까지 안 온다. 서버 프로세스가 통째로 죽은 경우에만 걸린다.
+
+LLM 타임아웃이 20초(shared/llm.py)라 한 라운드의 공백이 그만큼 길 수 있다.
+두 배로 잡아 멀쩡한 조율을 끊지 않는다.
+"""
+
 
 def _sse(utterance: Utterance, names: Mapping[int, str]) -> str:
     body = UtteranceOut(
@@ -246,6 +265,18 @@ def _sse(utterance: Utterance, names: Mapping[int, str]) -> str:
     return f"data: {body.model_dump_json()}\n\n"
 
 
+def _status(db: Session, scheduling_id: int) -> SchedulingStatus:
+    """지금 상태를 DB에서 다시 읽는다.
+
+    스칼라로 읽는 이유: 라운드는 **다른 세션**(runner의 스레드)이 바꾼다.
+    이미 읽어 둔 Scheduling 객체를 다시 보면 세션이 캐시한 옛 값이 나와,
+    스트림이 끝난 조율을 영영 "도는 중"으로 본다.
+    """
+    return db.exec(
+        select(Scheduling.status).where(Scheduling.id == scheduling_id)  # type: ignore[arg-type]
+    ).one()
+
+
 @router.get("/schedulings/{scheduling_id}/stream")
 def stream(
     room_id: int,
@@ -253,57 +284,65 @@ def stream(
     user_id: int = Depends(current_user_id),
     db: Session = Depends(session_dep),
 ) -> StreamingResponse:
-    """발언을 하나씩 흘려보낸다. 이 화면이 시연에서 가장 중요하다.
+    """쌓이는 발언을 따라 읽어 흘려보낸다. 이 화면이 시연에서 가장 중요하다.
 
     스피너를 돌리지 않는다. 브리프: "이 10~20초는 로딩이 아니라 구경거리라서,
     스피너를 돌리면 시연에서 가장 중요한 장면을 덮습니다."
 
-    **라운드를 여기서 직접 돌린다.** 백그라운드 작업을 두지 않는 이유는,
-    조율 시작에서 미리 다 돌리면 POST가 10~20초 멈춰 그동안 화면이 비기
-    때문이다. 발언이 생기는 대로 흘러가야 쌓이는 것이 보인다.
+    **여기서 라운드를 돌리지 않는다.** 돌리는 쪽은 meeting/runner.py이고
+    조율 시작(POST)이 띄운다. 전에는 이 응답 안에서 돌렸는데, 그러면 조율
+    전체가 보는 사람 한 명의 연결에 묶인다 — 두 번째로 연 사람은 그때까지
+    쌓인 것만 보고 끝났고, 탭을 닫으면 조율이 거기서 멈췄다.
 
-    두 사람이 같이 열어도 루프는 한 번만 돈다. 맨 앞에서 scheduling 행을
-    잠그고, 이미 돈 조율이면 쌓인 발언을 재생한다.
+    읽기만 하므로 갈래가 하나다. 늦게 열어도 **처음부터** 같은 속도로
+    보고, 아직 도는 중이면 새 발언이 나오는 대로 이어 본다. 몇 명이 같이
+    열어도 서로 아무 영향이 없다.
     """
     require_member(db, room_id, user_id)
 
-    # FOR UPDATE. 두 번째 요청은 첫 번째가 상태를 정할 때까지 여기서 기다린다.
-    scheduling = db.exec(
-        select(Scheduling).where(Scheduling.id == scheduling_id).with_for_update()
-    ).first()
+    scheduling = db.get(Scheduling, scheduling_id)
     if scheduling is None or scheduling.room_id != room_id:
         raise HTTPException(
             status.HTTP_404_NOT_FOUND,
             detail={"code": "NOT_FOUND", "message": "그 조율이 없습니다."},
         )
-
-    # == 로 비교한다. DB에서 읽은 열거값은 str이라 is가 항상 거짓이다
-    # (backend/README.md 지킬 것 4번). is를 쓰면 루프가 한 번도 안 돈다.
     names = member_names(db, room_id)
-    처음인가 = (
-        scheduling.status == SchedulingStatus.RUNNING
-        and not scheduling.rounds_used
-    )
 
     def 흘려보내기() -> Iterator[str]:
-        if 처음인가:
-            for utterance in run_rounds(db, scheduling):
-                yield _sse(utterance, names)
-                time.sleep(STEP_SEC)
-        else:
-            # 재진입. 이미 쌓인 것을 같은 속도로 다시 보여 준다.
-            쌓인것 = db.exec(
+        마지막seq = 0
+        마지막으로본것 = time.monotonic()
+        while True:
+            # **상태를 발언보다 먼저 읽는다.** 반대로 읽으면 그 사이에 조율이
+            # 끝났을 때 마지막 발언 몇 개를 놓치고 닫는다. 발언은 상태를 바꾸기
+            # 전에 커밋되므로, 끝난 상태를 먼저 봤다면 그 발언은 이미 다 있다.
+            상태 = _status(db, scheduling_id)
+            새것 = db.exec(
                 select(Utterance)
-                .where(Utterance.scheduling_id == scheduling_id)
+                .where(
+                    Utterance.scheduling_id == scheduling_id,
+                    col(Utterance.seq) > 마지막seq,
+                )
                 .order_by(col(Utterance.seq))
             ).all()
-            for utterance in 쌓인것:
+            for utterance in 새것:
                 yield _sse(utterance, names)
+                마지막seq = utterance.seq
                 time.sleep(STEP_SEC)
+            if 새것:
+                마지막으로본것 = time.monotonic()
+
+            # 끝난 조율이어도 위에서 남은 발언을 다 보낸 뒤라 빠뜨리지 않는다.
+            if 상태 != SchedulingStatus.RUNNING:
+                break
+            if time.monotonic() - 마지막으로본것 > STALL_SEC:
+                # 돌리던 쪽이 상태도 못 남기고 죽었다. 영원히 붙잡지 않는다.
+                break
+            time.sleep(STEP_SEC)
+
         # 끝났다는 신호. 화면이 여기서 회의로 넘어간다.
         # str()로 감싼다. DB에서 읽은 열거값은 str이라 .value가 없다
         # (backend/README.md 지킬 것 4번). StrEnum이든 str이든 둘 다 된다.
-        done = json.dumps({"status": str(scheduling.status)})
+        done = json.dumps({"status": str(상태)})
         yield f"event: done\ndata: {done}\n\n"
 
     return StreamingResponse(
@@ -345,13 +384,6 @@ def _slot_costs(db: Session, candidate_slot_id: int | None) -> list[SlotCost]:
     )
 
 
-def _yield_totals(db: Session, room_id: int) -> dict[int, int]:
-    return {
-        m.user_id: m.yield_total
-        for m in db.exec(select(Membership).where(Membership.room_id == room_id)).all()
-    }
-
-
 def _count(responses: Sequence[MeetingResponse], state: ResponseState) -> int:
     return sum(1 for r in responses if r.state == state)
 
@@ -373,7 +405,7 @@ def read_proposal(
 
     costs = {c.user_id: c for c in _slot_costs(db, meeting.candidate_slot_id)}
     names = member_names(db, room_id)
-    totals = _yield_totals(db, room_id)
+    totals = yield_totals(db, room_id)
     responses = db.exec(
         select(MeetingResponse)
         .where(MeetingResponse.meeting_id == meeting_id)

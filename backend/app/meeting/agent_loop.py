@@ -30,7 +30,7 @@ from app.meeting.prompts import Speaker, round_prompt, when, yield_step
 from app.meeting.scorer import (
     Cost,
     best_for,
-    settle_order,
+    pick_order,
     unavailable_count,
     yield_points,
     yield_weighted_cost,
@@ -68,7 +68,7 @@ def run_rounds(db: Session, scheduling: Scheduling) -> Iterator[Utterance]:
     """
     assert scheduling.id is not None
     names = member_names(db, scheduling.room_id)
-    yields = _yield_totals(db, scheduling.room_id)
+    yields = yield_totals(db, scheduling.room_id)
     members = sorted(names)
     세다 = _Counter()
     rejections: list[str] = []
@@ -113,7 +113,7 @@ def run_rounds(db: Session, scheduling: Scheduling) -> Iterator[Utterance]:
 
     # 3라운드 실패, 또는 전원 가능한 후보가 아예 없음. 둘 다 같은 길이다 —
     # 판단 에이전트가 전체에서 고르고 바로 확정한다(브리프 11/5).
-    ordered = settle_order(전부, yields, REJECT_AT)
+    ordered = pick_order(전부, yields, REJECT_AT)
     if not ordered:
         scheduling.status = SchedulingStatus.FAILED
         db.add(scheduling)
@@ -124,17 +124,23 @@ def run_rounds(db: Session, scheduling: Scheduling) -> Iterator[Utterance]:
     candidate = _slot_row(db, scheduling.id, slot)
     costs = _costs(db, candidate)
     speakers = _speakers(costs, names, yields)
+    # **조정 발언을 하기 전에** 실제로 돈 라운드 수를 적어 둔다. 조정 발언이
+    # rounds_used를 1로 올리므로, 나중에 보면 "라운드가 안 돌았다"(전원 가능한
+    # 후보가 없음)와 "한 번 돌았다"를 가를 수 없다.
+    실제로돈 = scheduling.rounds_used
+    # 0이면 발언은 1라운드 자리에 붙인다 — ck_utt_round가 1~3이다.
+    돈라운드 = min(실제로돈 or 1, MAX_ROUNDS)
     for u in _say(
         db,
         scheduling,
         세다,
-        min(scheduling.rounds_used or 1, MAX_ROUNDS),
-        [(SpeakerKind.JUDGE, None, _settle_line(speakers, when(*slot), rejections))],
+        돈라운드,
+        [(SpeakerKind.JUDGE, None, _settle_line(speakers, when(*slot), rejections, 돈라운드))],
     ):
         yield u
     candidate.proposed = True
     db.add(candidate)
-    _confirm(db, scheduling, candidate, costs)
+    _confirm(db, scheduling, candidate, costs, 실제로돈)
 
 
 class _Counter:
@@ -211,12 +217,12 @@ def _pick_from_appeals(
 
 
 def _settle_line(
-    speakers: Sequence[Speaker], slot: str, rejections: Sequence[str]
+    speakers: Sequence[Speaker], slot: str, rejections: Sequence[str], rounds: int
 ) -> str:
     """조정을 알리는 판단 에이전트의 말. LLM 없이도 설명이 되어야 한다."""
     꺾이는사람 = _bent(speakers)
     머리 = (
-        "세 번 돌았지만 전원이 좋다고 한 시간이 없습니다."
+        f"{_몇번(rounds)} 돌았지만 전원이 좋다고 한 시간이 없습니다."
         if rejections
         else "전원이 올 수 있는 시간이 없습니다."
     )
@@ -227,6 +233,16 @@ def _settle_line(
         f"이번엔 {꺾이는사람.name} 님이 맞춰 주는 {slot}으로 정하겠습니다. "
         "이 시간으로 확정됩니다."
     )
+
+
+def _몇번(rounds: int) -> str:
+    """돈 라운드 수를 사람 말로. 1 → "한 번".
+
+    숫자를 고정으로 쓰면 거짓말이 된다. 전원 가능한 후보가 하나뿐인데 그게
+    거절당하면 2라운드에 쓸 것이 없어 **한 번 돌고** 바로 조정으로 간다.
+    그때 "세 번"이라고 하면 틀리고, 시연 레시피 중 하나가 정확히 이 경우다.
+    """
+    return {1: "한 번", 2: "두 번", 3: "세 번"}.get(rounds, f"{rounds}번")
 
 
 def _bent(speakers: Sequence[Speaker]) -> Speaker | None:
@@ -252,7 +268,12 @@ def member_names(db: Session, room_id: int) -> dict[int, str]:
     return {user_id: name for user_id, name in rows}
 
 
-def _yield_totals(db: Session, room_id: int) -> dict[int, int]:
+def yield_totals(db: Session, room_id: int) -> dict[int, int]:
+    """방 사람들의 누적 양보 점수. 후보 순서와 회의 화면이 같은 값을 봐야 한다.
+
+    member_names와 같은 자리에 공개로 둔다. 전에는 service·router·여기에
+    글자까지 똑같은 사본이 셋 있었고, 한 군데만 고치면 조용히 어긋났다.
+    """
     rows = db.exec(select(Membership).where(Membership.room_id == room_id)).all()
     return {m.user_id: m.yield_total for m in rows}
 
@@ -490,6 +511,7 @@ def _confirm(
     scheduling: Scheduling,
     candidate: CandidateSlot,
     costs: Sequence[SlotCost],
+    rounds_ran: int,
 ) -> None:
     """조정됐다. **수락·거절 없이 바로 확정한다**(브리프 11/5).
 
@@ -531,24 +553,29 @@ def _confirm(
         meeting.id,
         [c.user_id for c in costs],
         NotificationKind.MEETING_CONFIRMED,
-        f"{scheduling.topic} 회의가 확정됐습니다. {_왜조정(scheduling)}",
+        f"{scheduling.topic} 회의가 확정됐습니다. {_왜조정(rounds_ran)}",
     )
     db.commit()
 
 
-def _왜조정(scheduling: Scheduling) -> str:
+def _왜조정(rounds_ran: int) -> str:
     """조정으로 간 이유. 두 갈래를 구분해서 말한다.
 
     한 문장으로 뭉뚱그리면 반은 거짓이 된다. 3라운드를 돌고 실패한 경우는
     **모두 올 수는 있었고** 누군가 거절한 것이라, "모두가 가능한 시간이
     없었다"고 말하면 틀린다. 반대도 마찬가지다.
 
-    rounds_used가 0이면 라운드가 한 번도 안 돈 것이고, 그건 전원 가능한
-    후보가 처음부터 없었다는 뜻이다. 새 칸이 필요 없는 구분이다.
+    rounds_ran은 **조정 발언 전에** 센 값이다(run_rounds). 0이면 라운드가
+    한 번도 안 돈 것이고, 그건 전원 가능한 후보가 처음부터 없었다는 뜻이다.
+    scheduling.rounds_used를 여기서 읽으면 안 된다 — 조정 발언이 이미 1로
+    올려 놓아서 두 갈래가 구분되지 않는다.
     """
-    if not scheduling.rounds_used:
+    if not rounds_ran:
         return "모두가 가능한 시간이 없어 판단 에이전트가 정했어요."
-    return "세 번 조율했지만 전원이 좋다고 한 시간이 없어 판단 에이전트가 정했어요."
+    return (
+        f"{_몇번(rounds_ran)} 조율했지만 전원이 좋다고 한 시간이 없어 "
+        "판단 에이전트가 정했어요."
+    )
 
 
 def _tell(

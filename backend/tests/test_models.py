@@ -10,6 +10,7 @@ from __future__ import annotations
 from datetime import date, datetime
 
 import pytest
+from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError, IntegrityError
 from sqlmodel import Session, SQLModel, select
 
@@ -397,3 +398,19 @@ def test_연동은_사람당_종류별로_하나다(session: Session) -> None:
     session.add(CalendarLink(**link))
     with pytest.raises(REJECTED):
         session.flush()
+
+
+def test_demo_state_행이_없어도_두_세션이_안_터진다(schema) -> None:
+    """읽기 요청은 커밋을 안 해서 여기서 만든 행이 버려진다.
+
+    그래서 시드를 안 돌린 DB에서는 행이 영영 안 생기고, 두 사람이 동시에
+    누르면 한쪽이 UniqueViolation으로 500이 됐다. ON CONFLICT면 틈이 없다.
+    """
+    with Session(schema) as 먼저, Session(schema) as 나중:
+        먼저.execute(text("DELETE FROM demo_state"))
+        먼저.commit()
+
+        지금 = demo_clock.now(먼저)
+        먼저.commit()  # 한쪽은 커밋해서 행을 진짜로 남긴다
+        assert demo_clock.now(나중) is not None
+        assert 지금.tzinfo is not None
