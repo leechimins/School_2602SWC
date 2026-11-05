@@ -46,6 +46,13 @@ BLOCKED_SCORE = 5
 TIGHT_PENALTY = 2
 # 고른 시간대 밖일 때 올리는 폭.
 OFF_DAYPART_PENALTY = 1
+# 본인이 "피하고 싶다"고 적은 구간에 걸릴 때 올리는 폭(브리프 11/5).
+#
+# +2인 이유: 단독으로는 3점 "조금"이라 수락 선 안에 있지만, 빠듯함(+2)이나
+# 시간대 밖(+1)과 겹치면 거절선 4를 넘는다. 이게 없으면 **거절이 구조적으로
+# 거의 안 난다** — 올 수 있는 사람의 최대 점수가 1+2+1 = 4라서 두 벌점이
+# 동시에 걸릴 때만 거절이고, 그래서 라운드 2·3이 돌 일이 없었다.
+AVOID_PENALTY = 2
 
 
 @dataclass(frozen=True)
@@ -110,12 +117,45 @@ def score_for(
         score += OFF_DAYPART_PENALTY
         reasons.append("좋다고 한 시간대가 아닙니다")
 
+    if _hits_avoid(start_at, end_at, pref):
+        score += AVOID_PENALTY
+        # 다듬은 문장을 그대로 쓴다. 사람이 적은 원문(avoid_raw)은 쓰지
+        # 않는다 — 건강·가족 같은 사적인 사유가 팀에 그대로 나갈 수 있다.
+        assert pref is not None
+        reasons.append(pref.avoid_polished or "피하고 싶다고 한 시간입니다")
+
     return Cost(
         user_id=user_id,
         score=min(score, 5),
         available=True,
         reason=" · ".join(reasons) if reasons else "비어 있는 시간입니다",
     )
+
+
+def _hits_avoid(start_at: datetime, end_at: datetime, pref: Preference | None) -> bool:
+    """본인이 피하고 싶다고 한 구간에 회의가 걸리는지.
+
+    셋(요일·시작·끝)이 다 있을 때만 본다. 온보딩에서 한 줄을 못 구조화하면
+    비어 있고, 그때는 점수를 안 건드린다.
+
+    **시작만 보는 _in_dayparts와 달리 겹치기만 하면 걸린다.** 좋아하는
+    시간대는 "어디서 시작하느냐"의 문제지만, 피하고 싶은 시간은 회의가 그
+    구간에 발을 걸치는 것 자체가 문제다 — 17~19시 회의는 "18시 이후는
+    피하고 싶다"는 사람에게 실제로 걸린다.
+    """
+    if pref is None or not pref.avoid_weekdays:
+        return False
+    if pref.avoid_start_min is None or pref.avoid_end_min is None:
+        return False
+
+    local = start_at.astimezone(KST)
+    if local.weekday() not in pref.avoid_weekdays:
+        return False
+
+    begin = local.hour * 60 + local.minute
+    # 끝은 길이로 더한다. end_at에서 직접 읽으면 자정에 걸친 회의가 0분이 된다.
+    finish = begin + int((end_at - start_at).total_seconds() // 60)
+    return begin < pref.avoid_end_min and pref.avoid_start_min < finish
 
 
 def _tightest(
@@ -229,7 +269,7 @@ def yield_points(score: int, available: bool = True) -> int:
     0이다 — 빠지는 것은 맞춰 주는 것이 아니다.
 
     장부를 쓰는 쪽(agent_loop.award_yield)과 "이 회의로 내가 받을 점수"를
-    보여 주는 쪽(라우터의 회의안 화면)이 같은 함수를 봐야 한다. 두 번
+    보여 주는 쪽(라우터의 회의 화면)이 같은 함수를 봐야 한다. 두 번
     적으면 화면에 +1이라고 떠 놓고 장부에 +2가 들어간다.
     """
     if not available or score < BURDEN_SOME_FROM_SCORE:
@@ -242,7 +282,7 @@ def rejecting_count(costs: Sequence[Cost], reject_at: int) -> int:
 
     조정이 이걸 먼저 본다. 조정은 어차피 누군가의 거절을 꺾는 일이라,
     **적게 꺾는 쪽**이 낫다 — 양보 가중 합이 조금 나빠도 그렇다. 둘을 꺾으면
-    회의안이 거의 확실히 깨진다.
+    회의가 거의 확실히 깨진다.
     """
     return sum(1 for c in costs if c.available and c.score >= reject_at)
 

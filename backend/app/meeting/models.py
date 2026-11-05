@@ -186,7 +186,7 @@ class Utterance(SQLModel, table=True):
 
 
 class Meeting(SQLModel, table=True):
-    """회의. status='proposed'인 행이 곧 "회의안"이다.
+    """회의. status='proposed'인 행이 아직 확정 안 된 회의다.
 
     별도 proposal 테이블을 두지 않은 이유는 db-설계.md §0에 적혀 있다.
     전원 수락으로 확정될 때 행을 옮기지 않고 status만 바꾸므로, 일정 화면이
@@ -248,7 +248,7 @@ class Meeting(SQLModel, table=True):
 class MeetingResponse(SQLModel, table=True):
     """수락·거절.
 
-    회의안이 만들어질 때 팀원 수만큼 pending으로 미리 깔아 둔다 — 그래야
+    회의가 만들어질 때 팀원 수만큼 pending으로 미리 깔아 둔다 — 그래야
     "누가 아직 안 답했는지"를 이름으로 보여 줄 수 있다.
 
     전원 accepted가 되는 그 요청 안에서 meeting.status='confirmed',

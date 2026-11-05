@@ -1,9 +1,9 @@
-"""조율·회의안·일정 엔드포인트 — /rooms/{room_id} 아래.
+"""조율·회의·일정 엔드포인트 — /rooms/{room_id} 아래.
 
 세 묶음이 있다.
 
 조율    POST /schedulings, GET /schedulings/{id}, GET /schedulings/{id}/stream
-회의안  GET /proposals/{id}, POST /proposals/{id}/respond
+회의  GET /proposals/{id}, POST /proposals/{id}/respond
 일정    GET /schedule
 
 pick은 없앴다(11/5) — 사람이 후보를 고르는 단계가 없어졌다. widen·rerun은
@@ -300,7 +300,7 @@ def stream(
             for utterance in 쌓인것:
                 yield _sse(utterance, names)
                 time.sleep(STEP_SEC)
-        # 끝났다는 신호. 화면이 여기서 회의안으로 넘어간다.
+        # 끝났다는 신호. 화면이 여기서 회의로 넘어간다.
         # str()로 감싼다. DB에서 읽은 열거값은 str이라 .value가 없다
         # (backend/README.md 지킬 것 4번). StrEnum이든 str이든 둘 다 된다.
         done = json.dumps({"status": str(scheduling.status)})
@@ -314,13 +314,13 @@ def stream(
     )
 
 
-# ── 회의안 ──────────────────────────────────────────────────────────
+# ── 회의 ──────────────────────────────────────────────────────────
 
 
 def _meeting(db: Session, room_id: int, meeting_id: int, lock: bool = False) -> Meeting:
     """회의 한 행. lock이면 FOR UPDATE로 잠근다.
 
-    방까지 맞는지 본다. 안 보면 다른 방의 회의안을 id만 바꿔 열 수 있다.
+    방까지 맞는지 본다. 안 보면 다른 방의 회의를 id만 바꿔 열 수 있다.
     """
     statement = select(Meeting).where(Meeting.id == meeting_id)
     if lock:
@@ -329,7 +329,7 @@ def _meeting(db: Session, room_id: int, meeting_id: int, lock: bool = False) -> 
     if meeting is None or meeting.room_id != room_id:
         raise HTTPException(
             status.HTTP_404_NOT_FOUND,
-            detail={"code": "NOT_FOUND", "message": "그 회의안이 없습니다."},
+            detail={"code": "NOT_FOUND", "message": "그 회의가 없습니다."},
         )
     return meeting
 
@@ -363,7 +363,7 @@ def read_proposal(
     user_id: int = Depends(current_user_id),
     db: Session = Depends(session_dep),
 ) -> ProposalOut:
-    """회의안 하나. "회의 일정 조율 확인" 화면이 이걸로 그려진다.
+    """회의 하나. "회의 일정 조율 확인" 화면이 이걸로 그려진다.
 
     **보는 사람마다 내용이 다르다.** my_score는 요청한 사람 것이고, 남의
     점수는 burden 세 단계로만 나간다(명세 권장 규칙 3).
@@ -452,7 +452,7 @@ def respond(
     않거나, 둘 다 확정해서 양보 점수가 두 번 들어간다. 시연이 한 창에 폰
     화면 둘을 띄우는 구조라 실제로 일어난다.
 
-    거절은 기록만 하고 회의안을 proposed로 남긴다. 화면이 누가 거절했는지
+    거절은 기록만 하고 회의를 proposed로 남긴다. 화면이 누가 거절했는지
     보여 주고, 팀장이 다시 조율한다.
     shortcut: 거절이 다음 라운드를 자동으로 돌리지 않는다. rerun에서 잇는다.
     """
@@ -472,7 +472,7 @@ def respond(
             status.HTTP_403_FORBIDDEN,
             detail={
                 "code": "FORBIDDEN",
-                "message": "이 회의안에 답할 사람이 아닙니다.",
+                "message": "이 회의에 답할 사람이 아닙니다.",
             },
         )
 

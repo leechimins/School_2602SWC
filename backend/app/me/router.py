@@ -13,6 +13,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, select
 
+from app.me import avoid
 from app.me.models import Preference
 from app.me.schemas import OnboardingIn, PreferenceOut, PreferencePatch
 from app.shared.auth import current_user_id
@@ -60,6 +61,25 @@ def _reject_reversed_range(pref: Preference) -> None:
         )
 
 
+def _rewrite_avoid(pref: Preference) -> None:
+    """질문 4 한 줄에서 문장과 구간을 다시 만든다. 원문이 바뀔 때마다 부른다.
+
+    **원문을 복사해 넣지 않는다.** 모델이 못 돌면 다듬은 문장과 구간을 전부
+    비운다 — 다듬지 않은 말이 그대로 조율 발언에 나가는 게 다듬기가 막으려는
+    바로 그 일이고, 못 뽑은 구간으로 점수를 매기면 엉뚱한 시간이 거절된다.
+    둘 다 비어도 조율은 돈다. 그 조건을 안 쓸 뿐이다.
+
+    여기서 모델을 한 번 부르므로 온보딩 저장이 그만큼 늦어진다. 조율마다
+    다시 부르지 않으려면 어딘가 한 번은 불러야 하고, 사람이 "저장"을
+    누르고 기다리는 이 자리가 가장 덜 아프다. 원문이 비면 안 부른다.
+    """
+    result = avoid.interpret(pref.avoid_raw)
+    pref.avoid_polished = result.polished if result else None
+    pref.avoid_weekdays = result.weekdays if result else None
+    pref.avoid_start_min = result.start_min if result else None
+    pref.avoid_end_min = result.end_min if result else None
+
+
 @router.post("/onboarding/interpret", response_model=PreferenceOut)
 def interpret_onboarding(
     body: OnboardingIn,
@@ -82,9 +102,7 @@ def interpret_onboarding(
     pref.mode_pref = body.mode_pref
     pref.dayparts = body.dayparts
     pref.avoid_raw = body.avoid_raw
-    # LLM 공급자를 아직 안 골랐다. 원문을 복사해 넣지 않는 이유는
-    # schemas.PreferenceOut의 주석에 적어 뒀다.
-    pref.avoid_polished = None
+    _rewrite_avoid(pref)
 
     _reject_reversed_range(pref)
     return _save(db, pref)
@@ -130,9 +148,8 @@ def update_preferences(
         pref.dayparts = body.dayparts
     if "avoid_raw" in sent:
         pref.avoid_raw = body.avoid_raw
-        # 원문이 바뀌면 다듬은 문장은 더 이상 그 말이 아니다. 비워서
-        # 에이전트가 다시 다듬게 한다.
-        pref.avoid_polished = None
+        # 원문이 바뀌면 다듬은 문장도 구간도 더 이상 그 말이 아니다.
+        _rewrite_avoid(pref)
 
     _reject_reversed_range(pref)
     return _save(db, pref)

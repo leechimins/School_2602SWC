@@ -12,7 +12,13 @@ from datetime import date, datetime
 from sqlalchemy import CheckConstraint, UniqueConstraint
 from sqlmodel import Field, SQLModel
 
-from app.shared.base import enum_text, enum_text_array, in_check, ts
+from app.shared.base import (
+    enum_text,
+    enum_text_array,
+    in_check,
+    int_array,
+    ts,
+)
 from app.shared.enums import Daypart, Mode, Recurrence, ScheduleKind, ScheduleSource
 
 
@@ -44,6 +50,21 @@ class Preference(SQLModel, table=True):
             f"mode_pref IS NULL OR {in_check('mode_pref', Mode)}",
             name="ck_preference_mode",
         ),
+        CheckConstraint(
+            "avoid_start_min IS NULL OR avoid_start_min BETWEEN 0 AND 1440",
+            name="ck_preference_avoid_start_min",
+        ),
+        CheckConstraint(
+            "avoid_end_min IS NULL OR avoid_end_min BETWEEN 0 AND 1440",
+            name="ck_preference_avoid_end_min",
+        ),
+        # 뒤집힌 구간은 받지 않는다. 자정을 넘는 "밤 22시~새벽 2시"는 못
+        # 담는데, 그건 회의 시간대가 아니라서 지금은 버린다.
+        CheckConstraint(
+            "avoid_start_min IS NULL OR avoid_end_min IS NULL "
+            "OR avoid_start_min < avoid_end_min",
+            name="ck_preference_avoid_range",
+        ),
     )
 
     id: int | None = Field(default=None, primary_key=True)
@@ -66,6 +87,16 @@ class Preference(SQLModel, table=True):
     # "금요일 저녁은 피하고 싶어요" → "금요일 저녁은 개인 일정이 있어 어렵습니다"
     # 온보딩 직후 한 번 만들어 저장한다. 조율마다 LLM을 다시 부르지 않는다.
     avoid_polished: str | None = Field(default=None, max_length=200)
+
+    # 같은 한 줄에서 뽑은 요일·시각. **점수에 쓰는 건 이 셋이다**(브리프 11/5).
+    #
+    # 셋 다 차 있을 때만 쓴다. "너무 이른 시간은 싫어요"처럼 요일이나 범위를
+    # 못 뽑는 말이 흔한데, 그때 억지로 숫자를 만들면 엉뚱한 시간이 거절된다.
+    # 못 뽑으면 avoid_polished만 남고 점수는 안 건드린다 — 말에는 쓰이니
+    # 값이 없는 건 아니다.
+    avoid_weekdays: list[int] | None = int_array()
+    avoid_start_min: int | None = Field(default=None)
+    avoid_end_min: int | None = Field(default=None)
 
     updated_at: datetime = ts(auto_now=True)
 

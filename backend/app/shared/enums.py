@@ -46,7 +46,7 @@ class SchedulingStatus(StrEnum):
     """조율의 상태. 끝났을 때의 값 셋이 화면 세 갈래와 1:1이다.
 
     running   → 라운드를 도는 중
-    agreed    → 3라운드 안에 전원이 수락. 회의안이 나가고 사람이 수락·거절한다
+    agreed    → 3라운드 안에 전원이 수락. 회의가 나가고 사람이 수락·거절한다
     settled   → 합의가 안 돼서 판단 에이전트가 정했다. **바로 확정된다**
     failed    → 후보가 아예 없다. 팀장이 기간을 넓혀야 한다
 
@@ -68,7 +68,7 @@ class SchedulingStatus(StrEnum):
 class MeetingStatus(StrEnum):
     """회의의 상태.
 
-    proposed가 곧 "회의안"이다. 별도 테이블을 두지 않고 이 상태로 둔 이유는
+    proposed가 아직 확정 안 된 회의다. 별도 테이블을 두지 않고 이 상태로 둔 이유는
     db-설계.md §0 "두 가지 이름, 한 행"에 적어 뒀다. 전원 수락하면 행을
     옮기지 않고 confirmed로 바꾼다.
     """
@@ -80,7 +80,7 @@ class MeetingStatus(StrEnum):
 
 
 class ResponseState(StrEnum):
-    """수락·거절. 회의안이 만들어질 때 팀원 수만큼 pending으로 깔린다.
+    """수락·거절. 회의가 만들어질 때 팀원 수만큼 pending으로 깔린다.
 
     그래야 "누가 아직 안 답했는지"를 이름으로 보여 줄 수 있다.
     """

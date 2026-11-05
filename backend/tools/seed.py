@@ -111,6 +111,10 @@ def seed(session: Session) -> None:
                 dayparts=[Daypart.AFTERNOON, Daypart.EVENING],
                 avoid_raw="오전은 수업이 많아서 힘들어요",
                 avoid_polished="오전에는 수업이 연달아 있어 어렵습니다",
+                # 온보딩에서는 LLM이 이 셋을 뽑는다. 시드는 손으로 적는다.
+                avoid_weekdays=[0, 1, 2, 3, 4],
+                avoid_start_min=9 * 60,
+                avoid_end_min=12 * 60,
             ),
             Preference(
                 user_id=hyunwoo.id,
@@ -120,6 +124,9 @@ def seed(session: Session) -> None:
                 dayparts=[Daypart.FORENOON, Daypart.AFTERNOON],
                 avoid_raw="평일 저녁은 알바가 있어요",
                 avoid_polished="평일 저녁에는 아르바이트가 있어 어렵습니다",
+                avoid_weekdays=[0, 1, 2, 3, 4],
+                avoid_start_min=17 * 60,
+                avoid_end_min=22 * 60,
             ),
             Preference(
                 user_id=seoyeon.id,
