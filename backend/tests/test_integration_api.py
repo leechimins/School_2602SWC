@@ -20,6 +20,7 @@ from app.minutes.models import CalendarLink
 from app.shared import demo_clock
 from app.shared.base import KST
 from app.shared.enums import (
+    LinkStatus,
     Recurrence,
     ScheduleKind,
     ScheduleSource,
@@ -68,19 +69,33 @@ EVENTS = [
 class FakeGoogle:
     def __init__(self) -> None:
         self.events: list[dict] = list(EVENTS)
+        self.exchange_error: Exception | None = None
+        self.list_errors: list[Exception] = []  # 순서대로 한 번씩 던진다
+        self.refresh_error: Exception | None = None
         self.refresh_token: str | None = REFRESH
         self.ranges: list[tuple[datetime, datetime]] = []
         self.list_tokens: list[str] = []
+        self.refreshed = 0
 
     def exchange_code(self, code: str) -> google.Tokens:
+        if self.exchange_error:
+            raise self.exchange_error
         return google.Tokens(ACCESS, self.refresh_token)
 
     def primary_account(self, access_token: str) -> str:
         return ACCOUNT
 
+    def refresh(self, refresh_token: str) -> str:
+        self.refreshed += 1
+        if self.refresh_error:
+            raise self.refresh_error
+        return "ya29.새-접근-토큰"
+
     def list_events(self, access_token: str, time_min: datetime, time_max: datetime) -> list[dict]:
         self.list_tokens.append(access_token)
         self.ranges.append((time_min, time_max))
+        if self.list_errors:
+            raise self.list_errors.pop(0)
         return self.events
 
 
@@ -89,7 +104,7 @@ def fake(monkeypatch: pytest.MonkeyPatch) -> FakeGoogle:
     fake = FakeGoogle()
     monkeypatch.setenv("GOOGLE_CLIENT_ID", "test-client")
     monkeypatch.setenv("GOOGLE_CLIENT_SECRET", "test-secret")
-    for name in ("exchange_code", "primary_account", "list_events"):
+    for name in ("exchange_code", "primary_account", "refresh", "list_events"):
         monkeypatch.setattr(google, name, getattr(fake, name))
     return fake
 
@@ -178,6 +193,38 @@ def test_시연_시계_오늘부터_5주를_읽는다(client, fake, jisu):
     assert end == datetime(2026, 12, 15, tzinfo=KST)
 
 
+def test_잘못된_코드면_400이고_연결이_안_생긴다(client, fake, jisu, seeded):
+    fake.exchange_error = google.InvalidGrant("invalid_grant")
+    res = _connect(client)
+    assert res.status_code == 400
+    assert res.json()["code"] == "GOOGLE_CODE_INVALID"
+    assert _link(seeded, jisu.id) is None
+
+
+def test_구글이_응답없으면_503(client, fake, jisu, seeded):
+    fake.exchange_error = google.Unavailable("timeout")
+    res = _connect(client)
+    assert res.status_code == 503
+    assert res.json()["code"] == "GOOGLE_UNAVAILABLE"
+    assert _link(seeded, jisu.id) is None
+
+
+def test_연결은_됐는데_약속을_못_읽으면_연결은_남고_503(client, fake, jisu, seeded):
+    fake.list_errors = [google.Unavailable("timeout")]
+    res = _connect(client)
+    assert res.status_code == 503
+    link = _link(seeded, jisu.id)
+    assert link is not None and link.last_synced_at is None
+    assert _items(seeded, jisu.id, ScheduleSource.GOOGLE) == []
+
+
+def test_서버_설정이_없으면_503(client, fake, jisu, monkeypatch):
+    monkeypatch.setenv("GOOGLE_CLIENT_ID", "")
+    res = _connect(client)
+    assert res.status_code == 503
+    assert res.json()["code"] == "GOOGLE_UNAVAILABLE"
+
+
 def test_로그인_안_하면_401(client, fake, seeded):
     assert client.post(URL, json={"code": "x"}).status_code == 401
     assert client.post(f"{URL}/sync").status_code == 401
@@ -236,6 +283,52 @@ def test_동기화는_다른_사람_약속을_안_건드린다(client, fake, jis
     fake.events = []
     client.post(f"{URL}/sync")
     assert _items(seeded, minji.id, ScheduleSource.GOOGLE) == []
+    assert len(_items(seeded, jisu.id, ScheduleSource.GOOGLE)) == 2
+
+
+def test_접근_토큰이_만료되면_갱신해서_다시_읽는다(client, fake, jisu, seeded):
+    _connect(client)
+    fake.list_errors = [google.Unauthorized("expired")]
+    res = client.post(f"{URL}/sync")
+    assert res.status_code == 200, res.text
+    assert fake.refreshed == 1
+    assert fake.list_tokens[-1] == "ya29.새-접근-토큰"
+    assert _link(seeded, jisu.id).access_token == "ya29.새-접근-토큰"
+
+
+def test_갱신도_막히면_failed_409이고_전_약속은_남는다(client, fake, jisu, seeded):
+    _connect(client)
+    fake.list_errors = [google.Unauthorized("expired")]
+    fake.refresh_error = google.InvalidGrant("invalid_grant")
+
+    res = client.post(f"{URL}/sync")
+    assert res.status_code == 409
+    assert res.json()["code"] == "GOOGLE_RECONNECT_NEEDED"
+    assert _link(seeded, jisu.id).status == LinkStatus.FAILED
+    assert len(_items(seeded, jisu.id, ScheduleSource.GOOGLE)) == 2
+
+
+def test_다시_연결하면_ok로_돌아온다(client, fake, jisu, seeded):
+    _connect(client)
+    fake.list_errors = [google.Unauthorized("expired")]
+    fake.refresh_error = google.InvalidGrant("invalid_grant")
+    client.post(f"{URL}/sync")
+
+    res = _connect(client)
+    assert res.status_code == 200
+    assert res.json()["status"] == "ok"
+
+
+def test_구글이_응답없으면_503이고_전_약속과_상태는_남는다(client, fake, jisu, seeded):
+    _connect(client)
+    synced_at = _link(seeded, jisu.id).last_synced_at
+    fake.list_errors = [google.Unavailable("timeout")]
+
+    res = client.post(f"{URL}/sync")
+    assert res.status_code == 503
+    link = _link(seeded, jisu.id)
+    assert link.status == LinkStatus.OK
+    assert link.last_synced_at == synced_at
     assert len(_items(seeded, jisu.id, ScheduleSource.GOOGLE)) == 2
 
 

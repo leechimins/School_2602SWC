@@ -6,6 +6,7 @@
   제목을 비우면 조율 화면(meeting/slots._label)이 "바쁨"으로 그린다.
 - 동기화는 "이전 구글 약속을 지우고 새로 넣기"다. 구글에서 지운 약속이
   남지 않게 하려면 이게 제일 단순하다. 직접 입력·에브리타임 행은 안 건드린다.
+- 실패하면 이전 구글 약속을 그대로 둔다. 빈 시간표보다 조금 낡은 시간표가 낫다.
 """
 
 from __future__ import annotations
@@ -37,6 +38,10 @@ SYNC_WEEKS = 5
 class Busy:
     start_at: datetime
     end_at: datetime
+
+
+class ReconnectNeeded(Exception):
+    """갱신 토큰까지 막혔다. status를 failed로 두고 다시 연결하게 한다."""
 
 
 def _day_start(value: str) -> datetime:
@@ -110,16 +115,43 @@ def _remove_items(db: Session, user_id: int) -> None:
 
 
 def _fetch(db: Session, link: CalendarLink) -> list[dict]:
-    """시연 시계 기준 오늘 0시부터 SYNC_WEEKS주 약속을 읽는다."""
+    """약속을 읽는다. 접근 토큰이 만료됐으면 한 번 갱신하고 다시 읽는다.
+
+    만료 시각을 저장하지 않는다. 401을 받으면 갱신하는 쪽이 칸 하나 덜 쓰고,
+    시계를 옮기는 시연에서도 어긋나지 않는다.
+    """
     today = demo_clock.now(db)
     start = datetime.combine(today.date(), time(0), tzinfo=KST)
     end = start + timedelta(weeks=SYNC_WEEKS)
-    return google.list_events(link.access_token or "", start, end)
+    try:
+        return google.list_events(link.access_token or "", start, end)
+    except google.Unauthorized:
+        pass
+    if not link.refresh_token:
+        raise ReconnectNeeded
+    try:
+        link.access_token = google.refresh(link.refresh_token)
+    except google.InvalidGrant:
+        raise ReconnectNeeded from None
+    db.add(link)
+    try:
+        return google.list_events(link.access_token, start, end)
+    except (google.Unauthorized, google.InvalidGrant):
+        raise ReconnectNeeded from None
 
 
 def sync(db: Session, link: CalendarLink) -> None:
-    """약속을 읽어 구글 행을 통째로 바꾼다. 커밋은 부르는 쪽이 한다."""
-    events = _fetch(db, link)
+    """약속을 읽어 구글 행을 통째로 바꾼다. 커밋은 부르는 쪽이 한다.
+
+    ReconnectNeeded면 link.status를 failed로 바꾸고 다시 올린다(행은 그대로).
+    google.Unavailable은 아무것도 안 바꾸고 그대로 올린다.
+    """
+    try:
+        events = _fetch(db, link)
+    except (ReconnectNeeded, google.InvalidGrant):
+        link.status = LinkStatus.FAILED
+        db.add(link)
+        raise ReconnectNeeded from None
 
     _remove_items(db, link.user_id)
     for item in to_busy(events):
@@ -141,7 +173,10 @@ def sync(db: Session, link: CalendarLink) -> None:
 
 
 def connect(db: Session, user_id: int, code: str) -> CalendarLink:
-    """코드를 토큰으로 바꾸고 연결 행을 만들거나 고친다. 커밋은 부르는 쪽."""
+    """코드를 토큰으로 바꾸고 연결 행을 만들거나 고친다. 커밋은 부르는 쪽.
+
+    google.InvalidGrant(코드가 잘못됨)·Unavailable은 그대로 올린다.
+    """
     tokens = google.exchange_code(code)
     account = google.primary_account(tokens.access_token)
 

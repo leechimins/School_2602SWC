@@ -1,10 +1,13 @@
 """구글 호출이 일어나는 유일한 곳. 레인 B.
 
-토큰 교환·계정 확인·약속 읽기만 한다. 무엇을 "바쁨"으로 넣을지는
+토큰 교환·갱신·계정 확인·약속 읽기만 한다. 무엇을 "바쁨"으로 넣을지는
 service.py가 정한다 — 테스트가 이 파일의 함수만 가짜로 바꿔 끼우면
 네트워크 없이 연결·동기화 전체를 돌릴 수 있게 하려는 것이다.
 
-구글 라이브러리를 쓰지 않는다. 엔드포인트 몇 개라 이미 있는 httpx로 충분하고,
+**토큰을 로그·예외 문장에 넣지 않는다.** 실패는 종류만 담은 예외로 올리고,
+구글이 돌려준 본문(토큰이 섞일 수 있다)은 버린다.
+
+구글 라이브러리를 쓰지 않는다. 엔드포인트 네 개라 이미 있는 httpx로 충분하고,
 google-auth·google-api-python-client를 들이면 의존성만 무거워진다.
 """
 
@@ -32,6 +35,22 @@ TIMEOUT_SEC = 10.0
 MAX_PAGES = 4
 
 
+class GoogleError(Exception):
+    """구글 호출 실패. 문장에 토큰·응답 본문을 담지 않는다."""
+
+
+class InvalidGrant(GoogleError):
+    """코드나 갱신 토큰이 더는 안 통한다. 다시 연결해야 한다."""
+
+
+class Unauthorized(GoogleError):
+    """접근 토큰이 만료됐다. 갱신 토큰으로 새로 받으면 된다."""
+
+
+class Unavailable(GoogleError):
+    """구글이 안 받거나 시간이 넘었다. 잠시 후 다시 하면 된다."""
+
+
 @dataclass(frozen=True)
 class Tokens:
     access_token: str
@@ -53,14 +72,28 @@ def configured() -> bool:
 
 
 def _token_request(data: dict[str, str]) -> dict:
-    client_id, secret = _client() or ("", "")
-    res = httpx.post(
-        TOKEN_URL,
-        data={**data, "client_id": client_id, "client_secret": secret},
-        timeout=TIMEOUT_SEC,
-    )
-    res.raise_for_status()
-    return res.json()
+    client = _client()
+    if client is None:
+        raise Unavailable("구글 클라이언트 설정이 없다")
+    client_id, secret = client
+    try:
+        res = httpx.post(
+            TOKEN_URL,
+            data={**data, "client_id": client_id, "client_secret": secret},
+            timeout=TIMEOUT_SEC,
+        )
+    except httpx.HTTPError as exc:
+        raise Unavailable(type(exc).__name__) from None
+    if res.status_code == 200:
+        return res.json()
+    # 400 invalid_grant: 코드를 이미 썼거나, 갱신 토큰이 취소·만료됐다.
+    try:
+        error = res.json().get("error")
+    except ValueError:
+        error = None
+    if res.status_code in (400, 401) and error in ("invalid_grant", "invalid_request"):
+        raise InvalidGrant(error)
+    raise Unavailable(f"token {res.status_code}")
 
 
 def exchange_code(code: str) -> Tokens:
@@ -75,15 +108,33 @@ def exchange_code(code: str) -> Tokens:
     return Tokens(body["access_token"], body.get("refresh_token"))
 
 
-def _get(access_token: str, url: str, params: dict | None = None) -> dict:
-    res = httpx.get(
-        url,
-        headers={"Authorization": f"Bearer {access_token}"},
-        params=params,
-        timeout=TIMEOUT_SEC,
+def refresh(refresh_token: str) -> str:
+    """갱신 토큰으로 새 접근 토큰을 받는다."""
+    body = _token_request(
+        {"refresh_token": refresh_token, "grant_type": "refresh_token"}
     )
-    res.raise_for_status()
-    return res.json()
+    return body["access_token"]
+
+
+def _get(access_token: str, url: str, params: dict | None = None) -> dict:
+    try:
+        res = httpx.get(
+            url,
+            headers={"Authorization": f"Bearer {access_token}"},
+            params=params,
+            timeout=TIMEOUT_SEC,
+        )
+    except httpx.HTTPError as exc:
+        raise Unavailable(type(exc).__name__) from None
+    if res.status_code == 200:
+        return res.json()
+    if res.status_code == 401:
+        raise Unauthorized("access token")
+    # 403은 Calendar API가 꺼졌거나 권한을 덜 받은 경우다. 사용자가 할 수 있는
+    # 일이 다시 연결뿐이라 InvalidGrant와 같게 본다.
+    if res.status_code == 403:
+        raise InvalidGrant("forbidden")
+    raise Unavailable(f"calendar {res.status_code}")
 
 
 def primary_account(access_token: str) -> str:
