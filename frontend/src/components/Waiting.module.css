@@ -1,0 +1,31 @@
+.waiting {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--sub-wash);
+  border: 1px dashed color-mix(in srgb, var(--sub) 60%, var(--card));
+}
+
+/* 글자 뒤 점 세 개가 차례로 옅어졌다 진해진다. 움직임을 줄인 설정이면 멈춘다 */
+.what {
+  font-weight: 600;
+  color: var(--sub-ink);
+}
+
+.what::after {
+  content: '...';
+  display: inline-block;
+  margin-left: 2px;
+  animation: breathe 1.4s ease-in-out infinite;
+}
+
+@keyframes breathe {
+  50% {
+    opacity: 0.25;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .what::after {
+    animation: none;
+  }
+}

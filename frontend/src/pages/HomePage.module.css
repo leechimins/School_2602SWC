@@ -1,0 +1,28 @@
+.dday {
+  display: block;
+  color: var(--point-ink);
+  font-size: var(--fs-big);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.03em;
+}
+
+.list {
+  margin: 0;
+  padding: 0;
+}
+
+/* 알림 종의 안 읽은 수 */
+.count {
+  position: absolute;
+  top: 4px;
+  left: 24px;
+  min-width: 17px;
+  padding: 0 5px;
+  border-radius: 99px;
+  background: var(--danger);
+  color: var(--white);
+  font-size: var(--fs-tab);
+  font-weight: 700;
+  line-height: 17px;
+}

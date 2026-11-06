@@ -1,0 +1,184 @@
+/* 앱 전체 기본값과 여러 화면이 같이 쓰는 모양(버튼·묶음·메타 글자). 시안10과 같은 값이다. */
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--frame);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: var(--fs-body);
+  line-height: 1.5;
+  word-break: keep-all; /* 한글 단어 중간에서 줄을 바꾸지 않는다 */
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+p {
+  margin: 0;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+.meta {
+  font-size: var(--fs-meta);
+  color: var(--muted);
+}
+
+.strong {
+  font-size: var(--fs-strong);
+  font-weight: 600;
+}
+
+/* 묶음: 카드 한 장 */
+.sec {
+  margin: 8px 12px 0;
+  padding: 14px var(--sp);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-l);
+}
+
+.sec h2 {
+  margin: 0 0 6px;
+  font-size: var(--fs-sec);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+/* 묶음 밖 제목 줄: 왼쪽 제목 + 오른쪽 보조 */
+.sec-h {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin: 18px 18px 0;
+}
+
+.sec-h h2 {
+  margin: 0;
+  font-size: var(--fs-sec);
+  font-weight: 700;
+}
+
+/* 버튼. 두 개를 나란히 둘 때는 왼쪽 .quiet(또는 .del) | 오른쪽 .primary */
+.btn {
+  min-height: 44px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: var(--r);
+  background: var(--point-soft);
+  color: var(--point-ink);
+  font-size: var(--fs-body);
+  font-weight: 600;
+}
+
+.btn.primary {
+  background: var(--point);
+  color: var(--on-point);
+}
+
+.btn.danger {
+  background: var(--danger);
+  color: var(--white);
+}
+
+.btn.del {
+  background: none;
+  color: var(--danger);
+}
+
+.btn.quiet {
+  background: none;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.btn.small {
+  min-height: 34px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+.btn.block {
+  width: 100%;
+  margin-top: 10px;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.link {
+  min-height: 40px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--point-ink);
+  font-size: var(--fs-sec);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.field {
+  min-height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-s);
+  background: var(--card);
+  font-size: var(--fs-body);
+}
+
+/* 아이콘: 1.6px 선 아이콘 */
+svg.i {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+svg.i.s {
+  width: 17px;
+  height: 17px;
+}
+
+/* 제목줄의 아이콘 버튼(알림 종 등). 누를 수 있는 크기 44px */
+.icon-btn {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  background: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: inherit;
+}

@@ -1,0 +1,40 @@
+.sheet {
+  width: 100%;
+  max-width: var(--app-width);
+  margin: auto auto 0;
+  padding: 20px 18px calc(18px + env(safe-area-inset-bottom));
+  border: 0;
+  border-radius: 18px 18px 0 0;
+  background: var(--card);
+  color: var(--text);
+}
+
+.sheet::backdrop {
+  background: rgb(0 0 0 / 0.45);
+}
+
+.title {
+  margin: 0 0 6px;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.input {
+  width: 100%;
+  margin-top: 8px;
+}
+
+/* 왼쪽 취소(글자) | 오른쪽 하는 일(버튼) */
+.actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.actions > :first-child {
+  flex: 1;
+}
+
+.actions > :last-child {
+  flex: 2;
+}
