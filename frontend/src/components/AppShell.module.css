@@ -1,0 +1,15 @@
+/* 431px 이상에서는 가운데 430px만 앱이고 양옆은 --frame */
+.app {
+  display: grid;
+  grid-template-rows: 1fr auto;
+  width: 100%;
+  max-width: var(--app-width);
+  height: 100dvh;
+  margin: 0 auto;
+  background: var(--page);
+  overflow: hidden;
+}
+
+.screen {
+  min-height: 0;
+}

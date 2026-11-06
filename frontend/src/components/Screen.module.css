@@ -1,0 +1,46 @@
+.screen {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  height: 100%;
+  min-height: 0;
+}
+
+.top {
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 8px 0 16px;
+  background: var(--page);
+}
+
+.title {
+  flex: 1;
+  margin: 0;
+  font-size: var(--fs-title);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.back {
+  width: 44px;
+  height: 44px;
+  margin-left: -10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: inherit;
+}
+
+.body {
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 20px;
+}
+
+/* 하단 고정 영역: 떠 있는 틈 없이 탭 바로 위에 붙는다 */
+.dock {
+  padding: 10px 12px 12px;
+  background: var(--card);
+  border-top: 1px solid var(--line);
+}

@@ -1,0 +1,59 @@
+/* 디자인 토큰. 원본은 디자인 시안10(docs/mockup/index.html)의 :root·.app 값이다.
+   색은 중립 바탕 + 포인트 파랑 1색 + AI 노랑 1색. 초록은 쓰지 않는다(완료도 포인트 계열).
+   컴포넌트 CSS는 이 변수만 쓰고 색 값을 직접 적지 않는다. */
+:root {
+  color-scheme: light;
+  --font: "Pretendard Variable", Pretendard, -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+
+  /* 테마: 포인트(주요 행동·확정) · 보조(AI 제안·판단 에이전트) */
+  --point: #3d5bab;
+  --on-point: #ffffff;
+  --point-ink: #3d5bab;
+  --sub: #e8b730;
+  --sub-ink: #7f6418;
+
+  /* 면·글자 */
+  --white: #ffffff;
+  --page: #f4f5f7;
+  --card: #ffffff;
+  --text: #191f28;
+  --frame: #e9e9e6; /* 휴대폰 폭보다 넓은 화면의 양옆 */
+
+  /* 상태: 뱃지·알림 카드에만 쓴다. 장식 금지 */
+  --ok: var(--point-ink);
+  --warn: #b8690f;
+  --danger: #e5383b;
+
+  /* 파생색: 글자색·포인트색을 바탕과 섞어 만든다 */
+  --soft: color-mix(in srgb, var(--text) 5%, var(--card));
+  --line: color-mix(in srgb, var(--text) 10%, var(--page));
+  --muted: color-mix(in srgb, var(--text) 62%, var(--page));
+  --bubble: color-mix(in srgb, var(--text) 7%, var(--page));
+  --point-soft: color-mix(in srgb, var(--point) 12%, var(--card));
+  --sub-soft: color-mix(in srgb, var(--sub) 18%, var(--card));
+  --sub-wash: color-mix(in srgb, var(--sub) 7%, var(--card));
+  --tab-idle: #8e8e93;
+  --check-idle: #c7c7cc;
+  --check-off: #e2e2e6;
+
+  /* 글자 크기 */
+  --fs-title: 20px; /* 상단 제목줄 */
+  --fs-big: 28px; /* 화면에 하나뿐인 핵심 숫자 */
+  --fs-strong: 14.5px; /* 목록 행 제목 */
+  --fs-body: 14px;
+  --fs-sec: 13.5px; /* 묶음 제목 */
+  --fs-meta: 12.5px; /* 메타·이유 한 줄 */
+  --fs-badge: 11.5px;
+  --fs-tab: 10.5px;
+
+  /* 간격·모서리 */
+  --sp: 16px; /* 묶음 안쪽 좌우 여백 */
+  --gap-1: 4px;
+  --gap-2: 8px;
+  --gap-3: 12px;
+  --r-s: 8px; /* 입력칸 */
+  --r: 12px; /* 버튼 */
+  --r-l: 16px; /* 묶음(카드) */
+  --r-badge: 4px;
+  --app-width: 430px;
+}
