@@ -1,0 +1,8 @@
+.empty {
+  padding: 4px 0;
+}
+
+.action {
+  display: inline-flex;
+  align-items: center;
+}

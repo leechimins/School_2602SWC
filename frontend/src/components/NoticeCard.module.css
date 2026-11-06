@@ -1,0 +1,30 @@
+.card {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.card:last-child {
+  border-bottom: 0;
+}
+
+.head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.go {
+  min-height: 30px;
+  font-size: var(--fs-meta);
+  white-space: nowrap;
+}
+
+.reason {
+  margin-top: 3px;
+}
+
+/* 읽은 알림은 글자만 옅게 (뱃지 글자는 그대로) */
+.card[data-read='true'] .reason {
+  color: var(--muted);
+}

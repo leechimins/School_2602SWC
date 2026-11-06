@@ -5,6 +5,7 @@ import { PATHS } from './lib/paths.ts'
 import ComingSoonPage from './pages/ComingSoonPage.tsx'
 import HomePage from './pages/HomePage.tsx'
 import MePage from './pages/MePage.tsx'
+import NotificationsPage from './pages/NotificationsPage.tsx'
 import SchedulePage from './pages/SchedulePage.tsx'
 import TasksPage from './pages/TasksPage.tsx'
 
@@ -16,7 +17,7 @@ export default function App() {
       <Route element={<AppShell />}>
         {/* 홈 탭 */}
         <Route path={PATHS.home} element={<HomePage />} />
-        <Route path={PATHS.notifications} element={<ComingSoonPage title="알림" backTo={PATHS.home} />} />
+        <Route path={PATHS.notifications} element={<NotificationsPage />} />
         <Route path={PATHS.schedulingNew} element={<ComingSoonPage title="회의 잡기" backTo={PATHS.home} />} />
         <Route path={PATHS.scheduling} element={<ComingSoonPage title="시간 정하는 중" backTo={PATHS.home} />} />
         <Route path={PATHS.proposal} element={<ComingSoonPage title="회의 일정" backTo={PATHS.home} />} />

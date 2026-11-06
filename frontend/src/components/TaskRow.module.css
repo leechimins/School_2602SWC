@@ -1,0 +1,125 @@
+.row {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+  list-style: none;
+}
+
+.row:last-child {
+  border-bottom: 0;
+}
+
+/* 길게 누르기 = 고치기. 글자 선택·휴대폰 길게 누름 메뉴를 막는다 */
+.head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.title {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.name {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  font-size: var(--fs-strong);
+  font-weight: 600;
+}
+
+.row[data-done='true'] .name {
+  color: var(--muted);
+  text-decoration: line-through;
+  font-weight: 400;
+}
+
+/* 완료 체크: 빈 원 → 포인트 원 + 흰 체크 */
+.check {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  margin-top: 1px;
+  padding: 0;
+  border: 2px solid var(--check-idle);
+  border-radius: 50%;
+  background-color: transparent;
+}
+
+.row[data-done='true'] .check {
+  border-color: var(--point);
+  background: var(--point)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 8.5l2.6 2.5L12 5.5' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+    center / 14px no-repeat;
+}
+
+/* 남의 할 일: 회색으로 막는다. background-color만 바꿔 완료 체크 그림은 남긴다(목업 버그 ⑤) */
+.check:disabled {
+  border-color: var(--check-off);
+  background-color: var(--soft);
+  cursor: not-allowed;
+}
+
+.row[data-done='true'] .check:disabled {
+  border-color: var(--check-idle);
+  background-color: var(--check-idle);
+}
+
+.right {
+  position: relative;
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+}
+
+.chip {
+  min-width: 62px;
+  min-height: 24px;
+  justify-content: center;
+  border: 0;
+  cursor: pointer;
+}
+
+.chip::after {
+  content: '▾';
+  margin-left: 3px;
+  font-size: 10px;
+}
+
+.menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 96px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--card);
+  box-shadow: 0 6px 20px rgb(0 0 0 / 0.12);
+}
+
+.menu button {
+  display: flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+}
+
+.menu button[aria-checked='true'] {
+  background: var(--soft);
+}
