@@ -86,8 +86,8 @@
 | Notice | 웹 푸시 등록 | PUT | `/me/push-subscription` | A | Low | 팀 전체 빼는 1순위 | 미착수 | 미착수 |
 | Notice | 웹 푸시 끄기 | DELETE | `/me/push-subscription` | A | Low | “ | 미착수 | 미착수 |
 | Meeting | 조율 시작하기 | POST | `/rooms/{room_id}/schedulings` | A | High | 팀장만. 회의 길이 30분 단위. **11/7**: 수락 대기 회의가 있으면 409 `AWAITING_RESPONSE`. 조율은 뒷단에서 돌고 이 요청은 바로 돌아옴(`status: running`) | **완료** | 미착수 |
-| Meeting | 지금까지의 조율 보기 | GET | `/rooms/{room_id}/schedulings/{id}` | A | High | 재진입용. 쌓인 발언을 한 번에. 도는 중이면 다시 부르면 새 발언이 붙어 옴. **11/7**: `meeting_id`(합의·조정이 끝나면 그 회의, 아니면 null) | **완료** | 미착수 |
-| Meeting | 조율 발언 받기 | GET | `/rooms/{room_id}/schedulings/{id}/stream` | A | High | SSE. 1.6초마다 하나씩. 스피너 금지. 끝에 `event: done`으로 `status` 전달. **11/7**: 읽기만 함(라운드는 뒷단). `?after=seq`면 그 번호 뒤의 발언만 — 다시 조율할 때 옛 대화를 또 재생하지 않게 | **완료** | 미착수 |
+| Meeting | 지금까지의 조율 보기 | GET | `/rooms/{room_id}/schedulings/{id}` | A | High | 재진입용. 쌓인 발언을 한 번에. 도는 중이면 다시 부르면 새 발언이 붙어 옴. **11/7**: `meeting_id`(합의·조정이 끝나면 그 회의, 아니면 null). 발언마다 말풍선 뱃지: `answer`(accept/reject) · `burden`(ok/some/much)은 팀원 반응에만, `my_score`(1~5)는 **내 반응에만**, `slot_start_at`·`slot_end_at`은 판단 발언에만. 어필은 전부 null | **완료** | 미착수 |
+| Meeting | 조율 발언 받기 | GET | `/rooms/{room_id}/schedulings/{id}/stream` | A | High | SSE. 1.6초마다 하나씩. 스피너 금지. 끝에 `event: done`으로 `status` 전달. **11/7**: 읽기만 함(라운드는 뒷단). `?after=seq`면 그 번호 뒤의 발언만 — 다시 조율할 때 옛 대화를 또 재생하지 않게. 발언 모양은 조율 보기와 같음(뱃지 포함) | **완료** | 미착수 |
 | Meeting | ~~후보 중 팀이 고르기~~ | ~~POST~~ | ~~`/rooms/{room_id}/schedulings/{id}/pick`~~ | A | — | **빗금 11/5**: 사람이 고르는 단계를 없앴습니다. 3라운드 실패·전원 가능한 시간 없음 둘 다 판단 에이전트가 불편·양보 점수로 정하고 **바로 확정**합니다 | 안 만듦 | 안 만듦 |
 | Meeting | ~~기간 넓혀 다시 조율~~ | ~~POST~~ | ~~`/rooms/{room_id}/schedulings/{id}/widen`~~ | A | — | **빗금 11/7**: 기간을 서버가 넓혀 주는 길도, 사람이 누르는 버튼도 없앴습니다. 후보가 아예 없으면 조율이 `failed`로 끝나고, 팀장이 **더 넓은 기간으로 조율을 새로 시작**하면 됩니다(`POST /rooms/{room_id}/schedulings`) | 안 만듦 | 안 만듦 |
 | Meeting | ~~불참안 받아들이기~~ | ~~POST~~ | ~~`/rooms/{room_id}/schedulings/{id}/accept-absent`~~ | A | — | **빗금 11/5**: `pick`과 같은 이유입니다. 전원 가능한 시간이 없으면 판단 에이전트가 불참안까지 포함해 불편·양보 점수로 정하고 바로 확정하므로, 사람이 "받아들이기"를 누를 자리가 없습니다 | 안 만듦 | 안 만듦 |
