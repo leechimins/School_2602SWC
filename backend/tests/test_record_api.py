@@ -108,8 +108,12 @@ def test_회의록에_원문_요약_할_일_제안이_다_온다(
     assert len(body["minutes"]["decisions"]) == 2
     assert len(body["minutes"]["discussions"]) == 1
     assert len(body["minutes"]["pendings"]) == 2
-    # 직접 추가한 할 일은 출처 회의가 없어 여기 안 나온다
-    assert len(body["tasks"]) == 5
+    # 직접 추가한 할 일은 출처 회의가 없어 여기 안 나온다.
+    # "참고 사례 조사"는 10/27 회의에서 나와 여기서 끝났다 → tasks가 아니라 done_tasks
+    assert len(body["tasks"]) == 4
+    assert [t["title"] for t in body["done_tasks"]] == ["참고 사례 조사"]
+    assert body["done_tasks"][0]["state"] == "done"
+    assert body["done_tasks"][0]["source"]["topic"] == "역할 나누기"
     assert all(t["confirmed_by_name"] == "지수" for t in body["tasks"])
     # 할 일 목록과 같은 모양이라 프론트가 할 일 행 하나로 그린다
     task = next(t for t in body["tasks"] if t["title"] == "프로토타입 화면 구현")
