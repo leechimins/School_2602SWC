@@ -1,3 +1,4 @@
+import { getDebug } from '../lib/debug.ts'
 import { markChanged } from '../mock/store.ts'
 
 // 서버 호출은 이 파일을 거친다. 목·실서버 전환과 서버 실패 시 목 데이터로 이어 가기를 여기 한 곳에서 한다.
@@ -57,6 +58,7 @@ export async function request<Raw>(path: string, options: RequestOptions = {}): 
  *   (code 없는 4xx는 틀린 주소의 404 같은 것이라 서버 실패로 본다)
  */
 export async function withMock<T>(real: () => Promise<T>, mock: () => T): Promise<T> {
+  await debugGate()
   if (USE_MOCK) return mock()
   try {
     return await real()
@@ -65,6 +67,13 @@ export async function withMock<T>(real: () => Promise<T>, mock: () => T): Promis
     console.warn('[api] 서버 실패 → 목 데이터로 이어 감', e)
     return mock()
   }
+}
+
+/** /demo 점검 스위치: 켜져 있으면 느리게 답하거나 AI 멈춤처럼 실패한다. 목 이어 가기보다 앞에 둬서 실패 화면이 보이게 한다 */
+async function debugGate() {
+  const { slowMs, fail } = getDebug()
+  if (slowMs > 0) await new Promise((resolve) => setTimeout(resolve, slowMs))
+  if (fail) throw new ApiError(503, 'DEBUG_FAIL', '잠시 후 다시 해 주세요.')
 }
 
 /** 쓰기 요청: withMock과 같고, 끝나면 다른 화면(다른 iframe 포함)이 다시 불러오게 알린다 */

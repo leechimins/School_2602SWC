@@ -1,0 +1,8 @@
+.record {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.record:last-child {
+  border-bottom: 0;
+}

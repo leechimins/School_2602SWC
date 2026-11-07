@@ -28,6 +28,13 @@ export function switchUser(id: Id) {
   listeners.forEach((fn) => fn())
 }
 
+// /demo 패널이 휴대폰 화면의 주소를 ?user=…로 바꾸고 popstate를 보내면 새로고침 없이 사람을 바꾼다.
+// 새로고침하면 조율 재생 타이머가 끊기므로 이 길을 쓴다. 앱 안 이동은 ?user를 떼므로 없을 때는 그대로 둔다.
+window.addEventListener('popstate', () => {
+  const next = new URLSearchParams(window.location.search).get('user')
+  if (next && next !== userId) switchUser(next)
+})
+
 function subscribe(fn: () => void) {
   listeners.add(fn)
   const unsubscribeStore = subscribeStore(fn) // 초기화로 팀원이 바뀌어도 다시 계산

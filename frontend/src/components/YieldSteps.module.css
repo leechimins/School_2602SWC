@@ -1,0 +1,16 @@
+.steps {
+  display: inline-flex;
+  gap: 3px;
+  vertical-align: middle;
+}
+
+.steps i {
+  width: 12px;
+  height: 7px;
+  border-radius: 2px;
+  background: var(--line);
+}
+
+.steps i.on {
+  background: var(--point);
+}

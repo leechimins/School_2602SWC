@@ -28,3 +28,10 @@ export const BURDEN_TONE: Record<Burden, Tone> = {
   조금: 'warn',
   많이: 'danger',
 }
+
+/** 남의 불편 정도를 뱃지 글자로: "수락 · 조금 불편" */
+export const BURDEN_LABEL: Record<Burden, string> = {
+  괜찮음: '괜찮음',
+  조금: '조금 불편',
+  많이: '많이 불편',
+}

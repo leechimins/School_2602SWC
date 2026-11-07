@@ -182,3 +182,33 @@ svg.i.s {
   justify-content: center;
   color: inherit;
 }
+
+/* 한 줄 양끝: 왼쪽 제목·뱃지 | 오른쪽 보조 */
+.row-between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 나란히 놓인 두 버튼: 왼쪽 글자(.quiet) 1 | 오른쪽 버튼(.primary) 2 */
+.btn-row {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-row > .btn {
+  flex: 1;
+}
+
+.btn-row > .btn.primary {
+  flex: 2;
+}
+
+/* 버튼 모양 링크 */
+a.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}

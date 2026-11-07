@@ -1,0 +1,129 @@
+/* 시연 화면: 앱 토큰과 섞이지 않게 회색 무채색으로 따로 그린다(web-design "시연 장치") */
+
+.page {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 16px;
+  background: #d9d9d9;
+  color: #222;
+  font-family: system-ui, sans-serif;
+  font-size: 13px;
+}
+
+.phone {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.phone iframe {
+  width: 390px;
+  height: min(844px, calc(100vh - 70px));
+  border: 1px solid #aaa;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.who {
+  align-self: flex-start;
+  padding: 4px 6px;
+  font: inherit;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 260px;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  padding: 14px;
+  border: 1px solid #bbb;
+  border-radius: 8px;
+  background: #f2f2f2;
+}
+
+.panel h2 {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #555;
+}
+
+.panel button {
+  min-height: 30px;
+  padding: 4px 10px;
+  border: 1px solid #999;
+  border-radius: 6px;
+  background: #fff;
+  color: #222;
+  font: inherit;
+  cursor: pointer;
+}
+
+.panel button:hover {
+  background: #e6e6e6;
+}
+
+.buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.clock {
+  margin: 0 0 8px;
+  font-size: 20px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.reset {
+  width: 100%;
+  min-height: 38px !important;
+  font-weight: 700;
+  background: #444 !important;
+  color: #fff !important;
+  border-color: #444 !important;
+}
+
+.hint {
+  margin: 6px 0 0;
+  color: #666;
+  font-size: 12px;
+}
+
+.check {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.state {
+  margin: 0;
+  font-size: 12px;
+}
+
+.state > div {
+  padding: 4px 0;
+  border-bottom: 1px solid #ddd;
+}
+
+.state dt {
+  color: #555;
+}
+
+.state dd {
+  margin: 0;
+}
+
+/* 노트북 폭이 좁으면 휴대폰 화면 아래로 패널을 내린다 */
+@media (max-width: 1100px) {
+  .page {
+    flex-wrap: wrap;
+  }
+}

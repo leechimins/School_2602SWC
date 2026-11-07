@@ -1,0 +1,59 @@
+.judge {
+  margin: var(--gap-2) 0;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--card);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sub) 45%, var(--card));
+}
+
+.head {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--sub-ink);
+}
+
+.box {
+  margin-top: var(--gap-2);
+  padding: var(--gap-2) var(--gap-3);
+  border-radius: 10px;
+  background: var(--sub-wash);
+}
+
+.yrow {
+  display: grid;
+  grid-template-columns: 46px auto 1fr;
+  gap: var(--gap-2);
+  align-items: center;
+  min-height: 24px;
+  font-size: var(--fs-meta);
+}
+
+.wide {
+  grid-column: span 2;
+  font-size: 13.5px;
+}
+
+.say {
+  margin-top: 6px;
+}
+
+.enter {
+  animation: rise 0.25s ease-out;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .enter {
+    animation: none;
+  }
+}

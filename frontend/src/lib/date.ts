@@ -55,12 +55,10 @@ export function formatRange(start: DateInput, end: DateInput) {
   return `${formatMD(start)}–${formatMD(end)}`
 }
 
-/** 회의 길이: 40분 · 2시간 · 1시간 30분 */
+/** 회의 길이: 30분 · 2시간 · 1.5시간 (30분 단위라 시간은 소수 한 자리로 짧게) */
 export function formatDuration(minutes: number) {
-  const h = Math.floor(minutes / 60)
-  const m = minutes % 60
-  if (h === 0) return `${m}분`
-  return m === 0 ? `${h}시간` : `${h}시간 ${m}분`
+  if (minutes < 60) return `${minutes}분`
+  return `${Math.round((minutes / 60) * 10) / 10}시간`
 }
 
 /** 시작~끝 사이의 분 */
