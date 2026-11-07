@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import json
 import time
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Iterator, Sequence
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -48,7 +48,7 @@ from app.meeting.schemas import (
     UtteranceOut,
 )
 from app.meeting import rerun, runner
-from app.meeting.agent_loop import award_yield, member_names, yield_totals
+from app.meeting.agent_loop import REJECT_AT, award_yield, member_names, yield_totals
 from app.meeting.scorer import yield_points
 from app.meeting.service import burden, start_scheduling
 from app.room.service import yield_level
@@ -60,6 +60,7 @@ from app.shared.enums import (
     NotificationKind,
     ResponseState,
     SchedulingStatus,
+    SpeakerKind,
 )
 from app.shared.models import Room, User
 from app.shared.notify import emit
@@ -130,7 +131,7 @@ def _awaiting_response(db: Session, room_id: int) -> bool:
     )
 
 
-def _to_out(db: Session, scheduling: Scheduling) -> SchedulingOut:
+def _to_out(db: Session, scheduling: Scheduling, viewer_id: int) -> SchedulingOut:
     assert scheduling.id is not None
     count = db.exec(
         select(func.count())
@@ -167,19 +168,62 @@ def _to_out(db: Session, scheduling: Scheduling) -> SchedulingOut:
         rounds_used=scheduling.rounds_used,
         candidate_count=count,
         meeting_id=meeting_id,
-        utterances=[
-            UtteranceOut(
-                seq=utterance.seq,
-                        round_no=utterance.round_no,
-                speaker_kind=utterance.speaker_kind,
-                speaker_user_id=utterance.speaker_user_id,
-                speaker_name=name,
-                text=utterance.text,
-                created_at=utterance.created_at,
-            )
-            for utterance, name in rows
-        ],
+        utterances=_utterance_outs(db, rows, viewer_id),
     )
+
+
+def _utterance_outs(
+    db: Session,
+    rows: Sequence[tuple[Utterance, str | None]],
+    viewer_id: int,
+) -> list[UtteranceOut]:
+    """발언에 말풍선 뱃지를 붙인다. 조율 보기와 스트림이 같은 것을 쓴다.
+
+    수락·거절은 agent_loop._speakers와 같은 식이다(못 오거나 REJECT_AT 이상이면 거절).
+    **남의 점수는 단계로만** 나간다(명세 권장 규칙 3). 숫자는 내 반응에만.
+    """
+    ids = {u.candidate_slot_id for u, _ in rows if u.candidate_slot_id is not None}
+    slots = (
+        {c.id: c for c in db.exec(select(CandidateSlot).where(col(CandidateSlot.id).in_(ids)))}
+        if ids
+        else {}
+    )
+    costs = (
+        {
+            (c.candidate_slot_id, c.user_id): c
+            for c in db.exec(select(SlotCost).where(col(SlotCost.candidate_slot_id).in_(ids)))
+        }
+        if ids
+        else {}
+    )
+
+    out: list[UtteranceOut] = []
+    for u, name in rows:
+        slot = slots.get(u.candidate_slot_id) if u.candidate_slot_id else None
+        judge = u.speaker_kind == SpeakerKind.JUDGE
+        cost = None if judge else costs.get((u.candidate_slot_id, u.speaker_user_id))
+        out.append(
+            UtteranceOut(
+                seq=u.seq,
+                round_no=u.round_no,
+                speaker_kind=u.speaker_kind,
+                speaker_user_id=u.speaker_user_id,
+                # 이름을 채운다. 비워 두면 화면에 "1: 지수는…"처럼 숫자가 나온다.
+                speaker_name=name,
+                text=u.text,
+                created_at=u.created_at,
+                answer=(
+                    None
+                    if cost is None
+                    else "accept" if cost.available and cost.score < REJECT_AT else "reject"
+                ),
+                burden=None if cost is None else burden(cost.score),
+                my_score=cost.score if cost is not None and u.speaker_user_id == viewer_id else None,
+                slot_start_at=slot.start_at if judge and slot else None,
+                slot_end_at=slot.end_at if judge and slot else None,
+            )
+        )
+    return out
 
 
 @router.post(
@@ -257,7 +301,7 @@ def start(
         assert scheduling.id is not None
         runner.start(scheduling.id)
 
-    return _to_out(db, scheduling)
+    return _to_out(db, scheduling, user_id)
 
 
 @router.get("/schedulings/{scheduling_id}", response_model=SchedulingOut)
@@ -279,7 +323,7 @@ def read(
             status.HTTP_404_NOT_FOUND,
             detail={"code": "NOT_FOUND", "message": "그 조율이 없습니다."},
         )
-    return _to_out(db, scheduling)
+    return _to_out(db, scheduling, user_id)
 
 
 STEP_SEC = 1.6
@@ -296,17 +340,7 @@ LLM 타임아웃이 20초(shared/llm.py)라 한 라운드의 공백이 그만큼
 """
 
 
-def _sse(utterance: Utterance, names: Mapping[int, str]) -> str:
-    body = UtteranceOut(
-        seq=utterance.seq,
-        round_no=utterance.round_no,
-        speaker_kind=utterance.speaker_kind,
-        speaker_user_id=utterance.speaker_user_id,
-        # 이름을 채운다. 비워 두면 화면에 "1: 지수는…"처럼 숫자가 나온다.
-        speaker_name=names.get(utterance.speaker_user_id or 0),
-        text=utterance.text,
-        created_at=utterance.created_at,
-    )
+def _sse(body: UtteranceOut) -> str:
     return f"data: {body.model_dump_json()}\n\n"
 
 
@@ -373,9 +407,11 @@ def stream(
                 )
                 .order_by(col(Utterance.seq))
             ).all()
-            for utterance in 새것:
-                yield _sse(utterance, names)
-                마지막seq = utterance.seq
+            for body in _utterance_outs(
+                db, [(u, names.get(u.speaker_user_id or 0)) for u in 새것], user_id
+            ):
+                yield _sse(body)
+                마지막seq = body.seq
                 time.sleep(STEP_SEC)
             if 새것:
                 마지막으로본것 = time.monotonic()

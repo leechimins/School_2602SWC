@@ -18,7 +18,7 @@ from sqlmodel import Session, select
 
 from app.main import app
 from app.me.models import Preference, ScheduleItem
-from app.meeting import scorer
+from app.meeting import agent_loop, scorer
 from app.meeting.models import CandidateSlot, Meeting, Scheduling, SlotCost, Utterance
 from app.shared import demo_clock
 from app.shared.base import KST
@@ -361,7 +361,10 @@ def test_남의_점수는_응답에_안_담긴다(client: TestClient, 방: 팀) 
     res = _start(client, 방.room.id)  # type: ignore[union-attr]
     text = res.text  # type: ignore[attr-defined]
     assert "total_cost" not in text
-    assert "score" not in text
+    # 점수 숫자는 my_score 한 칸으로만, 그것도 내 반응 발언에만 나간다
+    for u in res.json()["utterances"]:  # type: ignore[attr-defined]
+        if u["speaker_user_id"] != 방.지수.id:
+            assert u["my_score"] is None
 
 
 # ── 조율 조회 ────────────────────────────────────────────────────────
@@ -463,6 +466,85 @@ def test_스트림이_발언을_흘리고_끝을_알린다(
     assert 팀원발언
     assert all(u["speaker_name"] for u in 팀원발언)
     assert all(u["speaker_name"] in ("지수", "현우") for u in 팀원발언)
+
+
+def _뱃지를_본다(session: Session, utterances: list[dict], viewer_id: int) -> None:
+    """말풍선 뱃지가 slot_cost와 맞는지. 어필 · 판단 · 반응을 순서로 가른다."""
+    # 라운드의 **첫** 판단 기준. 조정 발언도 마지막 라운드 자리에 붙는다
+    판단seq: dict[int, int] = {}
+    for u in utterances:
+        if u["speaker_kind"] == "judge":
+            판단seq.setdefault(u["round_no"], u["seq"])
+    for u in utterances:
+        if u["speaker_kind"] == "judge":
+            assert u["slot_start_at"] and u["slot_end_at"]
+            assert u["answer"] is None and u["burden"] is None and u["my_score"] is None
+            continue
+        assert u["slot_start_at"] is None
+        if u["seq"] < 판단seq[u["round_no"]]:  # 어필
+            assert u["answer"] is None and u["burden"] is None and u["my_score"] is None
+            continue
+        row = session.exec(select(Utterance).where(Utterance.seq == u["seq"])).one()
+        cost = session.exec(
+            select(SlotCost).where(
+                SlotCost.candidate_slot_id == row.candidate_slot_id,
+                SlotCost.user_id == u["speaker_user_id"],
+            )
+        ).one()
+        거절 = not cost.available or cost.score >= agent_loop.REJECT_AT
+        assert u["answer"] == ("reject" if 거절 else "accept")
+        assert u["burden"] == ("much" if cost.score >= 4 else "some" if cost.score >= 2 else "ok")
+        assert u["my_score"] == (cost.score if u["speaker_user_id"] == viewer_id else None)
+
+
+def test_발언에_수락_거절_불편_낸_시간이_붙는다(
+    client: TestClient, session: Session, 방: 팀
+) -> None:
+    _login(client, "지수")
+    started = _start(client, 방.room.id).json()  # type: ignore[union-attr,attr-defined]
+    res = client.get(f"{API}/rooms/{방.room.id}/schedulings/{started['id']}").json()
+    assert any(u["answer"] for u in res["utterances"])
+    _뱃지를_본다(session, res["utterances"], 방.지수.id)  # type: ignore[arg-type]
+
+    # 현우가 보면 숫자는 현우 것만
+    client.delete(f"{API}/sessions")
+    _login(client, "현우")
+    res = client.get(f"{API}/rooms/{방.room.id}/schedulings/{started['id']}").json()
+    _뱃지를_본다(session, res["utterances"], 방.현우.id)  # type: ignore[arg-type]
+
+
+def test_거절과_조정에도_뱃지가_붙는다(
+    client: TestClient, session: Session, 방: 팀, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """거절선을 1로 내려 모두 거절하게 한다 → 3라운드 실패 → 조정(settled)."""
+    # 라우터는 같은 상수를 import해서 읽을 때 수락·거절을 다시 가른다. 둘 다 바꾼다
+    monkeypatch.setattr("app.meeting.agent_loop.REJECT_AT", 1)
+    monkeypatch.setattr("app.meeting.router.REJECT_AT", 1)
+    _login(client, "지수")
+    started = _start(client, 방.room.id).json()  # type: ignore[union-attr,attr-defined]
+    res = client.get(f"{API}/rooms/{방.room.id}/schedulings/{started['id']}").json()
+    assert res["status"] == "settled"
+    반응 = [u for u in res["utterances"] if u["answer"]]
+    assert 반응 and all(u["answer"] == "reject" for u in 반응)
+    # 조정 발언(맨 끝 판단)에도 정한 시간이 있다
+    assert res["utterances"][-1]["speaker_kind"] == "judge"
+    assert res["utterances"][-1]["slot_start_at"]
+    _뱃지를_본다(session, res["utterances"], 방.지수.id)  # type: ignore[arg-type]
+
+
+def test_스트림에도_뱃지가_붙는다(
+    client: TestClient, session: Session, 방: 팀, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("app.meeting.router.STEP_SEC", 0)
+    _login(client, "지수")
+    started = _start(client, 방.room.id).json()  # type: ignore[union-attr,attr-defined]
+    with client.stream(
+        "GET", f"{API}/rooms/{방.room.id}/schedulings/{started['id']}/stream"
+    ) as res:
+        본문 = "".join(res.iter_text())
+    발언 = [json.loads(l[6:]) for l in 본문.splitlines() if l.startswith("data: ")][:-1]
+    assert any(u["answer"] for u in 발언)
+    _뱃지를_본다(session, 발언, 방.지수.id)  # type: ignore[arg-type]
 
 
 def test_두_번_열어도_루프는_한_번만_돈다(

@@ -104,6 +104,7 @@ def run_rounds(db: Session, scheduling: Scheduling) -> Iterator[Utterance]:
             scheduling,
             세다,
             round_no,
+            candidate.id,
             _lines(
                 topic=scheduling.topic,
                 candidate=candidate,
@@ -153,6 +154,7 @@ def run_rounds(db: Session, scheduling: Scheduling) -> Iterator[Utterance]:
         scheduling,
         세다,
         돈라운드,
+        candidate.id,
         [(SpeakerKind.JUDGE, None, _settle_line(speakers, when(*slot), rejections, 돈라운드))],
     ):
         yield u
@@ -177,11 +179,18 @@ def _say(
     scheduling: Scheduling,
     세다: _Counter,
     round_no: int,
+    candidate_slot_id: int | None,
     lines: Sequence[tuple[SpeakerKind, int | None, str]],
 ) -> Iterator[Utterance]:
-    """발언을 하나씩 저장하고 흘려보낸다."""
+    """발언을 하나씩 저장하고 흘려보낸다.
+
+    판단 발언부터 뒤에만 후보를 붙인다. 판단보다 앞에 나온 팀원 말은 어필(각자
+    원하는 시간)이라 이 후보에 대한 수락·거절이 아니다.
+    """
     assert scheduling.id is not None
+    판단뒤 = False
     for kind, user_id, text in lines:
+        판단뒤 = 판단뒤 or kind == SpeakerKind.JUDGE
         utterance = Utterance(
             scheduling_id=scheduling.id,
             round_no=round_no,
@@ -189,6 +198,7 @@ def _say(
             speaker_kind=kind,
             speaker_user_id=user_id,
             text=text[:500],
+            candidate_slot_id=candidate_slot_id if 판단뒤 else None,
         )
         db.add(utterance)
         scheduling.rounds_used = round_no

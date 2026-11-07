@@ -181,6 +181,11 @@ class Utterance(SQLModel, table=True):
         default=None, foreign_key="user.id", ondelete="CASCADE"
     )
     text: str = Field(max_length=500)
+    # 이 말이 어느 후보 시간에 대한 것인지. 판단 발언과 팀원 반응(수락·거절)에만 있고
+    # 어필에는 없다. 수락 여부·불편은 따로 적지 않고 slot_cost에서 읽는다(원본 하나).
+    candidate_slot_id: int | None = Field(
+        default=None, foreign_key="candidate_slot.id", ondelete="CASCADE"
+    )
 
     created_at: datetime = ts(auto_now=True)
 
