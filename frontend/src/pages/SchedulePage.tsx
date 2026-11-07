@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { messageOf } from '../api/client.ts'
-import { createMeeting } from '../api/records.ts'
+import { canRecordLive, createMeeting } from '../api/records.ts'
 import { getRoom } from '../api/rooms.ts'
 import { getSchedule } from '../api/scheduling.ts'
 import AiMark from '../components/AiMark.tsx'
@@ -161,12 +161,16 @@ function UpcomingRow({ meeting: m, isToday }: { meeting: MeetingBrief; isToday: 
   )
 }
 
-// 지금 회의 받아적기: 오늘 잡힌 회의가 있으면 거기에 붙고, 없으면 주제 한 줄(비워도 됨)만 받고 바로 연다
+// 지금 회의 받아적기(실서버는 기록하기): 오늘 잡힌 회의가 있으면 거기에 붙고, 없으면 주제 한 줄(비워도 됨)만 받고 바로 연다
 function RecordNow({ todayMeeting }: { todayMeeting: MeetingBrief | null }) {
   const user = useCurrentUser()
   const navigate = useNavigate()
   const [asking, setAsking] = useState(false)
   const [error, setError] = useState('')
+  // 실서버는 받아적기가 없어 직접 쓰기만 연다(api/records.ts canRecordLive). 문구도 그에 맞춘다
+  const live = canRecordLive()
+  const label = live ? '지금 회의 받아적기' : '지금 회의 기록하기'
+  const verb = live ? '받아적어요' : '기록해요'
 
   const open = async (topic: string) => {
     try {
@@ -188,11 +192,11 @@ function RecordNow({ todayMeeting }: { todayMeeting: MeetingBrief | null }) {
           <Icon name="mic" />
         </span>
         <span>
-          <b>지금 회의 받아적기</b>
+          <b>{label}</b>
           <span>
             {todayMeeting
-              ? `오늘 ${formatTimeRange(todayMeeting.startAt, todayMeeting.endAt)} '${todayMeeting.topic}' 회의를 받아적어요`
-              : '잡힌 회의가 없어도 주제 한 줄만 쓰고 바로 받아적어요'}
+              ? `오늘 ${formatTimeRange(todayMeeting.startAt, todayMeeting.endAt)} '${todayMeeting.topic}' 회의를 ${verb}`
+              : `잡힌 회의가 없어도 주제 한 줄만 쓰고 바로 ${verb}`}
           </span>
         </span>
       </button>
