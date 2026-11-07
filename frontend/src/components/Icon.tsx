@@ -1,4 +1,4 @@
-// 기능이 있는 곳(하단 탭·뒤로·알림 종)에만 쓰는 선 아이콘. 장식용으로 쓰지 않는다.
+// 기능이 있는 곳(하단 탭·뒤로·알림 종·받아적기)에만 쓰는 선 아이콘. 장식용으로 쓰지 않는다.
 const PATHS = {
   home: <path d="M4 10.5 12 4l8 6.5V20h-5v-6H9v6H4z" />,
   calendar: (
@@ -21,6 +21,12 @@ const PATHS = {
   ),
   bell: <path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15zM10 20.5h4" />,
   back: <path d="M15 5l-7 7 7 7" />,
+  mic: (
+    <>
+      <rect x="9" y="3" width="6" height="11" rx="3" />
+      <path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21" />
+    </>
+  ),
 } as const
 
 export type IconName = keyof typeof PATHS

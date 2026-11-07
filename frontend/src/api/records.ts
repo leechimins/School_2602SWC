@@ -1,4 +1,5 @@
 import { mockContext } from '../mock/context.ts'
+import { DEMO_RECORDING } from '../mock/seed.ts'
 import { dispatch, getState } from '../mock/store.ts'
 import { buildMeetingDetail, buildMeetingList } from '../mock/views.ts'
 import type { Id } from '../types/common.ts'
@@ -51,6 +52,14 @@ export function createMeeting(roomId: Id, input: RecordInput): Promise<Id> {
       return meetingId
     },
   )
+}
+
+/**
+ * 받아적기에 쌓일 말. 실제 음성 인식(백엔드 #40)과 말한 사람 정하기(#41)가 붙기 전까지는 시연 대본을 한 줄씩 흘린다.
+ * speakerId는 "목소리 A"를 누구로 짐작해 둘지에만 쓰고, 정하는 것은 받아적는 사람이다.
+ */
+export function liveTranscript(): { speakerId: Id; text: string }[] {
+  return DEMO_RECORDING.lines.map((l) => ({ speakerId: l.who, text: l.text }))
 }
 
 /**
