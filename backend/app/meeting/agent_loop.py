@@ -35,7 +35,9 @@ from app.meeting.scorer import (
     yield_points,
     yield_weighted_cost,
 )
+from app.notice.agent_log import record
 from app.shared import demo_clock, llm
+from app.shared.base import KST
 from app.shared.notify import emit
 from app.shared.enums import (
     MeetingStatus,
@@ -81,7 +83,11 @@ def run_rounds(db: Session, scheduling: Scheduling) -> Iterator[Utterance]:
     전부 = _scored(db, scheduling.id)
     제안됨 = _proposed_slots(db, scheduling.id)
     남은것 = [
-        p for p in 전부 if unavailable_count(p[1]) == 0 and p[0] not in 제안됨
+        p
+        for p in 전부
+        if unavailable_count(p[1]) == 0
+        and p[0] not in 제안됨
+        and not _겹친다(p[0], 사람이거절한시간)
     ]
 
     for round_no in range(이미돈 + 1, MAX_ROUNDS + 1):
@@ -124,7 +130,7 @@ def run_rounds(db: Session, scheduling: Scheduling) -> Iterator[Utterance]:
     # 사람이 거절한 시간은 조정에서도 다시 고르지 않는다. 그 사람이 싫다고 한
     # 시간을 판단 에이전트가 "바로 확정"해 버리면 거절이 아무 뜻이 없다.
     ordered = pick_order(
-        [p for p in 전부 if p[0] not in 사람이거절한시간], yields, REJECT_AT
+        [p for p in 전부 if not _겹친다(p[0], 사람이거절한시간)], yields, REJECT_AT
     )
     if not ordered:
         scheduling.status = SchedulingStatus.FAILED
@@ -215,6 +221,19 @@ def _proposed_slots(
         )
     ).all()
     return {(start, end) for start, end in rows}
+
+
+def _겹친다(
+    slot: tuple[datetime, datetime], 시간들: set[tuple[datetime, datetime]]
+) -> bool:
+    """사람이 거절한 시간과 조금이라도 겹치는지.
+
+    **같은 후보만 빼면 안 된다.** 후보는 30분 간격이라 서로 겹친다. 15:00–17:00을
+    거절했는데 14:30–16:30을 내놓으면 거절이 아무 뜻이 없다. 거절한 시간은 그 사람
+    시간표에 "바쁨"으로 들어갔지만, 저장된 후보 점수는 조율을 열 때 매긴 그대로라
+    겹치는 후보에서 그 사람이 여전히 "올 수 있음"으로 나온다. 그래서 여기서 뺀다.
+    """
+    return any(slot[0] < end and start < slot[1] for start, end in 시간들)
 
 
 def _human_rejections(
@@ -572,6 +591,12 @@ def _propose(
         NotificationKind.MEETING_PROPOSED,
         f"{scheduling.topic} 회의 일정이 나왔습니다. 수락·거절해 주세요.",
     )
+    record(
+        db,
+        scheduling.room_id,
+        f"{scheduling.topic} 회의를 {_때(candidate)}으로 제안했어요",
+        meeting.rationale or "팀 전체로 가장 덜 불편한 시간이에요",
+    )
     db.commit()
 
 
@@ -624,7 +649,18 @@ def _confirm(
         NotificationKind.MEETING_CONFIRMED,
         f"{scheduling.topic} 회의가 확정됐습니다. {_왜조정(rounds_ran)}",
     )
+    record(
+        db,
+        scheduling.room_id,
+        f"{scheduling.topic} 회의를 {_때(candidate)}으로 정했어요",
+        _왜조정(rounds_ran),
+    )
     db.commit()
+
+
+def _때(candidate: CandidateSlot) -> str:
+    """기록에 쓸 회의 시각. 한국 시각으로 바꿔 읽는다 — DB가 다른 시간대로 돌려줘도 같은 글자가 나오게."""
+    return when(candidate.start_at.astimezone(KST), candidate.end_at.astimezone(KST))
 
 
 def _왜조정(rounds_ran: int) -> str:

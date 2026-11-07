@@ -715,3 +715,27 @@ def test_방_사람이_아니면_일정을_못_본다(
     session.commit()
     login("연우")
     assert client.get(f"{API}/rooms/{방.room_id}/schedule").status_code == 403
+
+
+def test_거절한_시간과_겹치는_후보도_다시_내놓지_않는다(
+    client: TestClient, session: Session, 방: 팀, login
+) -> None:
+    """실서버로 돌려 보다 찾았다. 15:00–17:00을 거절했는데 다시 조율이 14:30–16:30을
+    내놓았다 — 후보는 30분 간격이라 서로 겹치는데, 거절된 그 후보 하나만 뺐기 때문이다.
+
+    14시가 1라운드에 합의된다. 15시는 14시와 겹치고, 18시는 안 겹친다.
+    """
+    s = _조율(session, 방)
+    _후보(session, s, hour=14, 점수={방.지수.id: 1, 방.현우.id: 2, 방.민지.id: 3})  # type: ignore[dict-item]
+    _후보(session, s, hour=15, 점수={방.지수.id: 2, 방.현우.id: 2, 방.민지.id: 2})  # type: ignore[dict-item]
+    _후보(session, s, hour=18, 점수={방.지수.id: 2, 방.현우.id: 2, 방.민지.id: 2})  # type: ignore[dict-item]
+    list(run_rounds(session, s))
+    old = session.exec(select(Meeting)).one()
+    assert old.start_at.astimezone(KST).hour == 14
+
+    login("현우")
+    _응답(client, 방.room_id, old.id, accept=False)  # type: ignore[union-attr]
+
+    session.expire_all()
+    새 = session.exec(select(Meeting).where(Meeting.status == MeetingStatus.PROPOSED)).one()
+    assert 새.start_at.astimezone(KST).hour == 18  # 15시는 거절한 14–16시와 겹쳐서 빠진다
