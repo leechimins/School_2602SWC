@@ -348,6 +348,7 @@ export const toProposal = (r: ServerProposal): Proposal => ({
   endAt: r.end_at,
   mode: meetingMode(r.mode),
   confirmed: r.status === 'confirmed',
+  cancelled: r.status === 'cancelled',
   settled: r.scheduling_status === 'settled',
   rationale: r.rationale,
   myScore: r.my_score,

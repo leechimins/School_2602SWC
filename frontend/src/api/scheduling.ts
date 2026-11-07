@@ -69,13 +69,20 @@ export function getProposal(roomId: Id, proposalId: Id): Promise<Proposal> {
   )
 }
 
-/** 수락·거절 + 피드백 한 줄. 전원 수락하면 회의가 자동으로 확정된다 */
+/**
+ * 수락·거절 + 피드백 한 줄. 전원 수락하면 회의가 자동으로 확정된다.
+ * 거절하면 라운드가 남았을 때 서버가 바로 다시 조율하고, 3라운드를 다 썼으면 거절한 사람을 불참으로 둔다.
+ * 목 모드에서는 다시 도는 조율을 시작할 때처럼 발언을 다 보여 줄 즈음 끝낸다.
+ */
 export function respondProposal(roomId: Id, proposalId: Id, input: RespondInput): Promise<void> {
   return withMockWrite(
     () => request<void>(`/rooms/${roomId}/proposals/${proposalId}/respond`, { method: 'POST', body: input }),
     () => {
-      const { viewer } = mockContext()
-      dispatch({ type: 'proposal/respond', meetingId: proposalId, userId: viewer, ...input })
+      dispatch({ type: 'proposal/respond', meetingId: proposalId, userId: mockContext().viewer, ...input })
+      const { s } = mockContext()
+      const schedulingId = s.proposals.find((p) => p.meetingId === proposalId)?.schedulingId
+      const rerun = s.schedulings.find((c) => c.id === schedulingId && c.status === 'running')
+      if (rerun) later(() => dispatch({ type: 'scheduling/finish', schedulingId: rerun.id }), (rerun.script.length - 1) * UTTERANCE_MS)
     },
   )
 }

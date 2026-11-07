@@ -1,3 +1,4 @@
+import { withJosa } from '../lib/korean.ts'
 import type { Id, IsoDate, IsoDateTime, MeetingMode } from '../types/common.ts'
 import type { Minutes, MeetingStatus } from '../types/meeting.ts'
 import type { AgentLogEntry } from '../types/notification.ts'
@@ -9,7 +10,7 @@ import type { TaskStatus } from '../types/task.ts'
 // 이 값은 서버의 DB 역할이라 보는 사람과 상관없는 원본만 담는다. 화면에 줄 모양(내 점수, can_*)은 mock/views.ts가 만든다.
 // SEED는 직접 바꾸지 않는다. 저장소는 항상 structuredClone(SEED)로 시작한다(목업 버그 ④).
 
-export const SEED_VERSION = 4 // 3은 사람 수락·거절을 뺐던 판이라 건너뛴다(저장된 상태를 새로 시작하게)
+export const SEED_VERSION = 5 // 조율에 회의안 바탕(result), 회의안에 조율 ID를 붙였다. 3은 사람 수락·거절을 뺐던 판이라 건너뛴다
 
 /** 사람 ID는 여기서 한 번만 정한다. 화면 코드에 'minji' 같은 값을 쓰지 않는다 */
 export const USER = {
@@ -81,7 +82,8 @@ export type SeedScheduling = {
   mode: MeetingMode | '상관없음'
   status: SchedulingStatus
   script: SeedUtterance[]
-  meetingId: Id | null // 조율이 끝나 나온 회의
+  result: ScenarioResult // 대본이 끝나면 나올 회의안의 바탕
+  meetingId: Id | null // 조율이 끝나 나온 회의. 사람이 거절해 다시 도는 동안은 null
 }
 
 /** 수락·거절할 때 남긴 한 줄과, 에이전트가 그 말로 바꾼 선호 */
@@ -90,6 +92,7 @@ export type SeedFeedback = { text: string; change: string | null; undone: boolea
 /** 조율이 낸 회의의 사람별 부담과 응답 */
 export type SeedProposal = {
   meetingId: Id
+  schedulingId: Id // 이 회의안을 낸 조율. 거절로 회의가 취소돼도 과정 화면으로 돌아갈 수 있게
   settled: boolean
   rationale: string
   gets: Id | null // 이번에 양보 점수를 받는 사람
@@ -139,7 +142,7 @@ const task = (t: Partial<SeedTask> & Pick<SeedTask, 'id' | 'title' | 'dueDate' |
 })
 
 /** 대본이 끝나면 나오는 회의안의 바탕. 회의 ID·응답은 조율이 끝날 때 붙는다 */
-export type ScenarioResult = Omit<SeedProposal, 'meetingId' | 'settled' | 'responses' | 'feedback'>
+export type ScenarioResult = Omit<SeedProposal, 'meetingId' | 'schedulingId' | 'settled' | 'responses' | 'feedback'>
 
 /**
  * 시연 조율 대본: 팀장이 "조율 시작"을 누르면 목 서버가 이 대본을 그대로 다시 돌린다(실서버에서는 AI가 만든다).
@@ -147,8 +150,8 @@ export type ScenarioResult = Omit<SeedProposal, 'meetingId' | 'settled' | 'respo
  */
 export const DEMO_SCENARIO: { script: SeedUtterance[]; result: ScenarioResult } = {
   // 11/7 흐름: 개인 에이전트가 원하는 시간을 어필 → 판단 에이전트가 그중 하나를 고름 → 개인 에이전트가 수락·거절(거절은 이유만).
-  // 거절이 있으면 거절당한 시간을 낸 에이전트만 새 시간을 내고(다른 어필은 그대로) 다음 라운드에서 판단이 다시 고른다. 최대 3라운드.
-  // 에이전트가 모두 수락하면 사람 4명이 수락·거절한다(전원 수락 → 확정, 거절 → 남은 라운드로 다시 조율)
+  // 거절이 있으면 거절당한 시간을 낸 에이전트만 새 시간을 내고(어필 발언은 없다. 백엔드와 같다) 다음 라운드에서 판단이 다시 고른다. 최대 3라운드.
+  // 에이전트가 모두 수락하면 사람 4명이 수락·거절한다(전원 수락 → 확정, 거절 → 3라운드까지 다시 조율: rerunScenario)
   script: [
     { kind: 'appeal', round: 1, who: jisu, text: '저는 목요일 오후가 제일 좋아요. 그 시간에는 수업이 없어요.' },
     { kind: 'appeal', round: 1, who: hyunwoo, text: '저는 수요일 오후가 제일 좋아요. 평일 저녁은 알바가 있어 어려워요.' },
@@ -163,14 +166,13 @@ export const DEMO_SCENARIO: { script: SeedUtterance[]; result: ScenarioResult } 
     { kind: 'answer', round: 1, who: hyunwoo, answer: '거절', score: 4, text: '어렵습니다. 알바 끝나고 바로라 이동이 빠듯해요.' },
     { kind: 'answer', round: 1, who: minji, answer: '수락', score: 2, text: '괜찮아요. 수업이 끝나고 바로지만 맞출 수 있어요. 다만 금요일 저녁은 개인 일정이 있어 어려워요.' },
     { kind: 'answer', round: 1, who: seoyeon, answer: '수락', score: 2, text: '가능해요. 다만 서연은 비대면을 더 좋아해요.' },
-    { kind: 'appeal', round: 2, who: jisu, text: '그럼 저는 목요일 19시 비대면을 낼게요. 저녁이라 다들 수업이 없어요.' },
     {
       kind: 'judge', round: 2,
       yieldChanges: [
         { who: hyunwoo, from: '많이 맞춰 줌', to: '많이 맞춰 줌' },
         { who: minji, from: '아직 없음', to: '조금 맞춰 줌' },
       ],
-      text: '목요일 저녁은 현우가 알바라 어려워요. 현우가 지난 두 번 많이 맞춰 줘서 이번엔 현우 쪽을 먼저 챙길게요. 현우·민지가 낸 수요일 16:00–18:00, 비대면을 고릅니다. 대신 민지가 조금 맞춰 주게 됩니다.',
+      text: '거절당한 목요일 오후를 냈던 지수가 목요일 19시 비대면을 새로 냈지만, 그 시간은 현우가 알바라 어려워요. 현우가 지난 두 번 많이 맞춰 줘서 이번엔 현우 쪽을 먼저 챙길게요. 현우·민지가 낸 수요일 16:00–18:00, 비대면을 고릅니다. 대신 민지가 조금 맞춰 주게 됩니다.',
       slot: { startAt: '2026-11-18T16:00:00+09:00', endAt: '2026-11-18T18:00:00+09:00', mode: '비대면' },
     },
     { kind: 'answer', round: 2, who: minji, answer: '수락', score: 3, text: '수업 바로 뒤라 조금 빠듯하지만 괜찮아요.' },
@@ -192,6 +194,45 @@ export const DEMO_SCENARIO: { script: SeedUtterance[]; result: ScenarioResult } 
       { userId: seoyeon, score: 1, reason: '비대면이라 이동이 없어요' },
     ],
   },
+}
+
+/**
+ * 사람이 합의안을 거절했을 때 이어 도는 라운드(백엔드 rerun과 같은 모양): 거절당한 수요일 오후는 후보에서 빠지고,
+ * 그 시간을 냈던 현우·민지의 에이전트만 새 시간을 낸다(어필 발언 없음). 판단 에이전트가 거절 이유를 듣고 다시 고른다.
+ */
+export function rerunScenario(
+  round: number,
+  declinerName: string,
+  reason: string | null,
+  jisuYield: { from: YieldLevel; to: YieldLevel }, // 이번에 맞춰 주는 지수의 누적 단계 변화
+): { script: SeedUtterance[]; result: ScenarioResult } {
+  const who = withJosa(declinerName, '이/가')
+  return {
+    script: [
+      {
+        kind: 'judge', round, yieldChanges: [{ who: jisu, ...jisuYield }],
+        text: `${who} 수요일 16:00–18:00을 거절했어요. "${reason ?? '그 시간은 어렵다고 했어요'}" 그 시간을 냈던 현우·민지가 새로 낸 금요일 14:00–16:00, 비대면을 고릅니다. 대신 지수가 조금 맞춰 주게 됩니다.`,
+        slot: { startAt: '2026-11-20T14:00:00+09:00', endAt: '2026-11-20T16:00:00+09:00', mode: '비대면' },
+      },
+      { kind: 'answer', round, who: jisu, answer: '수락', score: 2, text: '금요일 오후엔 수업이 하나 있지만, 끝나고 바로 들어갈 수 있어요.' },
+      { kind: 'answer', round, who: hyunwoo, answer: '수락', score: 1, text: '좋아요. 금요일엔 알바가 없어요.' },
+      { kind: 'answer', round, who: minji, answer: '수락', score: 1, text: '좋아요. 저녁 일정 전이라 괜찮아요.' },
+      { kind: 'answer', round, who: seoyeon, answer: '수락', score: 1, text: '비대면이라 좋아요.' },
+    ],
+    result: {
+      rationale: `${who} 수요일 오후를 거절해서, 그 시간을 냈던 현우·민지의 새 시간으로 다시 잡았어요. 대신 지수가 조금 맞춰 주게 됩니다.`,
+      gets: jisu,
+      getsFrom: jisuYield.from,
+      yieldWhy: '금요일 수업이 끝나고 바로 들어와 맞춰 줬어요.',
+      absent: null,
+      burdens: [
+        { userId: jisu, score: 2, reason: '수업 끝나고 바로예요' },
+        { userId: hyunwoo, score: 1, reason: '알바가 없는 날이에요' },
+        { userId: minji, score: 1, reason: '저녁 일정 전이에요' },
+        { userId: seoyeon, score: 1, reason: '비대면이라 이동이 없어요' },
+      ],
+    },
+  }
 }
 
 export const SEED: DemoState = {
@@ -297,12 +338,13 @@ export const SEED: DemoState = {
       id: 'c1', topic: '중간 점검 전 회의', durationMin: 120, mode: '상관없음', status: 'agreed', meetingId: 'm4',
       windowStart: '2026-11-16T00:00:00+09:00', windowEnd: '2026-11-20T23:59:00+09:00',
       script: DEMO_SCENARIO.script,
+      result: DEMO_SCENARIO.result,
     },
   ],
   proposals: [
     {
       ...DEMO_SCENARIO.result,
-      meetingId: 'm4', settled: false,
+      meetingId: 'm4', schedulingId: 'c1', settled: false,
       responses: { [jisu]: '수락', [minji]: '대기', [hyunwoo]: '수락', [seoyeon]: '대기' },
       feedback: {},
     },

@@ -78,14 +78,15 @@ function ResultSummary({ proposal: p }: { proposal: Proposal }) {
             </>
           )}
         </span>
-        <Badge tone={p.confirmed ? 'ok' : 'warn'}>{p.confirmed ? '확정' : '확정 대기'}</Badge>
+        <Badge tone={p.confirmed ? 'ok' : p.cancelled ? 'danger' : 'warn'}>{p.confirmed ? '확정' : p.cancelled ? '취소' : '확정 대기'}</Badge>
       </div>
       <b className={`${styles.big} num`}>{formatSlot(p.startAt, p.endAt)}</b>
       <p className="meta">
         <span className={styles.mode}>{p.mode}</span> · {formatDuration(minutesBetween(p.startAt, p.endAt))} · {p.topic}
       </p>
       {p.absentName && <p className="meta">{p.absentName} 빠짐 · 회의록 요약을 따로 보내요</p>}
-      {p.confirmed && !p.settled && <p className="meta">모두 수락해서 회의가 확정됐어요</p>}
+      {p.confirmed && !p.settled && <p className="meta">{p.absentName ? '빠진 사람 말고 모두' : '모두'} 수락해서 회의가 확정됐어요</p>}
+      {p.cancelled && <p className="meta">누군가 거절해서 이 시간은 취소됐어요. 남은 라운드로 다시 조율해요</p>}
     </section>
   )
 }
@@ -260,7 +261,7 @@ function RespondDock({ proposal: p, roomId }: { proposal: Proposal; roomId: Id }
   return (
     <>
       {error && <p className="meta">{error}</p>}
-      <DockBody state={p.myState} waiting={p.responders.filter((r) => r.state !== '수락').map((r) => r.name)} onAsk={setAsking} />
+      <DockBody proposal={p} state={p.myState} onAsk={setAsking} />
       {asking === 'accept' && (
         <ConfirmSheet
           title="이 시간으로 수락할까요?"
@@ -285,7 +286,9 @@ function RespondDock({ proposal: p, roomId }: { proposal: Proposal; roomId: Id }
   )
 }
 
-function DockBody({ state, waiting, onAsk }: { state: ResponseState; waiting: string[]; onAsk: (a: Asking) => void }) {
+type DockBodyProps = { proposal: Proposal; state: ResponseState; onAsk: (a: Asking) => void }
+
+function DockBody({ proposal: p, state, onAsk }: DockBodyProps) {
   if (state === '대기') {
     return (
       <div className="btn-row">
@@ -298,8 +301,24 @@ function DockBody({ state, waiting, onAsk }: { state: ResponseState; waiting: st
       </div>
     )
   }
-  if (state === '거절') {
-    return <p className="meta">거절을 전달했어요. 남은 라운드로 다시 조율하면 알려 드려요.</p>
+  // 거절: 라운드가 남았으면 서버가 바로 다시 조율하고(회의 취소), 3라운드를 다 썼으면 나를 불참으로 두고 나머지 응답을 기다린다
+  if (state === '거절' && p.cancelled) {
+    return (
+      <>
+        <p className="meta">거절을 전달했어요. 남은 라운드로 다시 조율하고 있어요.</p>
+        {p.schedulingId && (
+          <div className="btn-row">
+            <Link to={pathTo.scheduling(p.schedulingId)} className="btn primary">
+              다시 조율하는 과정 보기
+            </Link>
+          </div>
+        )}
+      </>
+    )
   }
+  if (state === '거절') {
+    return <p className="meta">거절을 전달했어요. 3라운드를 다 써서 다시 조율하지 않고, 이번 회의는 불참으로 둬요.</p>
+  }
+  const waiting = p.responders.filter((r) => r.state === '대기').map((r) => r.name)
   return <p className="meta">수락했어요. {waiting.join(', ')}의 응답을 기다리는 중이에요.</p>
 }

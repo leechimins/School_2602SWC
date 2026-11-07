@@ -5,7 +5,7 @@ import type { SuggestionPatch } from '../types/meeting.ts'
 import { YIELD_LEVELS, type RoomInput, type YieldLevel } from '../types/room.ts'
 import type { SchedulingInput } from '../types/scheduling.ts'
 import type { TaskInput, TaskStatus } from '../types/task.ts'
-import { DEMO_SCENARIO, SEED, type DemoState, type SeedFeedback, type SeedTask } from './seed.ts'
+import { DEMO_SCENARIO, SEED, USER, rerunScenario, type DemoState, type SeedFeedback, type SeedScheduling, type SeedTask } from './seed.ts'
 
 // 액션 표: 목 데이터를 바꾸는 동작을 모두 여기 모은다.
 // 화면은 api/ 함수를 부르고, 목 모드의 api 함수가 dispatch(액션)을 보낸다.
@@ -29,6 +29,10 @@ export type Action =
   | { type: 'meeting/transcript'; meetingId: Id; text: string }
 
 const now = (s: DemoState): IsoDateTime => s.clockNow
+
+/** 조율 하나에 쓸 수 있는 라운드. 사람이 거절해 다시 돌아도 새로 주지 않는다(백엔드 MAX_ROUNDS) */
+export const MAX_ROUNDS = 3
+export const roundsUsed = (c: SeedScheduling) => Math.max(...c.script.map((u) => u.round))
 
 /** 누적 양보 단계를 한 칸 올린다. 가장 높은 단계면 그대로 */
 export const nextYieldLevel = (level: YieldLevel): YieldLevel =>
@@ -89,6 +93,7 @@ export function reduce(s: DemoState, action: Action): DemoState {
             mode: input.mode,
             status: 'running',
             script: DEMO_SCENARIO.script,
+            result: DEMO_SCENARIO.result,
             meetingId: null,
           },
         ],
@@ -102,7 +107,7 @@ export function reduce(s: DemoState, action: Action): DemoState {
       const lastJudge = c?.script.findLast((u) => u.kind === 'judge')
       if (!c || c.status !== 'running' || lastJudge?.kind !== 'judge') return s
       const meetingId = `m${s.nextSeq}`
-      const { result } = DEMO_SCENARIO
+      const { result } = c
       const getter = s.members.find((m) => m.id === result.gets)
       return {
         ...s,
@@ -116,6 +121,7 @@ export function reduce(s: DemoState, action: Action): DemoState {
           {
             ...result,
             meetingId,
+            schedulingId: c.id,
             settled: false,
             getsFrom: getter?.yieldLevel ?? result.getsFrom,
             responses: Object.fromEntries(result.burdens.map((b) => [b.userId, '대기' as const])),
@@ -199,19 +205,49 @@ export function reduce(s: DemoState, action: Action): DemoState {
         ? { ...p.feedback, [action.userId]: { text: action.feedback, change: feedbackChange(action.feedback), undone: false } }
         : p.feedback
       // 조정안은 이미 확정이라 피드백 한 줄만 받는다
-      const responses = p.settled ? p.responses : { ...p.responses, [action.userId]: action.accept ? '수락' : '거절' } as const
-      const proposals = s.proposals.map((x) => (x === p ? { ...x, feedback, responses } : x))
+      if (p.settled || m.status !== 'proposed') {
+        return { ...s, proposals: s.proposals.map((x) => (x === p ? { ...x, feedback } : x)) }
+      }
+      const responses = { ...p.responses, [action.userId]: action.accept ? '수락' : '거절' } as const
 
-      // 응답할 사람이 모두 수락하면 회의가 자동으로 확정되고, 맞춰 준 사람의 양보 단계가 오른다
-      const allAccepted = Object.values(responses).every((r) => r === '수락')
-      if (p.settled || m.status !== 'proposed' || !allAccepted) return { ...s, proposals }
+      // 거절했는데 라운드가 남았으면 바로 다시 조율한다(백엔드 rerun): 옛 회의는 취소, 같은 조율에 다음 라운드를 잇는다
+      const c = s.schedulings.find((x) => x.id === p.schedulingId)
+      if (!action.accept && c && roundsUsed(c) < MAX_ROUNDS) {
+        const memberOf = (id: Id) => s.members.find((x) => x.id === id)
+        const jisuLevel = memberOf(USER.jisu)?.yieldLevel ?? '아직 없음' // 다시 잡은 시간에 맞춰 주는 사람
+        const next = rerunScenario(roundsUsed(c) + 1, memberOf(action.userId)?.name ?? '팀원', action.feedback, {
+          from: jisuLevel,
+          to: nextYieldLevel(jisuLevel),
+        })
+        return {
+          ...s,
+          proposals: s.proposals.map((x) => (x === p ? { ...x, feedback, responses } : x)),
+          meetings: s.meetings.map((x) => (x.id === m.id ? { ...x, status: 'cancelled' } : x)),
+          schedulings: s.schedulings.map((x) =>
+            x.id === c.id ? { ...x, status: 'running', meetingId: null, script: [...x.script, ...next.script], result: next.result } : x,
+          ),
+          agentLog: [
+            { id: `a${s.nextSeq}`, at: now(s), what: '거절된 회의안 대신 다시 조율하고 있어요', why: `남은 라운드 ${MAX_ROUNDS - roundsUsed(c)}번 안에서 다시 잡아요.` },
+            ...s.agentLog,
+          ],
+          nextSeq: s.nextSeq + 1,
+        }
+      }
+
+      // 라운드를 다 쓴 뒤의 거절은 다시 돌지 않고 그 사람을 불참으로 둔다.
+      // 나머지가 모두 수락하면 회의가 자동으로 확정되고, 맞춰 준 사람의 양보 단계가 오른다
+      const absent = action.accept ? p.absent : action.userId
+      const proposals = s.proposals.map((x) => (x === p ? { ...x, feedback, responses, absent } : x))
+      const attending = Object.entries(responses).filter(([userId]) => userId !== absent)
+      if (attending.length === 0 || !attending.every(([, r]) => r === '수락')) return { ...s, proposals }
+      const gets = p.gets !== absent ? p.gets : null
       return {
         ...s,
         proposals,
         meetings: s.meetings.map((x) => (x.id === m.id ? { ...x, status: 'confirmed' } : x)),
-        members: s.members.map((x) => (x.id === p.gets ? { ...x, yieldLevel: nextYieldLevel(p.getsFrom) } : x)),
-        yieldRecords: p.gets
-          ? [{ id: `y${s.nextSeq}`, meetingLabel: `${formatMonthDay(m.startAt)} 회의`, userId: p.gets, why: p.yieldWhy }, ...s.yieldRecords]
+        members: s.members.map((x) => (x.id === gets ? { ...x, yieldLevel: nextYieldLevel(p.getsFrom) } : x)),
+        yieldRecords: gets
+          ? [{ id: `y${s.nextSeq}`, meetingLabel: `${formatMonthDay(m.startAt)} 회의`, userId: gets, why: p.yieldWhy }, ...s.yieldRecords]
           : s.yieldRecords,
         nextSeq: s.nextSeq + 1,
       }

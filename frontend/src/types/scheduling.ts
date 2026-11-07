@@ -105,6 +105,7 @@ export type Proposal = {
   endAt: IsoDateTime
   mode: MeetingMode
   confirmed: boolean // 전원 수락 또는 조정으로 확정됨
+  cancelled: boolean // 사람이 거절해 취소되고 남은 라운드로 다시 조율하는 중
   settled: boolean // 판단 에이전트가 정해 바로 확정 (화면 "확정 · 조정")
   rationale: string // 누구를 왜 배려했는지 한 줄
   myScore: number | null // 내 불편 1~5. 빠진 사람이면 null

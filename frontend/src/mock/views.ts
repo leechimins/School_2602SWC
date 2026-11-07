@@ -8,7 +8,7 @@ import { NOTICE_KINDS, type ActivityLog, type Notice, type NoticeList } from '..
 import type { Room } from '../types/room.ts'
 import type { Burden, Proposal, Scheduling, Utterance } from '../types/scheduling.ts'
 import type { Task, TeamTasks } from '../types/task.ts'
-import { nextYieldLevel } from './actions.ts'
+import { nextYieldLevel, roundsUsed } from './actions.ts'
 import type { DemoState, SeedMeeting, SeedTask } from './seed.ts'
 
 // 목 데이터(원본) → 화면이 받는 모양. 서버가 할 일을 대신한다:
@@ -169,7 +169,7 @@ export function buildScheduling(s: DemoState, schedulingId: Id, viewer: Id): Sch
     durationMin: c.durationMin,
     mode: c.mode,
     status: c.status,
-    roundsUsed: Math.max(...c.script.map((u) => u.round)),
+    roundsUsed: roundsUsed(c),
     utterances,
     proposalId: c.meetingId,
   }
@@ -179,19 +179,20 @@ export function buildProposal(s: DemoState, meetingId: Id, viewer: Id): Proposal
   const m = s.meetings.find((x) => x.id === meetingId)
   const p = s.proposals.find((x) => x.meetingId === meetingId)
   if (!m || !p) throw NOT_FOUND('회의')
-  const c = s.schedulings.find((x) => x.meetingId === meetingId)
+  const c = s.schedulings.find((x) => x.id === p.schedulingId)
   const mine = p.burdens.find((b) => b.userId === viewer) // 불참안에서 빠진 사람이면 없다(목업 버그 ③)
   const myState = p.responses[viewer] ?? null
   const getter = p.burdens.find((b) => b.userId === p.gets)
   return {
     id: m.id,
     schedulingId: c?.id ?? null,
-    roundsUsed: c ? Math.max(...c.script.map((u) => u.round)) : null,
+    roundsUsed: c ? roundsUsed(c) : null,
     topic: m.topic,
     startAt: m.startAt,
     endAt: m.endAt,
     mode: m.mode,
     confirmed: m.status === 'confirmed' || p.settled,
+    cancelled: m.status === 'cancelled',
     settled: p.settled,
     rationale: p.rationale,
     myScore: mine?.score ?? null,
