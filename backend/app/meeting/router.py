@@ -63,6 +63,7 @@ from app.shared.enums import (
 )
 from app.shared.models import Room, User
 from app.shared.notify import emit
+from app.notice.agent_log import record
 
 router = APIRouter(prefix="/rooms/{room_id}", tags=["meeting"])
 
@@ -593,6 +594,12 @@ def respond(
             조율 = scheduling.id
             assert 조율 is not None
             rerun.reopen(db, scheduling, meeting, user_id)
+            record(
+                db,
+                room_id,
+                f"{meeting.topic} 회의를 다시 조율해요",
+                f"{member_names(db, room_id).get(user_id, '팀원')} 님이 그 시간은 어렵다고 했어요",
+            )
             try:
                 db.commit()
             except IntegrityError as exc:
@@ -650,6 +657,12 @@ def respond(
             )[:200],
             dedupe=f"meeting{meeting_id}",
             meeting_id=meeting_id,
+        )
+        record(
+            db,
+            room_id,
+            f"{meeting.topic} 회의가 확정됐어요",
+            f"{', '.join(빠진)} 님은 빠지고 나머지가 모두 수락했어요" if 빠진 else "모두 수락했어요",
         )
     db.commit()
 

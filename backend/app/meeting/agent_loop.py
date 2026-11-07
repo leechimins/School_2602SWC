@@ -35,7 +35,9 @@ from app.meeting.scorer import (
     yield_points,
     yield_weighted_cost,
 )
+from app.notice.agent_log import record
 from app.shared import demo_clock, llm
+from app.shared.base import KST
 from app.shared.notify import emit
 from app.shared.enums import (
     MeetingStatus,
@@ -572,6 +574,12 @@ def _propose(
         NotificationKind.MEETING_PROPOSED,
         f"{scheduling.topic} 회의 일정이 나왔습니다. 수락·거절해 주세요.",
     )
+    record(
+        db,
+        scheduling.room_id,
+        f"{scheduling.topic} 회의를 {_때(candidate)}으로 제안했어요",
+        meeting.rationale or "팀 전체로 가장 덜 불편한 시간이에요",
+    )
     db.commit()
 
 
@@ -624,7 +632,18 @@ def _confirm(
         NotificationKind.MEETING_CONFIRMED,
         f"{scheduling.topic} 회의가 확정됐습니다. {_왜조정(rounds_ran)}",
     )
+    record(
+        db,
+        scheduling.room_id,
+        f"{scheduling.topic} 회의를 {_때(candidate)}으로 정했어요",
+        _왜조정(rounds_ran),
+    )
     db.commit()
+
+
+def _때(candidate: CandidateSlot) -> str:
+    """기록에 쓸 회의 시각. 한국 시각으로 바꿔 읽는다 — DB가 다른 시간대로 돌려줘도 같은 글자가 나오게."""
+    return when(candidate.start_at.astimezone(KST), candidate.end_at.astimezone(KST))
 
 
 def _왜조정(rounds_ran: int) -> str:
