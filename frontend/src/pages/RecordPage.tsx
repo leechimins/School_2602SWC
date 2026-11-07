@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { messageOf } from '../api/client.ts'
-import { getMeeting, liveTranscript, writeTranscript } from '../api/records.ts'
+import { canRecordLive, getMeeting, liveTranscript, writeTranscript } from '../api/records.ts'
 import { getRoom } from '../api/rooms.ts'
 import Badge from '../components/Badge.tsx'
 import Icon from '../components/Icon.tsx'
@@ -129,7 +129,16 @@ function Recorder({ meeting: m, members }: { meeting: MeetingDetail; members: Me
   return (
     <>
       {head}
-      {step === 'idle' && (
+      {step === 'idle' && !canRecordLive() && (
+        <section className="sec">
+          <p className="strong">회의 기록</p>
+          <p className="meta">회의에서 나온 말을 붙여 넣으면 에이전트가 요약하고 할 일을 뽑아 제안해요.</p>
+          <button type="button" className={`btn primary block ${styles.big}`} onClick={() => setStep('paste')}>
+            회의록 직접 쓰기
+          </button>
+        </section>
+      )}
+      {step === 'idle' && canRecordLive() && (
         <section className="sec">
           <p className="strong">회의 기록</p>
           <p className="meta">할 일 제안은 회의가 끝난 뒤 회의록에서 확정해야 할 일 탭에 들어가요.</p>

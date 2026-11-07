@@ -10,7 +10,7 @@ import type {
   Schedule,
   Suggestion,
 } from '../types/meeting.ts'
-import type { Notice, NoticeKind, NoticeList } from '../types/notification.ts'
+import type { ActivityLog, Notice, NoticeKind, NoticeList } from '../types/notification.ts'
 import type { Member, Room, YieldLevel } from '../types/room.ts'
 import type { Burden, Proposal, ResponseState, Scheduling, SchedulingStatus, Utterance } from '../types/scheduling.ts'
 import type { Task, TaskStatus, TeamTasks } from '../types/task.ts'
@@ -452,6 +452,25 @@ export const toMeetingSummary = (m: ServerMeetingSummary): MeetingSummary => ({
   attendees: m.attendees,
   hasTranscript: m.has_transcript,
   suggestionCount: m.suggestion_count,
+})
+
+// ── 에이전트가 한 일 · 양보 기록 ─────────────────────────────
+// backend/app/notice/router.py의 ActivityOut(GET /rooms/{id}/agent-log). 둘 다 최신순으로 온다
+
+export type ServerActivity = {
+  agent_log: { id: number; at: string; what: string; why: string }[]
+  yield_records: { id: number; meeting_label: string; user_id: number; name: string; why: string }[]
+}
+
+export const toActivity = (r: ServerActivity): ActivityLog => ({
+  agentLog: r.agent_log.map((a) => ({ id: id(a.id), at: a.at, what: a.what, why: a.why })),
+  yieldRecords: r.yield_records.map((y) => ({
+    id: id(y.id),
+    meetingLabel: y.meeting_label,
+    userId: id(y.user_id),
+    name: y.name,
+    why: y.why,
+  })),
 })
 
 // ── 알림 ────────────────────────────────────────────────

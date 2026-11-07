@@ -4,7 +4,7 @@ import { dispatch, getState } from '../mock/store.ts'
 import { buildMeetingDetail, buildMeetingList } from '../mock/views.ts'
 import type { Id } from '../types/common.ts'
 import type { MeetingDetail, MeetingSummary, RecordInput, SuggestionPatch } from '../types/meeting.ts'
-import { USE_MOCK, request, withMock, withMockWrite } from './client.ts'
+import { USE_MOCK, isRealServer, request, withMock, withMockWrite } from './client.ts'
 import {
   toServerMode,
   toMeetingDetail,
@@ -55,10 +55,19 @@ export function createMeeting(roomId: Id, input: RecordInput): Promise<Id> {
 }
 
 /**
- * 받아적기에 쌓일 말. 실제 음성 인식(백엔드 #40)과 말한 사람 정하기(#41)가 붙기 전까지는 시연 대본을 한 줄씩 흘린다.
+ * 받아적기를 쓸 수 있는지. 실제 음성 인식(백엔드 #40)과 말한 사람 정하기(#41)가 붙기 전까지 받아적기는 시연 대본이라
+ * 목 모드에서만 연다. 실서버에서는 대본이 진짜 회의 원문으로 저장되지 않게 직접 쓰기만 쓴다.
+ */
+export function canRecordLive(): boolean {
+  return !isRealServer()
+}
+
+/**
+ * 받아적기에 쌓일 말(목 모드 시연 대본). 한 줄씩 흘린다.
  * speakerId는 "목소리 A"를 누구로 짐작해 둘지에만 쓰고, 정하는 것은 받아적는 사람이다.
  */
 export function liveTranscript(): { speakerId: Id; text: string }[] {
+  if (!canRecordLive()) return []
   return DEMO_RECORDING.lines.map((l) => ({ speakerId: l.who, text: l.text }))
 }
 
