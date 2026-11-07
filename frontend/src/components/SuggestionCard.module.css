@@ -1,0 +1,73 @@
+/* 할 일 제안 카드: 노란 점선 테두리 = 아직 AI 제안. 직접 추가 카드(.card.plain)는 확정된 것과 같은 흰 카드 */
+.card {
+  margin: 8px 12px 0;
+  padding: 8px 12px;
+  border: 1.5px dashed color-mix(in srgb, var(--sub) 65%, var(--card));
+  border-radius: var(--r-l);
+  background: var(--sub-wash);
+}
+
+.card.plain {
+  border: 1px solid var(--line);
+  background: var(--card);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.title {
+  flex: 1;
+  min-width: 0;
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  background: none;
+  font-size: var(--fs-strong);
+  font-weight: 700;
+}
+
+.title:focus {
+  outline: 0;
+  border-bottom-color: var(--point);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.row :global(.field) {
+  min-height: 32px;
+  padding: 0 8px;
+  font-size: 13px;
+}
+
+.row select {
+  flex: 1;
+  min-width: 0;
+}
+
+.row input {
+  width: 124px;
+}
+
+.row :global(.btn) {
+  flex: none;
+  min-height: 32px;
+}
+
+/* 닫혀 있는 직접 추가 버튼: 점선 테두리로 "새로 넣는 자리"임을 보인다 */
+.open {
+  display: block;
+  width: calc(100% - 24px);
+  margin: 8px 12px 0;
+  border: 1.5px dashed var(--line);
+  background: none;
+}

@@ -73,6 +73,7 @@ export type MeetingDetail = {
   transcript: TranscriptLine[] // 원문. 요약이 실패해도 그대로 보인다
   minutes: Minutes | null // 요약 전이면 null
   tasks: Task[] // 이 회의에서 확정된 할 일
+  doneTasks: Task[] // 회의에서 끝났다고 말해 완료로 바뀐 지난 할 일 ("회의에서 끝난 일")
   suggestions: Suggestion[]
 }
 

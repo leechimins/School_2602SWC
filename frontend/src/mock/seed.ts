@@ -10,7 +10,7 @@ import type { TaskStatus } from '../types/task.ts'
 // 이 값은 서버의 DB 역할이라 보는 사람과 상관없는 원본만 담는다. 화면에 줄 모양(내 점수, can_*)은 mock/views.ts가 만든다.
 // SEED는 직접 바꾸지 않는다. 저장소는 항상 structuredClone(SEED)로 시작한다(목업 버그 ④).
 
-export const SEED_VERSION = 5 // 조율에 회의안 바탕(result), 회의안에 조율 ID를 붙였다. 3은 사람 수락·거절을 뺐던 판이라 건너뛴다
+export const SEED_VERSION = 6 // 할 일에 "회의에서 완료"한 회의(doneMeetingId)를 붙였다. 3은 사람 수락·거절을 뺐던 판이라 건너뛴다
 
 /** 사람 ID는 여기서 한 번만 정한다. 화면 코드에 'minji' 같은 값을 쓰지 않는다 */
 export const USER = {
@@ -39,6 +39,7 @@ export type SeedTask = {
   meetingId: Id | null // 출처 회의. null = 직접 추가
   confirmedBy: Id | null
   doneAt: IsoDateTime | null // 완료로 바뀐 때. 완료 알림을 만든다
+  doneMeetingId: Id | null // 회의에서 끝났다고 말해 완료로 바뀐 회의. 회의록의 "회의에서 끝난 일"에 보인다
   dismissed: boolean // "삭제"한 할 일. 목록에서 빠진다
 }
 
@@ -137,6 +138,7 @@ const task = (t: Partial<SeedTask> & Pick<SeedTask, 'id' | 'title' | 'dueDate' |
   meetingId: null,
   confirmedBy: null,
   doneAt: null,
+  doneMeetingId: null,
   dismissed: false,
   ...t,
 })
@@ -235,6 +237,38 @@ export function rerunScenario(
   }
 }
 
+/**
+ * 시연 받아적기 대본: 일정 탭의 "지금 회의 받아적기"로 회의를 열면 이 말들이 한 줄씩 받아적힌다(실서버에서는 음성 인식).
+ * 정리하면 아래 요약과 할 일 제안이 나온다. 담당자는 회의에서 "제가 할게요"처럼 분명히 말한 것만 채운다.
+ */
+export const DEMO_RECORDING: {
+  topic: string
+  lines: { who: Id; text: string }[]
+  minutes: Omit<Minutes, 'headline' | 'status'>
+  suggestions: Omit<SeedSuggestion, 'id' | 'meetingId'>[]
+} = {
+  topic: '발표 순서 정하기',
+  lines: [
+    { who: jisu, text: '구성안 보고 발표 순서를 정해요.' },
+    { who: minji, text: '도입이랑 문제 정의는 제가 이어서 할게요. 금요일까지 대본 써 올게요.' },
+    { who: seoyeon, text: '화면 설명은 제가 할게요.' },
+    { who: hyunwoo, text: '시연은 제가 맡을게요. 시연 영상도 일요일까지 찍어 둘게요.' },
+    { who: jisu, text: '리허설은 다음 주 월요일에 한 번 해요.' },
+    { who: minji, text: '리허설 장소는 아직 못 정했어요. 누가 알아봐 주면 좋겠어요.' },
+  ],
+  minutes: {
+    decisions: ['발표 순서: 도입·문제 정의 민지 → 화면 설명 서연 → 시연 현우', '리허설은 11/16(월)'],
+    discussions: ['시연 영상을 미리 찍어 두기'],
+    pendings: ['리허설 장소: 알아볼 사람 정하기'],
+  },
+  suggestions: [
+    { title: '도입·문제 정의 대본', dueDate: '2026-11-13', assigneeId: minji },
+    { title: '시연 영상 촬영', dueDate: '2026-11-15', assigneeId: hyunwoo },
+    { title: '화면 설명 대본', dueDate: '2026-11-14', assigneeId: seoyeon },
+    { title: '리허설 장소 알아보기', dueDate: '2026-11-13', assigneeId: null },
+  ],
+}
+
 export const SEED: DemoState = {
   version: SEED_VERSION,
   clockNow: '2026-11-10T19:00:00+09:00', // 11/10(화) 회의가 끝나고 회의록이 정리된 저녁
@@ -273,7 +307,7 @@ export const SEED: DemoState = {
       status: '막힘', blockedReason: '인터뷰 녹취 2건이 아직 안 왔어요',
     }),
     // 회의에서 끝났다고 말해 완료로 바뀐 일 → 완료 알림
-    task({ id: 't15', title: '화면 시안 3종', dueDate: '2026-11-19', assigneeId: seoyeon, status: '완료', doneAt: '2026-11-10T18:42:00+09:00' }),
+    task({ id: 't15', title: '화면 시안 3종', dueDate: '2026-11-19', assigneeId: seoyeon, status: '완료', doneAt: '2026-11-10T18:42:00+09:00', doneMeetingId: 'm3' }),
   ],
   suggestions: [
     { id: 's1', meetingId: 'm3', title: '중간 점검 발표 구성안', dueDate: '2026-11-13', assigneeId: minji },
@@ -352,7 +386,7 @@ export const SEED: DemoState = {
   readNotices: {},
   agentLog: [
     { id: 'a1', at: '2026-11-10T18:42:00+09:00', what: "11/10 회의록에서 '화면 시안 3종'을 완료로 바꿨어요", why: '서연이 회의에서 다 끝냈다고 말했어요.' },
-    { id: 'a2', at: '2026-11-10T18:42:00+09:00', what: '11/10 회의록에서 할 일 제안 4개를 만들었어요', why: '확정 전까지는 회의록에만 보여요.' },
+    { id: 'a2', at: '2026-11-10T18:42:00+09:00', what: '11/10 회의록에서 할 일 제안 3개를 만들었어요', why: '확정 전까지는 회의록에만 보여요.' },
     { id: 'a3', at: '2026-11-10T09:12:00+09:00', what: '조율 결과를 냈어요', why: '현우가 지난 두 번 많이 맞춰 줘서 이번엔 현우 쪽을 먼저 챙겼어요.' },
   ],
   yieldRecords: [

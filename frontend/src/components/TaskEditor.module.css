@@ -1,0 +1,43 @@
+/* 할 일 행 아래로 열리는 고치기 패널. 체크 칸 너비만큼 들여 쓴다 */
+.panel {
+  display: grid;
+  gap: 6px;
+  margin: 8px 0 2px 30px;
+  padding: 8px 10px;
+  border-radius: var(--r-s);
+  background: var(--soft);
+}
+
+.panel :global(.field) {
+  width: 100%;
+  min-height: 32px;
+  padding: 0 8px;
+  font-size: 13px;
+}
+
+.fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+}
+
+.buttons {
+  display: flex;
+  flex: none;
+  gap: 2px;
+}
+
+.buttons :global(.btn) {
+  padding: 0 8px;
+}
+
+.actions a {
+  color: var(--point-ink);
+}

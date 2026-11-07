@@ -241,6 +241,7 @@ export function buildMeetingDetail(s: DemoState, meetingId: Id, viewer: Id, now:
     transcript: m.transcript.map((line, seq) => ({ seq, speakerId: line.speakerId, speakerName: nameOf(s, line.speakerId), text: line.text })),
     minutes: m.minutes,
     tasks: liveTasks(s).filter((t) => t.meetingId === m.id).map((t) => toTask(s, t, viewer, now)),
+    doneTasks: liveTasks(s).filter((t) => t.doneMeetingId === m.id).map((t) => toTask(s, t, viewer, now)),
     suggestions: s.suggestions
       .filter((g) => g.meetingId === m.id)
       .map((g) => ({ id: g.id, title: g.title, dueDate: g.dueDate, assigneeId: g.assigneeId, assigneeName: nameOf(s, g.assigneeId) })),

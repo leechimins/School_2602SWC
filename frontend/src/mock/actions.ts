@@ -1,11 +1,22 @@
 import dayjs from 'dayjs'
 import type { Id, IsoDateTime } from '../types/common.ts'
-import { formatMonthDay } from '../lib/date.ts'
-import type { SuggestionPatch } from '../types/meeting.ts'
+import { formatMD, formatMonthDay } from '../lib/date.ts'
+import type { RecordInput, SuggestionPatch } from '../types/meeting.ts'
 import { YIELD_LEVELS, type RoomInput, type YieldLevel } from '../types/room.ts'
 import type { SchedulingInput } from '../types/scheduling.ts'
 import type { TaskInput, TaskStatus } from '../types/task.ts'
-import { DEMO_SCENARIO, SEED, USER, rerunScenario, type DemoState, type SeedFeedback, type SeedScheduling, type SeedTask } from './seed.ts'
+import {
+  DEMO_RECORDING,
+  DEMO_SCENARIO,
+  SEED,
+  USER,
+  rerunScenario,
+  type DemoState,
+  type SeedFeedback,
+  type SeedMeeting,
+  type SeedScheduling,
+  type SeedTask,
+} from './seed.ts'
 
 // 액션 표: 목 데이터를 바꾸는 동작을 모두 여기 모은다.
 // 화면은 api/ 함수를 부르고, 목 모드의 api 함수가 dispatch(액션)을 보낸다.
@@ -16,7 +27,7 @@ export type Action =
   | { type: 'room/create'; input: RoomInput }
   | { type: 'scheduling/start'; input: SchedulingInput }
   | { type: 'scheduling/finish'; schedulingId: Id }
-  | { type: 'task/add'; input: TaskInput }
+  | { type: 'task/add'; input: TaskInput; meetingId: Id | null; by: Id }
   | { type: 'task/edit'; taskId: Id; patch: Partial<TaskInput> }
   | { type: 'task/status'; taskId: Id; status: TaskStatus; reason: string | null }
   | { type: 'task/dismiss'; taskId: Id }
@@ -26,7 +37,9 @@ export type Action =
   | { type: 'proposal/respond'; meetingId: Id; userId: Id; accept: boolean; feedback: string | null }
   | { type: 'feedback/undo'; meetingId: Id; userId: Id }
   | { type: 'notice/read'; userId: Id; noticeIds: Id[] }
+  | { type: 'meeting/create'; meetingId: Id; input: RecordInput }
   | { type: 'meeting/transcript'; meetingId: Id; text: string }
+  | { type: 'meeting/summarize'; meetingId: Id }
 
 const now = (s: DemoState): IsoDateTime => s.clockNow
 
@@ -49,6 +62,25 @@ export function feedbackChange(text: string): string | null {
   if (/늦|밤/.test(text)) return '다음부터 밤 늦은 시간은 덜 잡을게요'
   if (/수업|빠듯|이동|바로 뒤/.test(text)) return '다음부터 수업 바로 뒤는 30분 띄워서 잡을게요'
   return null
+}
+
+/** 직접 쓰기 한 줄: "민지: 발표 대본은 제가 쓸게요"처럼 앞에 이름이 있으면 말한 사람으로 읽는다 */
+function parseLine(s: DemoState, line: string) {
+  const m = line.match(/^([^:：]{1,10})[:：]\s*(.+)$/)
+  const speaker = m && s.members.find((x) => x.name === m[1].trim())
+  return speaker ? { speakerId: speaker.id, text: m[2] } : { speakerId: null, text: line }
+}
+
+/**
+ * 회의록 정리(실서버에서는 AI). 시연 받아적기 대본이면 준비한 요약·제안을 내고,
+ * 아니면 앞의 말 몇 줄을 논의로만 남긴다 — 할 일을 지어내지 않고 "뽑을 할 일을 못 찾음"으로 둔다.
+ */
+function summarize(m: SeedMeeting) {
+  const isDemo = m.transcript.some((l) => l.text === DEMO_RECORDING.lines[0].text)
+  const minutes = isDemo
+    ? { headline: m.topic, status: 'done' as const, ...DEMO_RECORDING.minutes }
+    : { headline: m.topic, status: 'done' as const, decisions: [], discussions: m.transcript.slice(0, 3).map((l) => l.text), pendings: [] }
+  return { minutes, suggestions: isDemo ? DEMO_RECORDING.suggestions : [] }
 }
 
 const updateTask = (s: DemoState, id: Id, fn: (t: SeedTask) => SeedTask): DemoState => ({
@@ -143,9 +175,10 @@ export function reduce(s: DemoState, action: Action): DemoState {
         ...action.input,
         status: '시작 전',
         blockedReason: null,
-        meetingId: null, // 출처 "직접 추가"
-        confirmedBy: null,
+        meetingId: action.meetingId, // 회의록에서 추가하면 그 회의, 할 일 탭에서는 null = "직접 추가"
+        confirmedBy: action.by,
         doneAt: null,
+        doneMeetingId: null,
         dismissed: false,
       }
       return { ...s, tasks: [...s.tasks, added], nextSeq: s.nextSeq + 1 }
@@ -160,6 +193,7 @@ export function reduce(s: DemoState, action: Action): DemoState {
         status: action.status,
         blockedReason: action.status === '막힘' ? action.reason : null,
         doneAt: action.status === '완료' ? now(s) : null, // 완료로 바뀐 때 완료 알림이 생긴다
+        doneMeetingId: action.status === '완료' ? t.doneMeetingId : null, // 되돌리면 "회의에서 완료"도 풀린다
       }))
 
     case 'task/dismiss':
@@ -187,6 +221,7 @@ export function reduce(s: DemoState, action: Action): DemoState {
         meetingId: g.meetingId,
         confirmedBy: action.by,
         doneAt: null,
+        doneMeetingId: null,
         dismissed: false,
       }))
       return {
@@ -269,15 +304,55 @@ export function reduce(s: DemoState, action: Action): DemoState {
       return { ...s, readNotices: { ...s.readNotices, [action.userId]: merged } }
     }
 
+    case 'meeting/create': {
+      // 잡힌 회의 없이 바로 기록: 지금 시작한 한 시간짜리 회의로 둔다. 기록을 정리하면 지난 회의로 넘어간다
+      const start = dayjs(now(s))
+      const meeting: SeedMeeting = {
+        id: action.meetingId,
+        topic: action.input.topic?.trim() || '회의',
+        startAt: start.format(),
+        endAt: start.add(1, 'hour').format(),
+        mode: action.input.mode,
+        status: 'confirmed',
+        transcript: [],
+        minutes: null,
+      }
+      return { ...s, meetings: [...s.meetings, meeting], nextSeq: s.nextSeq + 1 }
+    }
+
     case 'meeting/transcript': {
       const lines = action.text
         .split('\n')
         .map((line) => line.trim())
         .filter(Boolean)
-        .map((text) => ({ speakerId: null, text }))
+        .map((line) => parseLine(s, line))
       return {
         ...s,
         meetings: s.meetings.map((m) => (m.id === action.meetingId ? { ...m, transcript: lines } : m)),
+      }
+    }
+
+    case 'meeting/summarize': {
+      const m = s.meetings.find((x) => x.id === action.meetingId)
+      if (!m || m.transcript.length === 0) return s
+      const { minutes, suggestions } = summarize(m)
+      return {
+        ...s,
+        meetings: s.meetings.map((x) => (x.id === m.id ? { ...x, minutes, status: 'done' } : x)),
+        suggestions: [
+          ...s.suggestions.filter((g) => g.meetingId !== m.id), // 다시 정리하면 확정 전 제안은 새로 뽑은 것으로 바뀐다
+          ...suggestions.map((g, i) => ({ ...g, id: `s${s.nextSeq + i}`, meetingId: m.id })),
+        ],
+        agentLog: [
+          {
+            id: `a${s.nextSeq}`,
+            at: now(s),
+            what: `${formatMD(m.startAt)} 회의록에서 할 일 제안 ${suggestions.length}개를 만들었어요`,
+            why: suggestions.length ? '확정 전까지는 회의록에만 보여요.' : '회의에서 맡을 일이 분명히 나오지 않았어요.',
+          },
+          ...s.agentLog,
+        ],
+        nextSeq: s.nextSeq + suggestions.length + 1,
       }
     }
   }
