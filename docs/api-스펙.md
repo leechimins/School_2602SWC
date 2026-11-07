@@ -52,6 +52,7 @@
 | 404 | `NOT_FOUND` | 없는 자원 |
 | 409 | `ALREADY_CONFIRMED` | 이미 확정된 것을 또 확정 |
 | 409 | `ALREADY_RUNNING` | 이미 도는 조율이 있는데 또 시작 |
+| 409 | `AWAITING_RESPONSE` | 수락을 기다리는 회의가 있는데 새 조율을 시작. 회의가 끝난 시각이 지나면 풀림 |
 | 503 | `AGENT_TIMEOUT` | AI 실패·시간 초과 → 다시 하기 |
 
 ### 기술 스택
@@ -83,16 +84,16 @@
 | Notice | 에이전트가 한 일 보기 | GET | `/rooms/{room_id}/agent-log` | A | Medium | 무엇을·왜·언제. 읽음 처리 없이 쌓임 | 미착수 | 미착수 |
 | Notice | 웹 푸시 등록 | PUT | `/me/push-subscription` | A | Low | 팀 전체 빼는 1순위 | 미착수 | 미착수 |
 | Notice | 웹 푸시 끄기 | DELETE | `/me/push-subscription` | A | Low | “ | 미착수 | 미착수 |
-| Meeting | 조율 시작하기 | POST | `/rooms/{room_id}/schedulings` | A | High | 팀장만. 회의 길이 30분 단위 | **완료** | 미착수 |
-| Meeting | 지금까지의 조율 보기 | GET | `/rooms/{room_id}/schedulings/{id}` | A | High | 재진입용. 쌓인 발언을 한 번에 | **완료** | 미착수 |
-| Meeting | 조율 발언 받기 | GET | `/rooms/{room_id}/schedulings/{id}/stream` | A | High | SSE. 1.6초마다 하나씩. 스피너 금지. 끝에 `event: done`으로 `status` 전달 | **완료** | 미착수 |
+| Meeting | 조율 시작하기 | POST | `/rooms/{room_id}/schedulings` | A | High | 팀장만. 회의 길이 30분 단위. **11/7**: 수락 대기 회의가 있으면 409 `AWAITING_RESPONSE`. 조율은 뒷단에서 돌고 이 요청은 바로 돌아옴(`status: running`) | **완료** | 미착수 |
+| Meeting | 지금까지의 조율 보기 | GET | `/rooms/{room_id}/schedulings/{id}` | A | High | 재진입용. 쌓인 발언을 한 번에. 도는 중이면 다시 부르면 새 발언이 붙어 옴. **11/7**: `meeting_id`(합의·조정이 끝나면 그 회의, 아니면 null) | **완료** | 미착수 |
+| Meeting | 조율 발언 받기 | GET | `/rooms/{room_id}/schedulings/{id}/stream` | A | High | SSE. 1.6초마다 하나씩. 스피너 금지. 끝에 `event: done`으로 `status` 전달. **11/7**: 읽기만 함(라운드는 뒷단). `?after=seq`면 그 번호 뒤의 발언만 — 다시 조율할 때 옛 대화를 또 재생하지 않게 | **완료** | 미착수 |
 | Meeting | ~~후보 중 팀이 고르기~~ | ~~POST~~ | ~~`/rooms/{room_id}/schedulings/{id}/pick`~~ | A | — | **빗금 11/5**: 사람이 고르는 단계를 없앴습니다. 3라운드 실패·전원 가능한 시간 없음 둘 다 판단 에이전트가 불편·양보 점수로 정하고 **바로 확정**합니다 | 안 만듦 | 안 만듦 |
 | Meeting | ~~기간 넓혀 다시 조율~~ | ~~POST~~ | ~~`/rooms/{room_id}/schedulings/{id}/widen`~~ | A | — | **빗금 11/7**: 기간을 서버가 넓혀 주는 길도, 사람이 누르는 버튼도 없앴습니다. 후보가 아예 없으면 조율이 `failed`로 끝나고, 팀장이 **더 넓은 기간으로 조율을 새로 시작**하면 됩니다(`POST /rooms/{room_id}/schedulings`) | 안 만듦 | 안 만듦 |
 | Meeting | ~~불참안 받아들이기~~ | ~~POST~~ | ~~`/rooms/{room_id}/schedulings/{id}/accept-absent`~~ | A | — | **빗금 11/5**: `pick`과 같은 이유입니다. 전원 가능한 시간이 없으면 판단 에이전트가 불참안까지 포함해 불편·양보 점수로 정하고 바로 확정하므로, 사람이 "받아들이기"를 누를 자리가 없습니다 | 안 만듦 | 안 만듦 |
-| Meeting | 거절 뒤 다시 조율 | POST | `/rooms/{room_id}/schedulings/{id}/rerun` | A | Medium | **11/5**: 권한 정해졌습니다 — **거절한 사람이 누구든 자동으로 돕니다.** 팀장 승인을 기다리지 않습니다. 거절할 때 고른 구간(이 시간만 / 그날 종일)이 그 사람 시간표에 일회성 일정으로 들어간 뒤 돕니다. 라운드는 조율 하나에 3이 예산이라 **남은 만큼만** 돌고(`scheduling.rounds_used`), 예산이 0이면 다시 조율하지 않고 그 사람을 불참으로 둔 채 회의를 유지합니다 | 미착수 | 미착수 |
+| Meeting | ~~거절 뒤 다시 조율~~ | ~~POST~~ | ~~`/rooms/{room_id}/schedulings/{id}/rerun`~~ | A | — | **빗금 11/7**: 따로 안 만들었습니다. **거절하면 `respond`가 그 자리에서 다시 조율합니다** — 라운드 예산(조율 하나에 3)이 남았으면 옛 회의를 `cancelled`로 두고 남은 라운드만 돕니다. 거절한 시간은 그 사람 시간표에 제목 없는 일회성 일정(팀에는 "바쁨")으로 들어갑니다. "이 시간만 / 그날 종일" 선택은 목업·프론트 거절 창에 없어 **이 시간만**입니다. 예산이 0이면 다시 돌지 않고 그 사람을 불참으로 둔 채, 나머지가 모두 수락하면 확정됩니다 | 안 만듦 | 안 만듦 |
 | Meeting | 회의 목록 보기 | GET | `/rooms/{room_id}/proposals` | A | Low | **11/5**: `GET /rooms/{room_id}/schedule`이 같은 일을 합니다(조율 중·잡힘·지남 세 묶음). 따로 쓸 화면이 생기면 만듭니다 | 안 만듦 | 안 만듦 |
 | Meeting | 회의 보기 | GET | `/rooms/{room_id}/proposals/{id}` | A | High | 차선책 빠짐. 보는 사람마다 내용이 다름 | **완료** | 미착수 |
-| Meeting | 수락·거절하기 | POST | `/rooms/{room_id}/proposals/{id}/respond` | A | High | 피드백 한 줄 함께. 전원 수락 시 자동 확정. **조정된 회의(`settled`)는 이미 확정이라 피드백만 받습니다** | **완료** | 미착수 |
+| Meeting | 수락·거절하기 | POST | `/rooms/{room_id}/proposals/{id}/respond` | A | High | 피드백 한 줄 함께. 전원 수락 시 자동 확정. **조정된 회의(`settled`)는 이미 확정이라 피드백만 받습니다**. **11/7**: 거절하면 예산 안에서 자동으로 다시 조율 — 응답에 `rerun: true`·`rounds_left`, 화면은 조율 화면으로(`?after=`로 새 발언만). 다시 도는 동안 옛 회의에 답하면 409 `CLOSED` | **완료** | 미착수 |
 | Meeting | 선호 변경 되돌리기 | POST | `/me/preference-changes/{id}/undo` | A | Medium | 말없이 바꾸면 안 되므로 필요. **11/5**: 피드백 한 줄을 `meeting_response.feedback`에 저장만 하고 선호를 자동으로 바꾸지 않으므로 되돌릴 것이 아직 없습니다. 자동 반영을 넣을 때 같이 만듭니다 | 미착수 | 미착수 |
 | Meeting | 일정 보기(회의 관리) | GET | `/rooms/{room_id}/schedule` | A | High | 회의 관리로 바뀜 (전 timeline). 조율 중도 자리 잡음 | **완료** | 미착수 |
 | Record | 회의록 목록 보기 | GET | `/rooms/{room_id}/meetings` | B | High | 주제 한 줄이 보여야 나중에 찾음 | **완료** | 미착수 |
