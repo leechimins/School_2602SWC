@@ -1,8 +1,8 @@
 import type { Id, IsoDate, IsoDateTime, MeetingMode } from './common.ts'
-import type { ResponseState, SchedulingStatus } from './scheduling.ts'
+import type { SchedulingStatus } from './scheduling.ts'
 import type { Task } from './task.ts'
 
-/** 회의 상태. 화면 "확정 대기 / 확정"은 status와 응답 수로 정한다 */
+/** 회의 상태. 조율이 끝나면 바로 confirmed가 되고, proposed는 서버가 정리 중일 때만 잠깐 보인다 */
 export type MeetingStatus = 'proposed' | 'confirmed' | 'done' | 'cancelled'
 
 /** 일정 목록과 홈 다음 회의의 한 줄 */
@@ -14,8 +14,6 @@ export type MeetingBrief = {
   mode: MeetingMode
   status: MeetingStatus
   settled: boolean
-  myState: ResponseState | null
-  pendingCount: number // 아직 답하지 않은 사람 수
   suggestionCount: number // 지난 회의: 확정 전 할 일 제안 수 ("제안 N개")
 }
 

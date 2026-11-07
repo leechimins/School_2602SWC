@@ -4,7 +4,7 @@ import { dispatch } from '../mock/store.ts'
 import { buildProposal, buildSchedule, buildScheduling } from '../mock/views.ts'
 import type { Id } from '../types/common.ts'
 import type { Schedule } from '../types/meeting.ts'
-import type { Proposal, RespondInput, Scheduling, SchedulingInput } from '../types/scheduling.ts'
+import type { FeedbackInput, Proposal, Scheduling, SchedulingInput } from '../types/scheduling.ts'
 import { request, withMock, withMockWrite } from './client.ts'
 import {
   toProposal,
@@ -20,7 +20,7 @@ import {
 
 /**
  * 조율 시작 (팀장만). 목 모드에서는 준비된 조율 대본을 다시 돌린다:
- * 바로 "진행 중" 조율을 돌려주고, 화면이 발언을 다 보여 줄 즈음 서버처럼 조율을 끝내 회의안을 낸다.
+ * 바로 "진행 중" 조율을 돌려주고, 화면이 발언을 다 보여 줄 즈음 서버처럼 조율을 끝내 회의를 확정한다.
  */
 export function startScheduling(roomId: Id, input: SchedulingInput): Promise<Scheduling> {
   return withMockWrite(
@@ -69,13 +69,16 @@ export function getProposal(roomId: Id, proposalId: Id): Promise<Proposal> {
   )
 }
 
-/** 수락·거절 + 피드백 한 줄. 전원 수락하면 회의가 자동으로 확정된다 */
-export function respondProposal(roomId: Id, proposalId: Id, input: RespondInput): Promise<void> {
+/**
+ * 확정된 시간에 피드백 한 줄. 내 에이전트가 다음 회의부터 참고한다.
+ * 사람의 수락·거절은 없어졌다(11/7). 서버는 아직 수락·거절 API로 받으므로 accept: true를 붙여 보낸다(백엔드 정리 거리)
+ */
+export function leaveFeedback(roomId: Id, proposalId: Id, input: FeedbackInput): Promise<void> {
   return withMockWrite(
-    () => request<void>(`/rooms/${roomId}/proposals/${proposalId}/respond`, { method: 'POST', body: input }),
+    () => request<void>(`/rooms/${roomId}/proposals/${proposalId}/respond`, { method: 'POST', body: { accept: true, ...input } }),
     () => {
       const { viewer } = mockContext()
-      dispatch({ type: 'proposal/respond', meetingId: proposalId, userId: viewer, ...input })
+      dispatch({ type: 'proposal/feedback', meetingId: proposalId, userId: viewer, text: input.feedback })
     },
   )
 }
@@ -91,8 +94,8 @@ export function getSchedule(roomId: Id): Promise<Schedule> {
   return withMock(
     async () => toSchedule(await request<ServerSchedule>(`/rooms/${roomId}/schedule`)),
     () => {
-      const { s, viewer, now } = mockContext()
-      return buildSchedule(s, viewer, now)
+      const { s, now } = mockContext()
+      return buildSchedule(s, now)
     },
   )
 }

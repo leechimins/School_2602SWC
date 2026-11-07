@@ -5,7 +5,7 @@ import type { SuggestionPatch } from '../types/meeting.ts'
 import { YIELD_LEVELS, type RoomInput, type YieldLevel } from '../types/room.ts'
 import type { SchedulingInput } from '../types/scheduling.ts'
 import type { TaskInput, TaskStatus } from '../types/task.ts'
-import { DEMO_SCENARIO, SEED, type DemoState, type SeedFeedback, type SeedTask } from './seed.ts'
+import { DEMO_SCENARIO, SEED, type DemoState, type SeedTask } from './seed.ts'
 
 // 액션 표: 목 데이터를 바꾸는 동작을 모두 여기 모은다.
 // 화면은 api/ 함수를 부르고, 목 모드의 api 함수가 dispatch(액션)을 보낸다.
@@ -23,7 +23,7 @@ export type Action =
   | { type: 'suggestion/edit'; suggestionId: Id; patch: SuggestionPatch }
   | { type: 'suggestion/dismiss'; suggestionId: Id }
   | { type: 'suggestion/confirm'; suggestionIds: Id[]; by: Id }
-  | { type: 'proposal/respond'; meetingId: Id; userId: Id; accept: boolean; feedback: string | null }
+  | { type: 'proposal/feedback'; meetingId: Id; userId: Id; text: string }
   | { type: 'feedback/undo'; meetingId: Id; userId: Id }
   | { type: 'notice/read'; userId: Id; noticeIds: Id[] }
   | { type: 'meeting/transcript'; meetingId: Id; text: string }
@@ -67,17 +67,24 @@ export function reduce(s: DemoState, action: Action): DemoState {
     }
 
     case 'scheduling/start': {
-      // 아직 확정 전인 지난 조율 결과는 새 조율로 바뀐다. 확정된 회의는 그대로 둔다
+      // 회의는 주 1회라, 아직 열리지 않은 지난 조율의 회의는 새 조율로 바뀐다(시연을 여러 번 돌려도 같은 결과).
+      // 그 회의로 올랐던 양보 단계와 양보 기록도 함께 되돌린다
       const replaced = new Set(
         s.meetings
-          .filter((m) => m.status === 'proposed' && s.schedulings.some((c) => c.meetingId === m.id))
+          .filter((m) => dayjs(m.startAt).isAfter(s.clockNow) && s.schedulings.some((c) => c.meetingId === m.id))
           .map((m) => m.id),
       )
+      const undone = s.proposals.filter((p) => replaced.has(p.meetingId))
       const { input } = action
       return {
         ...s,
         meetings: s.meetings.filter((m) => !replaced.has(m.id)),
         proposals: s.proposals.filter((p) => !replaced.has(p.meetingId)),
+        members: s.members.map((x) => {
+          const p = undone.find((u) => u.gets === x.id)
+          return p ? { ...x, yieldLevel: p.getsFrom } : x
+        }),
+        yieldRecords: s.yieldRecords.filter((y) => !(y.meetingId && replaced.has(y.meetingId))),
         schedulings: [
           ...s.schedulings.filter((c) => c.meetingId !== null && !replaced.has(c.meetingId)),
           {
@@ -97,31 +104,32 @@ export function reduce(s: DemoState, action: Action): DemoState {
     }
 
     case 'scheduling/finish': {
-      // 마지막 판단 에이전트가 낸 시간이 회의안이 된다
+      // 마지막 판단 에이전트가 고른 시간이 그 자리에서 확정된다(사람의 수락·거절 없음, 11/7).
+      // 마지막 라운드에서 모두 수락했으면 합의(agreed), 아니면 판단 에이전트가 정한 것(settled)
       const c = s.schedulings.find((x) => x.id === action.schedulingId)
       const lastJudge = c?.script.findLast((u) => u.kind === 'judge')
       if (!c || c.status !== 'running' || lastJudge?.kind !== 'judge') return s
+      const lastAnswers = c.script.filter((u) => u.kind === 'answer' && u.round === lastJudge.round)
+      const settled = lastAnswers.some((u) => u.kind === 'answer' && u.answer === '거절')
       const meetingId = `m${s.nextSeq}`
       const { result } = DEMO_SCENARIO
-      const getter = s.members.find((m) => m.id === result.gets)
+      const getsFrom = s.members.find((m) => m.id === result.gets)?.yieldLevel ?? result.getsFrom
       return {
         ...s,
-        schedulings: s.schedulings.map((x) => (x.id === c.id ? { ...x, status: 'agreed', meetingId } : x)),
+        schedulings: s.schedulings.map((x) => (x.id === c.id ? { ...x, status: settled ? 'settled' : 'agreed', meetingId } : x)),
         meetings: [
           ...s.meetings,
-          { id: meetingId, topic: c.topic, ...lastJudge.slot, status: 'proposed', transcript: [], minutes: null },
+          { id: meetingId, topic: c.topic, ...lastJudge.slot, status: 'confirmed', transcript: [], minutes: null },
         ],
-        proposals: [
-          ...s.proposals,
-          {
-            ...result,
-            meetingId,
-            settled: false,
-            getsFrom: getter?.yieldLevel ?? result.getsFrom,
-            responses: Object.fromEntries(result.burdens.map((b) => [b.userId, '대기' as const])),
-            feedback: {},
-          },
-        ],
+        proposals: [...s.proposals, { ...result, meetingId, settled, getsFrom, feedback: {} }],
+        // 맞춰 준 사람의 양보 단계가 한 칸 오르고 양보 기록에 남는다
+        members: s.members.map((x) => (x.id === result.gets ? { ...x, yieldLevel: nextYieldLevel(getsFrom) } : x)),
+        yieldRecords: result.gets
+          ? [
+              { id: `y${s.nextSeq}`, meetingId, meetingLabel: `${formatMonthDay(lastJudge.slot.startAt)} 회의`, userId: result.gets, why: result.yieldWhy },
+              ...s.yieldRecords,
+            ]
+          : s.yieldRecords,
         agentLog: [
           { id: `a${s.nextSeq}`, at: now(s), what: '조율 결과를 냈어요', why: result.rationale },
           ...s.agentLog,
@@ -191,31 +199,16 @@ export function reduce(s: DemoState, action: Action): DemoState {
       }
     }
 
-    case 'proposal/respond': {
-      const p = s.proposals.find((x) => x.meetingId === action.meetingId)
-      const m = s.meetings.find((x) => x.id === action.meetingId)
-      if (!p || !m) return s
-      const feedback: Record<Id, SeedFeedback> = action.feedback
-        ? { ...p.feedback, [action.userId]: { text: action.feedback, change: feedbackChange(action.feedback), undone: false } }
-        : p.feedback
-      // 조정안은 이미 확정이라 피드백 한 줄만 받는다
-      const responses = p.settled ? p.responses : { ...p.responses, [action.userId]: action.accept ? '수락' : '거절' } as const
-      const proposals = s.proposals.map((x) => (x === p ? { ...x, feedback, responses } : x))
-
-      // 응답할 사람이 모두 수락하면 회의가 자동으로 확정되고, 맞춰 준 사람의 양보 단계가 오른다
-      const allAccepted = Object.values(responses).every((r) => r === '수락')
-      if (p.settled || m.status !== 'proposed' || !allAccepted) return { ...s, proposals }
+    case 'proposal/feedback':
+      // 회의는 이미 확정이라 한 줄만 남긴다. 시간 얘기면 내 에이전트가 다음 조율에 쓸 선호 하나를 바꾼다
       return {
         ...s,
-        proposals,
-        meetings: s.meetings.map((x) => (x.id === m.id ? { ...x, status: 'confirmed' } : x)),
-        members: s.members.map((x) => (x.id === p.gets ? { ...x, yieldLevel: nextYieldLevel(p.getsFrom) } : x)),
-        yieldRecords: p.gets
-          ? [{ id: `y${s.nextSeq}`, meetingLabel: `${formatMonthDay(m.startAt)} 회의`, userId: p.gets, why: p.yieldWhy }, ...s.yieldRecords]
-          : s.yieldRecords,
-        nextSeq: s.nextSeq + 1,
+        proposals: s.proposals.map((p) =>
+          p.meetingId === action.meetingId
+            ? { ...p, feedback: { ...p.feedback, [action.userId]: { text: action.text, change: feedbackChange(action.text), undone: false } } }
+            : p,
+        ),
       }
-    }
 
     case 'feedback/undo':
       return {

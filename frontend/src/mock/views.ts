@@ -88,7 +88,7 @@ export function buildMyTasks(s: DemoState, viewer: Id, now: Dayjs): Task[] {
     .sort(byDue)
 }
 
-function toMeetingBrief(s: DemoState, m: SeedMeeting, viewer: Id): MeetingBrief {
+function toMeetingBrief(s: DemoState, m: SeedMeeting): MeetingBrief {
   const proposal = s.proposals.find((p) => p.meetingId === m.id)
   return {
     id: m.id,
@@ -98,8 +98,6 @@ function toMeetingBrief(s: DemoState, m: SeedMeeting, viewer: Id): MeetingBrief 
     mode: m.mode,
     status: m.status,
     settled: proposal?.settled ?? false,
-    myState: proposal?.responses[viewer] ?? null,
-    pendingCount: proposal ? Object.values(proposal.responses).filter((r) => r === '대기').length : 0,
     suggestionCount: s.suggestions.filter((g) => g.meetingId === m.id).length,
   }
 }
@@ -107,7 +105,7 @@ function toMeetingBrief(s: DemoState, m: SeedMeeting, viewer: Id): MeetingBrief 
 const isUpcoming = (m: SeedMeeting, now: Dayjs) =>
   (m.status === 'proposed' || m.status === 'confirmed') && dayjs(m.endAt).isAfter(now)
 
-export function buildSchedule(s: DemoState, viewer: Id, now: Dayjs): Schedule {
+export function buildSchedule(s: DemoState, now: Dayjs): Schedule {
   const coordinating: CoordinatingBrief[] = s.schedulings
     .filter((c) => c.status === 'running')
     .map(({ id, topic, windowStart, windowEnd, status }) => ({ id, topic, windowStart, windowEnd, status }))
@@ -117,13 +115,13 @@ export function buildSchedule(s: DemoState, viewer: Id, now: Dayjs): Schedule {
     .sort((a, b) => b.startAt.localeCompare(a.startAt))
   return {
     coordinating,
-    upcoming: upcoming.map((m) => toMeetingBrief(s, m, viewer)),
-    past: past.map((m) => toMeetingBrief(s, m, viewer)),
+    upcoming: upcoming.map((m) => toMeetingBrief(s, m)),
+    past: past.map((m) => toMeetingBrief(s, m)),
   }
 }
 
 export function buildHome(s: DemoState, viewer: Id, now: Dayjs): Home {
-  const schedule = buildSchedule(s, viewer, now)
+  const schedule = buildSchedule(s, now)
   return {
     roomName: s.room.name,
     today: toIsoDate(now),
@@ -181,7 +179,6 @@ export function buildProposal(s: DemoState, meetingId: Id, viewer: Id): Proposal
   if (!m || !p) throw NOT_FOUND('회의')
   const c = s.schedulings.find((x) => x.meetingId === meetingId)
   const mine = p.burdens.find((b) => b.userId === viewer) // 불참안에서 빠진 사람이면 없다(목업 버그 ③)
-  const myState = p.responses[viewer] ?? null
   const getter = p.burdens.find((b) => b.userId === p.gets)
   return {
     id: m.id,
@@ -191,20 +188,16 @@ export function buildProposal(s: DemoState, meetingId: Id, viewer: Id): Proposal
     startAt: m.startAt,
     endAt: m.endAt,
     mode: m.mode,
-    confirmed: m.status === 'confirmed' || p.settled,
+    confirmed: m.status !== 'proposed',
     settled: p.settled,
     rationale: p.rationale,
     myScore: mine?.score ?? null,
     myReason: mine?.reason ?? '',
     myYieldPoints: mine && p.gets === viewer ? yieldPointsOf(mine.score) : 0,
-    myState,
-    canRespond: myState !== null && m.status === 'proposed',
-    feedbackOnly: p.settled,
     absentName: nameOf(s, p.absent),
     responders: p.burdens.map((b) => ({
       userId: b.userId,
       name: nameOf(s, b.userId) ?? '',
-      state: p.responses[b.userId] ?? '대기',
       burden: burdenOf(b.score),
       reason: b.reason,
       yieldLevel: s.members.find((x) => x.id === b.userId)?.yieldLevel ?? '아직 없음',
@@ -228,7 +221,8 @@ export function buildMeetingDetail(s: DemoState, meetingId: Id, viewer: Id, now:
   const m = s.meetings.find((x) => x.id === meetingId)
   if (!m) throw NOT_FOUND('회의')
   const p = s.proposals.find((x) => x.meetingId === m.id)
-  const attendeeIds = p ? Object.keys(p.responses).filter((id) => p.responses[id] === '수락') : s.members.map((x) => x.id)
+  // 조율로 잡힌 회의는 불참안에서 빠진 사람을 뺀 부담 줄의 사람들이 참석자다
+  const attendeeIds = p ? p.burdens.map((b) => b.userId) : s.members.map((x) => x.id)
   return {
     id: m.id,
     topic: m.topic,
@@ -314,19 +308,13 @@ export function buildNotices(s: DemoState, viewer: Id, now: Dayjs): NoticeList {
         createdAt: dayjs(m.startAt).subtract(30, 'minute').format(),
       })
     }
+    // 조율이 끝나면 바로 확정되므로 확정 알림 하나만 낸다
     const p = s.proposals.find((x) => x.meetingId === m.id)
-    if (p && m.status === 'proposed' && p.responses[viewer] === '대기') {
-      notices.push({
-        id: `proposed-${m.id}`, kind: '회의 제안', ...about,
-        reason: `회의 일정이 나왔습니다. ${slot}. ${p.rationale}`,
-        createdAt: s.agentLog.find((a) => a.what.startsWith('조율 결과'))?.at ?? s.clockNow,
-      })
-    }
     if (p && m.status === 'confirmed') {
       notices.push({
         id: `confirmed-${m.id}`, kind: '회의 확정', ...about,
-        reason: `${withJosa(slot, '으로/로')} 확정됐어요. 모두 수락했어요`,
-        createdAt: s.clockNow,
+        reason: `${withJosa(slot, '으로/로')} 확정됐어요. ${p.settled ? '판단 에이전트가 정했어요' : '에이전트들이 모두 수락했어요'}`,
+        createdAt: s.agentLog.find((a) => a.what.startsWith('조율 결과'))?.at ?? s.clockNow,
       })
     }
   }
@@ -341,6 +329,6 @@ export function buildNotices(s: DemoState, viewer: Id, now: Dayjs): NoticeList {
 export function buildActivity(s: DemoState): ActivityLog {
   return {
     agentLog: [...s.agentLog].sort((a, b) => b.at.localeCompare(a.at)),
-    yieldRecords: s.yieldRecords.map((y) => ({ ...y, name: nameOf(s, y.userId) ?? '' })),
+    yieldRecords: s.yieldRecords.map(({ id, meetingLabel, userId, why }) => ({ id, meetingLabel, userId, why, name: nameOf(s, userId) ?? '' })),
   }
 }
