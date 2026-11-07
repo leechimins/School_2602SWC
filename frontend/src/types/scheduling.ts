@@ -4,10 +4,12 @@ import type { YieldLevel } from './room.ts'
 /** 남의 불편 정도. 1점 = 괜찮음, 2~3점 = 조금, 4~5점 = 많이. 내 것만 숫자(myScore)로 따로 받는다 */
 export type Burden = '괜찮음' | '조금' | '많이'
 
+/** 회의안 응답 */
+export type ResponseState = '대기' | '수락' | '거절'
+
 /**
  * 조율 상태. 화면 문구가 아니라 화면 갈래를 나누는 값이라 서버 코드를 그대로 쓴다.
- * running 라운드 도는 중 · agreed 개인 에이전트가 모두 수락 · settled 3라운드 안에 모두 수락하지 않아 판단 에이전트가 정함 · failed 후보 없음
- * agreed·settled 모두 사람이 수락·거절하지 않고 그 자리에서 확정된다(11/7)
+ * running 라운드 도는 중 · agreed 개인 에이전트가 모두 수락(이어서 사람이 수락·거절) · settled 3라운드 안에 모두 수락하지 않아 판단 에이전트가 정함(바로 확정) · failed 후보 없음
  */
 export type SchedulingStatus = 'running' | 'agreed' | 'settled' | 'failed'
 
@@ -69,6 +71,7 @@ export type Scheduling = {
 export type Responder = {
   userId: Id
   name: string
+  state: ResponseState
   burden: Burden
   reason: string
   yieldLevel: YieldLevel
@@ -85,7 +88,7 @@ export type YieldGetter = {
   to: YieldLevel // 회의가 확정되면 이 단계가 된다. 가장 높은 단계면 from과 같다
 }
 
-/** 확정된 시간에 내가 남긴 한 줄과, 내 에이전트가 그 말로 바꾼 선호 */
+/** 수락·거절할 때 내가 남긴 한 줄과, 내 에이전트가 그 말로 바꾼 선호 */
 export type MyFeedback = {
   text: string
   change: string | null // "다음부터 수업 바로 뒤는 30분 띄워서 잡을게요". 시간과 상관없는 말이면 null
@@ -101,18 +104,22 @@ export type Proposal = {
   startAt: IsoDateTime
   endAt: IsoDateTime
   mode: MeetingMode
-  confirmed: boolean // 조율이 끝나면 바로 확정된다. 서버가 아직 정리 중이면 false
-  settled: boolean // 3라운드 안에 모두 수락하지 않아 판단 에이전트가 정함 (화면 "조정")
+  confirmed: boolean // 전원 수락 또는 조정으로 확정됨
+  settled: boolean // 판단 에이전트가 정해 바로 확정 (화면 "확정 · 조정")
   rationale: string // 누구를 왜 배려했는지 한 줄
   myScore: number | null // 내 불편 1~5. 빠진 사람이면 null
   myReason: string
   myYieldPoints: number // 이번에 내가 받을 양보 점수
+  myState: ResponseState | null // 응답 대상이 아니면 null
+  canRespond: boolean
+  feedbackOnly: boolean // 조정안은 수락·거절 없이 피드백 한 줄만
   responders: Responder[]
   absentName: string | null // 불참안에서 빠진 사람
   yieldGetter: YieldGetter | null
   myFeedback: MyFeedback | null
 }
 
-export type FeedbackInput = {
-  feedback: string
+export type RespondInput = {
+  accept: boolean
+  feedback: string | null
 }

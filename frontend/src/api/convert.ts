@@ -12,7 +12,7 @@ import type {
 } from '../types/meeting.ts'
 import type { Notice, NoticeKind, NoticeList } from '../types/notification.ts'
 import type { Member, Room, YieldLevel } from '../types/room.ts'
-import type { Burden, Proposal, Scheduling, SchedulingStatus, Utterance } from '../types/scheduling.ts'
+import type { Burden, Proposal, ResponseState, Scheduling, SchedulingStatus, Utterance } from '../types/scheduling.ts'
 import type { Task, TaskStatus, TeamTasks } from '../types/task.ts'
 
 // 서버 응답(snake_case, 영문 코드) → 프론트 타입(camelCase, 화면 용어).
@@ -23,11 +23,13 @@ import type { Task, TaskStatus, TeamTasks } from '../types/task.ts'
 
 type ServerMode = 'offline' | 'online' | 'any'
 type ServerTaskState = 'todo' | 'doing' | 'blocked' | 'done'
+type ServerResponse = 'pending' | 'accepted' | 'declined'
 type ServerBurden = 'ok' | 'some' | 'much'
 type ServerYield = 'none' | 'some' | 'much'
 
 const MODE: Record<ServerMode, MeetingMode | '상관없음'> = { offline: '대면', online: '비대면', any: '상관없음' }
 export const TASK_STATE: Record<ServerTaskState, TaskStatus> = { todo: '시작 전', doing: '진행 중', blocked: '막힘', done: '완료' }
+const RESPONSE: Record<ServerResponse, ResponseState> = { pending: '대기', accepted: '수락', declined: '거절' }
 const BURDEN: Record<ServerBurden, Burden> = { ok: '괜찮음', some: '조금', much: '많이' }
 const YIELD: Record<ServerYield, YieldLevel> = { none: '아직 없음', some: '조금 맞춰 줌', much: '많이 맞춰 줌' }
 
@@ -146,6 +148,8 @@ export type ServerMeetingBrief = {
   mode: ServerMode
   status: MeetingStatus
   settled: boolean
+  my_state: ServerResponse | null
+  pending_count: number
   suggestion_count?: number // 지난 회의 "제안 N개" (백엔드 요청 거리)
 }
 
@@ -171,6 +175,8 @@ export const toMeetingBrief = (m: ServerMeetingBrief): MeetingBrief => ({
   mode: meetingMode(m.mode),
   status: m.status,
   settled: m.settled,
+  myState: m.my_state ? RESPONSE[m.my_state] : null,
+  pendingCount: m.pending_count,
   suggestionCount: m.suggestion_count ?? 0,
 })
 
@@ -204,7 +210,7 @@ export type ServerHome = {
   start_date: string
   due_date: string
   d_day: number
-  next_meeting: ServerMeetingBrief | null
+  next_meeting: (Omit<ServerMeetingBrief, 'pending_count'> & { accepted: number; responders: number }) | null
   coordinating: ServerCoordinatingBrief | null
   my_tasks: ServerHomeTask[]
   unread_notifications: number
@@ -221,7 +227,9 @@ export const toHome = (r: ServerHome, roomName: string, me: { id: Id; name: stri
   startDate: r.start_date,
   dueDate: r.due_date,
   dDay: r.d_day,
-  nextMeeting: r.next_meeting ? toMeetingBrief(r.next_meeting) : null,
+  nextMeeting: r.next_meeting
+    ? toMeetingBrief({ ...r.next_meeting, pending_count: r.next_meeting.responders - r.next_meeting.accepted })
+    : null,
   coordinating: r.coordinating ? toCoordinating(r.coordinating) : null,
   myTasks: r.my_tasks.map((t) => ({
     id: id(t.id),
@@ -270,11 +278,15 @@ export type ServerScheduling = {
   utterances: ServerUtterance[]
 }
 
-// 서버 발언에는 아직 text만 있다. 어필/응답 구분·불편 단계·제안 시간은 백엔드 요청 거리라 비워 둔다
-const toUtterance = (u: ServerUtterance): Utterance => ({
+// 서버 발언에는 아직 text만 있다. 불편 단계·제안 시간은 백엔드 요청 거리라 비워 둔다.
+// 어필/응답은 순서로 가른다: 한 라운드에서 판단 에이전트보다 먼저 나온 팀원 발언이 어필, 뒤에 나온 것이 수락·거절이다
+const judgeSeqByRound = (us: ServerUtterance[]) =>
+  new Map(us.filter((u) => u.speaker_kind === 'judge').map((u) => [u.round_no, u.seq]))
+
+const toUtterance = (u: ServerUtterance, judgeSeq: Map<number, number>): Utterance => ({
   seq: u.seq,
   round: u.round_no,
-  kind: u.speaker_kind === 'judge' ? 'judge' : 'answer',
+  kind: u.speaker_kind === 'judge' ? 'judge' : u.seq < (judgeSeq.get(u.round_no) ?? Infinity) ? 'appeal' : 'answer',
   speakerId: optId(u.speaker_user_id),
   speakerName: u.speaker_name,
   text: u.text,
@@ -285,18 +297,21 @@ const toUtterance = (u: ServerUtterance): Utterance => ({
   yieldChanges: [],
 })
 
-export const toScheduling = (r: ServerScheduling): Scheduling => ({
-  id: id(r.id),
-  topic: r.topic,
-  windowStart: r.window_start,
-  windowEnd: r.window_end,
-  durationMin: r.duration_min,
-  mode: MODE[r.mode],
-  status: r.status,
-  roundsUsed: r.rounds_used,
-  utterances: r.utterances.map(toUtterance),
-  proposalId: null, // 서버가 아직 조율 → 회의 ID를 주지 않는다 (백엔드 요청 거리)
-})
+export const toScheduling = (r: ServerScheduling): Scheduling => {
+  const judgeSeq = judgeSeqByRound(r.utterances)
+  return {
+    id: id(r.id),
+    topic: r.topic,
+    windowStart: r.window_start,
+    windowEnd: r.window_end,
+    durationMin: r.duration_min,
+    mode: MODE[r.mode],
+    status: r.status,
+    roundsUsed: r.rounds_used,
+    utterances: r.utterances.map((u) => toUtterance(u, judgeSeq)),
+    proposalId: null, // 서버가 아직 조율 → 회의 ID를 주지 않는다 (백엔드 요청 거리)
+  }
+}
 
 export type ServerProposal = {
   id: number
@@ -310,9 +325,13 @@ export type ServerProposal = {
   my_score: number | null
   my_reason: string
   my_yield_points: number
+  my_state: ServerResponse | null
+  can_respond: boolean
+  feedback_only: boolean
   responders: {
     user_id: number
     name: string
+    state: ServerResponse
     burden: ServerBurden
     reason: string
     yield_level: ServerYield
@@ -334,10 +353,14 @@ export const toProposal = (r: ServerProposal): Proposal => ({
   myScore: r.my_score,
   myReason: r.my_reason,
   myYieldPoints: r.my_yield_points,
+  myState: r.my_state ? RESPONSE[r.my_state] : null,
+  canRespond: r.can_respond,
+  feedbackOnly: r.feedback_only,
   absentName: null, // 불참안의 빠진 사람 (백엔드 요청 거리)
   responders: r.responders.map((x) => ({
     userId: id(x.user_id),
     name: x.name,
+    state: RESPONSE[x.state],
     burden: BURDEN[x.burden],
     reason: x.reason,
     yieldLevel: YIELD[x.yield_level],

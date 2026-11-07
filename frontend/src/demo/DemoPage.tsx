@@ -179,8 +179,10 @@ export default function DemoPage() {
                     {m && ` · ${formatSlot(m.startAt, m.endAt)} · ${m.status}`}
                   </dt>
                   <dd>
-                    {p.settled ? '조정' : '합의'}
-                    {Object.entries(p.feedback).map(([id, f]) => ` · ${nameOf(id)} “${f.text}”`)}
+                    {p.settled ? '조정 · ' : ''}
+                    {Object.entries(p.responses)
+                      .map(([id, st]) => `${nameOf(id)} ${st}`)
+                      .join(', ')}
                   </dd>
                 </div>
               )
