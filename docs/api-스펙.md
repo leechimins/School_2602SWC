@@ -49,6 +49,8 @@
 | 403 | `FORBIDDEN` | 권한 없음 |
 | 403 | `NOT_ASSIGNEE` | 담당자가 아닌 사람이 할 일 상태를 바꾸려 함 |
 | 401 | `UNAUTHENTICATED` | 로그인 안 함 |
+| 503 | `GOOGLE_UNAVAILABLE` | 구글이 응답하지 않음. 잠시 뒤 다시 |
+| 503 | `GOOGLE_NOT_CONFIGURED` | 서버에 구글 클라이언트 ID가 없음 |
 | 404 | `NOT_FOUND` | 없는 자원 |
 | 409 | `ALREADY_CONFIRMED` | 이미 확정된 것을 또 확정 |
 | 409 | `ALREADY_RUNNING` | 이미 도는 조율이 있는데 또 시작 |
@@ -136,5 +138,6 @@
 | Demo | 시연 시계 옮기기 | PUT | `/demo/clock` | 공통 | High | 모든 판정의 기준 시각 | 미착수 | 미착수 |
 | Demo | 실제 시각으로 되돌리기 | DELETE | `/demo/clock` | 공통 | Medium |  | 미착수 | 미착수 |
 | Demo | 시드로 초기화 | POST | `/demo/reset` | 공통 | High | 시연 중 다시 돌릴 때. 헤더 `X-Demo-Key`가 서버의 `DEMO_RESET_KEY`와 같아야 함(아니면 403). 204. 열린 조율 스트림 때문에 못 지우면 409 `BUSY` | 완료 | 미착수 |
-| 공통 | 로그인하기 | POST | `/sessions` | 공통 | High | 이름만 보내면 그 사람이 됨. **비밀번호는 아직 없음**(시연 4명용). 서명 쿠키로 유지 | **완료** | 미착수 |
+| 공통 | 로그인하기 | POST | `/sessions` | 공통 | High | 이름만 보내면 그 사람이 됨. **비밀번호는 아직 없음**(시연 4명용). 서명 쿠키로 유지. **11/8**: 구글로 만든 사람은 이 길로 못 들어옴(시드 4명만) | **완료** | 미착수 |
+| 공통 | 구글로 로그인하기 | POST | `/sessions/google` | A | High | `{credential}`(구글 로그인 버튼의 ID 토큰) → 201 `{user_id, name, is_new}`. 같은 구글 계정이면 같은 사람, 처음이면 만듦(`is_new`면 초대 코드·방 만들기로). 토큰이 틀림·만료·다른 앱 것 401 `UNAUTHENTICATED`, 구글 장애 503 `GOOGLE_UNAVAILABLE`, 서버 설정 없음 503 `GOOGLE_NOT_CONFIGURED` (#50) | **완료** | 미착수 |
 | 공통 | 로그아웃하기 | DELETE | `/sessions` | 공통 | High |  | **완료** | 미착수 |
