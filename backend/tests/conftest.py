@@ -13,12 +13,12 @@ from collections.abc import Iterator
 import pytest
 from dotenv import load_dotenv
 from fastapi.testclient import TestClient
-from sqlalchemy import Engine, text
-from sqlmodel import Session, SQLModel
+from sqlalchemy import Engine
+from sqlmodel import Session
 
 from app.main import app
 from app.meeting import runner
-from app.shared.db import create_all, make_engine, reset_schema, session_dep
+from app.shared.db import create_all, make_engine, reset_schema, session_dep, truncate_all
 from tools.seed import seed
 
 load_dotenv()
@@ -76,8 +76,7 @@ def session(schema: Engine, monkeypatch: pytest.MonkeyPatch) -> Iterator[Session
     스레드 자체를 보는 테스트는 runner.start를 직접 부른다(test_runner.py).
     """
     with schema.begin() as conn:
-        tables = ", ".join(f'"{name}"' for name in SQLModel.metadata.tables)
-        conn.execute(text(f"TRUNCATE TABLE {tables} RESTART IDENTITY CASCADE"))
+        truncate_all(conn)
     with Session(schema) as db:
         # 뒷단 루프에게 **자기 세션**을 준다. 요청 세션을 같이 쓰면 한 세션이 두
         # 군데서 add/commit을 받아 같은 발언이 두 번 들어간다(uq_utterance_seq로

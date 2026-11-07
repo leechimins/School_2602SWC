@@ -14,6 +14,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from starlette.middleware.sessions import SessionMiddleware
 
+from app.demo.router import router as demo_router
 from app.home.router import router as home_router
 from app.integration.router import router as integration_router
 from app.me.router import router as me_router
@@ -75,6 +76,7 @@ app.include_router(record_router, prefix=API_PREFIX)
 app.include_router(suggest_router, prefix=API_PREFIX)
 app.include_router(task_router, prefix=API_PREFIX)
 app.include_router(integration_router, prefix=API_PREFIX)
+app.include_router(demo_router, prefix=API_PREFIX)
 
 
 # 에러 모양을 명세에 맞춘다 — {"code": ..., "message": 화면에 그대로 띄울 한 줄}.

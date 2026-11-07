@@ -10,7 +10,7 @@ import os
 from collections.abc import Iterator
 
 from dotenv import load_dotenv
-from sqlalchemy import Engine, text
+from sqlalchemy import Connection, Engine, text
 from sqlmodel import Session, SQLModel, create_engine
 
 load_dotenv()
@@ -97,3 +97,14 @@ def reset_schema(target: Engine | None = None) -> None:
     with eng.begin() as conn:
         conn.execute(text("DROP SCHEMA public CASCADE"))
         conn.execute(text("CREATE SCHEMA public"))
+
+
+def truncate_all(conn: Session | Connection) -> None:
+    """행만 비운다. 테이블은 그대로 두고 id를 1부터 다시 센다.
+
+    reset_schema와 달리 서버가 도는 중에도 쓴다(POST /demo/reset, 테스트). 스키마를
+    지우면 다른 연결이 준비해 둔 구문이 사라진 테이블을 가리킨다. 커밋은 부르는 쪽이 한다.
+    """
+    register_models()
+    tables = ", ".join(f'"{name}"' for name in SQLModel.metadata.tables)
+    conn.execute(text(f"TRUNCATE TABLE {tables} RESTART IDENTITY CASCADE"))
