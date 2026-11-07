@@ -47,7 +47,7 @@ from app.meeting.schemas import (
     SchedulingStartIn,
     UtteranceOut,
 )
-from app.meeting import runner
+from app.meeting import rerun, runner
 from app.meeting.agent_loop import award_yield, member_names, yield_totals
 from app.meeting.scorer import yield_points
 from app.meeting.service import burden, start_scheduling
@@ -107,6 +107,26 @@ def _require_offset(moment: datetime, field: str) -> None:
                 "message": "시각에 +09:00을 붙여 보내 주세요.",
             },
         )
+
+
+def _awaiting_response(db: Session, room_id: int) -> bool:
+    """아직 안 지난 회의 중 수락 대기(proposed)가 있는지.
+
+    shortcut: 누가 영영 안 답하면 그 회의가 끝나는 시각까지 새 조율을 못
+    연다. 지난 회의는 세지 않으므로 그 뒤에는 풀린다. 팀장이 직접 거절하면
+    (예산이 남을 때) 다시 조율로 넘어가니 시연에서는 막히지 않는다. 팀장이
+    회의를 취소하는 길이 필요해지면 그때 더한다.
+    """
+    return (
+        db.exec(
+            select(Meeting.id).where(
+                Meeting.room_id == room_id,
+                Meeting.status == MeetingStatus.PROPOSED,
+                Meeting.end_at >= demo_clock.now(db),
+            )
+        ).first()
+        is not None
+    )
 
 
 def _to_out(db: Session, scheduling: Scheduling) -> SchedulingOut:
@@ -178,6 +198,18 @@ def start(
                 "code": "INVALID_INPUT",
                 "field": "window_start",
                 "message": "시작일이 마감일보다 앞이어야 합니다.",
+            },
+        )
+
+    # 수락을 기다리는 회의가 있는 동안은 새 조율을 열 수 없다. 열면 같은 시간이
+    # 후보로 또 나올 수 있고, 거절로 옛 조율을 되살릴 때 "한 방에 running 하나"
+    # 제약과 부딪친다.
+    if _awaiting_response(db, room_id):
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail={
+                "code": "AWAITING_RESPONSE",
+                "message": "수락을 기다리는 회의가 있어요. 모두 답한 뒤에 다시 시작해 주세요.",
             },
         )
 
@@ -281,6 +313,7 @@ def _status(db: Session, scheduling_id: int) -> SchedulingStatus:
 def stream(
     room_id: int,
     scheduling_id: int,
+    after: int = 0,
     user_id: int = Depends(current_user_id),
     db: Session = Depends(session_dep),
 ) -> StreamingResponse:
@@ -297,6 +330,9 @@ def stream(
     읽기만 하므로 갈래가 하나다. 늦게 열어도 **처음부터** 같은 속도로
     보고, 아직 도는 중이면 새 발언이 나오는 대로 이어 본다. 몇 명이 같이
     열어도 서로 아무 영향이 없다.
+
+    after는 "이 번호까지는 이미 봤다"이다. 거절로 조율이 다시 돌 때 화면이
+    옛 대화를 또 재생하지 않고 새 발언만 받게 한다.
     """
     require_member(db, room_id, user_id)
 
@@ -309,7 +345,7 @@ def stream(
     names = member_names(db, room_id)
 
     def 흘려보내기() -> Iterator[str]:
-        마지막seq = 0
+        마지막seq = max(after, 0)
         마지막으로본것 = time.monotonic()
         while True:
             # **상태를 발언보다 먼저 읽는다.** 반대로 읽으면 그 사이에 조율이
@@ -484,9 +520,10 @@ def respond(
     않거나, 둘 다 확정해서 양보 점수가 두 번 들어간다. 시연이 한 창에 폰
     화면 둘을 띄우는 구조라 실제로 일어난다.
 
-    거절은 기록만 하고 회의를 proposed로 남긴다. 화면이 누가 거절했는지
-    보여 주고, 팀장이 다시 조율한다.
-    shortcut: 거절이 다음 라운드를 자동으로 돌리지 않는다. rerun에서 잇는다.
+    **거절하면 라운드 예산이 남았을 때 바로 다시 조율한다**(meeting/rerun.py).
+    옛 회의는 cancelled가 되고 조율이 다시 running으로 돈다. 예산이 0이면
+    다시 돌지 않고, 거절한 사람을 불참으로 둔 채 나머지가 모두 수락하면
+    회의가 선다.
     """
     require_member(db, room_id, user_id)
     meeting = _meeting(db, room_id, meeting_id, lock=True)
@@ -543,18 +580,74 @@ def respond(
     db.add(mine)
     db.flush()  # siblings에 내 새 상태가 보이게.
 
-    확정됐나 = all(s.state == ResponseState.ACCEPTED for s in siblings)
+    # 거절이고 라운드 예산이 남았으면 **바로 다시 조율한다**(브리프 11/5).
+    # 다른 사람의 답을 기다리지 않는다 — 한 명이 거절한 회의는 어차피 못 선다.
+    if not body.accept:
+        scheduling = (
+            db.get(Scheduling, meeting.scheduling_id)
+            if meeting.scheduling_id is not None
+            else None
+        )
+        if scheduling is not None and rerun.can_rerun(scheduling):
+            남은 = rerun.rounds_left(scheduling)
+            조율 = scheduling.id
+            assert 조율 is not None
+            rerun.reopen(db, scheduling, meeting, user_id)
+            try:
+                db.commit()
+            except IntegrityError as exc:
+                # 그 사이에 팀장이 새 조율을 열었다. start가 수락 대기 중이면
+                # 막지만, 두 요청이 같은 순간이면 이 제약이 마지막 방어선이다.
+                db.rollback()
+                if not _is_running_conflict(exc):
+                    raise
+                raise HTTPException(
+                    status.HTTP_409_CONFLICT,
+                    detail={
+                        "code": "ALREADY_RUNNING",
+                        "message": "이미 진행 중인 조율이 있습니다.",
+                    },
+                ) from exc
+            # 커밋 뒤에 띄운다. 뒷단 루프가 취소·재개된 상태를 읽어야 한다.
+            runner.start(조율)
+            return RespondOut(
+                meeting_id=meeting_id,
+                my_state=ResponseState.DECLINED,
+                meeting_status=MeetingStatus.CANCELLED,
+                pending_count=_count(siblings, ResponseState.PENDING),
+                declined_count=_count(siblings, ResponseState.DECLINED),
+                rerun=True,
+                rounds_left=남은,
+            )
+
+    # 예산이 없어서 다시 조율하지 못한 거절은 그 사람을 **불참으로 두고**
+    # 나머지가 모두 수락하면 회의가 선다(브리프 11/5). 거절한 사람은 참석
+    # 대상이 아니다.
+    참석 = [s for s in siblings if s.state != ResponseState.DECLINED]
+    확정됐나 = bool(참석) and all(s.state == ResponseState.ACCEPTED for s in 참석)
     if 확정됐나:
         meeting.status = MeetingStatus.CONFIRMED
         meeting.confirmed_at = now
         db.add(meeting)
-        award_yield(db, room_id, meeting_id, _slot_costs(db, meeting.candidate_slot_id))
+        # 양보 점수는 **와 주는 사람만** 받는다. 거절한 사람은 맞춰 준 게 아니다.
+        수락자 = {s.user_id for s in 참석}
+        award_yield(
+            db,
+            room_id,
+            meeting_id,
+            [c for c in _slot_costs(db, meeting.candidate_slot_id) if c.user_id in 수락자],
+        )
+        이름 = member_names(db, room_id)
+        빠진 = [이름.get(s.user_id, "팀원") for s in siblings if s.state == ResponseState.DECLINED]
         emit(
             db,
             room_id=room_id,
             user_ids=[s.user_id for s in siblings],
             kind=NotificationKind.MEETING_CONFIRMED,
-            reason=f"{meeting.topic} 회의가 확정됐습니다."[:200],
+            reason=(
+                f"{meeting.topic} 회의가 확정됐습니다."
+                + (f" {', '.join(빠진)} 님은 빠져요." if 빠진 else "")
+            )[:200],
             dedupe=f"meeting{meeting_id}",
             meeting_id=meeting_id,
         )
