@@ -124,6 +124,17 @@ def _to_out(db: Session, scheduling: Scheduling) -> SchedulingOut:
         .order_by(Utterance.seq)
     ).all()
 
+    # 가장 최근 회의. 취소된 것은 건너뛴다 — 사람이 거절해 다시 조율하면 옛 회의가
+    # cancelled로 남는데, 화면은 새 회의로 가야 한다.
+    meeting_id = db.exec(
+        select(Meeting.id)
+        .where(
+            Meeting.scheduling_id == scheduling.id,
+            Meeting.status != MeetingStatus.CANCELLED,
+        )
+        .order_by(col(Meeting.id).desc())
+    ).first()
+
     return SchedulingOut(
         id=scheduling.id,
         topic=scheduling.topic,
@@ -134,6 +145,7 @@ def _to_out(db: Session, scheduling: Scheduling) -> SchedulingOut:
         status=scheduling.status,
         rounds_used=scheduling.rounds_used,
         candidate_count=count,
+        meeting_id=meeting_id,
         utterances=[
             UtteranceOut(
                 seq=utterance.seq,

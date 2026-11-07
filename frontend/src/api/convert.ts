@@ -275,6 +275,7 @@ export type ServerScheduling = {
   status: SchedulingStatus
   rounds_used: number
   candidate_count: number
+  meeting_id: number | null
   utterances: ServerUtterance[]
 }
 
@@ -309,7 +310,7 @@ export const toScheduling = (r: ServerScheduling): Scheduling => {
     status: r.status,
     roundsUsed: r.rounds_used,
     utterances: r.utterances.map((u) => toUtterance(u, judgeSeq)),
-    proposalId: null, // 서버가 아직 조율 → 회의 ID를 주지 않는다 (백엔드 요청 거리)
+    proposalId: optId(r.meeting_id), // 합의·조정이 끝나야 생긴다
   }
 }
 
@@ -466,31 +467,31 @@ const NOTICE_KIND: Record<ServerNoticeKind, NoticeKind> = {
   meeting_confirmed: '회의 확정',
 }
 
+// backend/app/notice/router.py의 NotificationListOut. 읽음은 시각(read_at)으로 오고, 할 일 제목은 reason 안에 이미 있다
 export type ServerNoticeList = {
-  notifications: {
+  items: {
     id: number
     kind: ServerNoticeKind
     reason: string
     task_id: number | null
-    task_title: string | null
     meeting_id: number | null
+    read_at: string | null
     created_at: string
-    read: boolean
   }[]
   unread_count: number
 }
 
 export const toNoticeList = (r: ServerNoticeList): NoticeList => ({
-  notices: r.notifications.map(
+  notices: r.items.map(
     (n): Notice => ({
       id: id(n.id),
       kind: NOTICE_KIND[n.kind],
       reason: n.reason,
       taskId: optId(n.task_id),
-      taskTitle: n.task_title,
+      taskTitle: null, // 서버가 따로 주지 않는다. 카드 문구(reason)에 제목이 들어 있다
       meetingId: optId(n.meeting_id),
       createdAt: n.created_at,
-      read: n.read,
+      read: n.read_at !== null,
     }),
   ),
   unreadCount: r.unread_count,
