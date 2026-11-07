@@ -135,6 +135,6 @@
 | Demo | 시연 시계 보기 | GET | `/demo/clock` | 공통 | High | 새로고침해도 어디 가 있는지 알아야 함 | 미착수 | 미착수 |
 | Demo | 시연 시계 옮기기 | PUT | `/demo/clock` | 공통 | High | 모든 판정의 기준 시각 | 미착수 | 미착수 |
 | Demo | 실제 시각으로 되돌리기 | DELETE | `/demo/clock` | 공통 | Medium |  | 미착수 | 미착수 |
-| Demo | 시드로 초기화 | POST | `/demo/reset` | 공통 | High | 시연 중 다시 돌릴 때 | 미착수 | 미착수 |
+| Demo | 시드로 초기화 | POST | `/demo/reset` | 공통 | High | 시연 중 다시 돌릴 때. 헤더 `X-Demo-Key`가 서버의 `DEMO_RESET_KEY`와 같아야 함(아니면 403). 204. 열린 조율 스트림 때문에 못 지우면 409 `BUSY` | 완료 | 미착수 |
 | 공통 | 로그인하기 | POST | `/sessions` | 공통 | High | 이름만 보내면 그 사람이 됨. **비밀번호는 아직 없음**(시연 4명용). 서명 쿠키로 유지 | **완료** | 미착수 |
 | 공통 | 로그아웃하기 | DELETE | `/sessions` | 공통 | High |  | **완료** | 미착수 |
