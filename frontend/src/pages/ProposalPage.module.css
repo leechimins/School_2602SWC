@@ -7,9 +7,26 @@
   letter-spacing: -0.03em;
 }
 
-/* 내 부담: 나만 보이는 줄이라 포인트 바탕 */
+/* 방식(대면·비대면): 장소가 갈리는 정보라 메타 줄 안에서 진하게 */
+.mode {
+  color: var(--text);
+  font-weight: 700;
+}
+
+/* 부담 묶음 맨 위의 내 줄: 나만 보이는 줄이라 포인트 바탕 */
 .mine {
+  display: flex;
+  gap: var(--gap-2);
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--gap-1);
+  padding: var(--gap-2) var(--gap-3);
+  border-radius: 10px;
   background: var(--point-soft);
+}
+
+.mine > :global(.meta) {
+  flex: none;
 }
 
 .other {

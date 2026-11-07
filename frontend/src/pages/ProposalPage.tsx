@@ -21,7 +21,7 @@ import styles from './ProposalPage.module.css'
 
 const RESPONSE_TONE = { 대기: 'plain', 수락: 'ok', 거절: 'danger' } as const
 
-// 회의 일정 조율 확인: 시간 → 내 부담(나만 숫자) → 다른 사람 부담(말로만) → 판단 근거 → 사람별 응답.
+// 회의 일정 조율 확인: 시간 → 부담(내 줄은 숫자, 다른 사람은 말로만) → 판단 근거 → 사람별 응답.
 // 화면은 "결과 표시"와 "확정 방식(응답 영역)"으로 나뉜다.
 //   합의안: 사람이 수락·거절하고, 전원 수락하면 자동 확정
 //   조정안: 판단 에이전트가 바로 확정했으므로 피드백 한 줄만 받는다
@@ -43,8 +43,7 @@ export default function ProposalPage() {
   return (
     <Screen title="회의 일정" backTo={PATHS.home} dock={<RespondDock proposal={p} roomId={user.roomId} />}>
       <ResultSummary proposal={p} />
-      <MyBurden proposal={p} />
-      <OthersBurden proposal={p} viewerId={user.id} />
+      <Burdens proposal={p} viewerId={user.id} />
       <div className={styles.judge}>
         <JudgeBubble text={p.rationale}>
           <YieldGetterBox proposal={p} />
@@ -66,20 +65,24 @@ export default function ProposalPage() {
 
 // ── 결과 표시 ───────────────────────────────────────────
 
+// 합의안이 보통이라 따로 표시하지 않고, 판단 에이전트가 정한 조정안만 뱃지와 한 줄로 알린다
 function ResultSummary({ proposal: p }: { proposal: Proposal }) {
-  const rounds = p.roundsUsed ? `${p.roundsUsed}라운드` : ''
   return (
     <section className="sec">
       <div className="row-between">
         <span>
-          <Badge tone={p.settled ? 'warn' : 'ok'}>{p.settled ? '조정' : '합의'}</Badge>{' '}
-          <span className="meta num">{p.settled ? `${rounds} 뒤 판단 에이전트가 정함` : `${rounds}에서 합의`}</span>
+          {p.settled && (
+            <>
+              <Badge tone="warn">조정</Badge>{' '}
+              <span className="meta num">{p.roundsUsed ? `${p.roundsUsed}라운드 뒤 ` : ''}판단 에이전트가 정함</span>
+            </>
+          )}
         </span>
         <Badge tone={p.confirmed ? 'ok' : 'warn'}>{p.confirmed ? '확정' : '확정 대기'}</Badge>
       </div>
       <b className={`${styles.big} num`}>{formatSlot(p.startAt, p.endAt)}</b>
       <p className="meta">
-        {p.mode} · {formatDuration(minutesBetween(p.startAt, p.endAt))} · {p.topic}
+        <span className={styles.mode}>{p.mode}</span> · {formatDuration(minutesBetween(p.startAt, p.endAt))} · {p.topic}
       </p>
       {p.absentName && <p className="meta">{p.absentName} 빠짐 · 회의록 요약을 따로 보내요</p>}
       {p.confirmed && !p.settled && <p className="meta">모두 수락해서 회의가 확정됐어요</p>}
@@ -87,33 +90,23 @@ function ResultSummary({ proposal: p }: { proposal: Proposal }) {
   )
 }
 
-// 내 불편 점수는 본인에게만 숫자로. 불참안에서 빠진 사람은 내 부담 줄이 없다(목업 버그 ③)
-function MyBurden({ proposal: p }: { proposal: Proposal }) {
-  return (
-    <section className={`sec ${styles.mine}`}>
-      <div className="row-between">
-        <div>
-          <span className="meta">내 부담</span>
-          {p.myScore === null ? (
-            <p className="strong">이번 회의에서 빠져요 · 회의록 요약을 따로 보내 드려요</p>
-          ) : (
-            <p className="strong">
-              내 불편 <span className="num">{p.myScore}/5</span> · {p.myReason}
-            </p>
-          )}
-        </div>
-        <span className="meta">나만 보여요</span>
-      </div>
-    </section>
-  )
-}
-
-function OthersBurden({ proposal: p, viewerId }: { proposal: Proposal; viewerId: Id }) {
+// 부담: 내 줄이 맨 위(불편 점수는 본인에게만 숫자로), 다른 사람은 말로만.
+// 불참안에서 빠진 사람은 점수 대신 빠진다는 한 줄(목업 버그 ③)
+function Burdens({ proposal: p, viewerId }: { proposal: Proposal; viewerId: Id }) {
   const others = p.responders.filter((r) => r.userId !== viewerId)
-  if (others.length === 0) return null
   return (
     <section className="sec">
-      <h2>다른 사람 부담</h2>
+      <h2>부담</h2>
+      <div className={styles.mine}>
+        {p.myScore === null ? (
+          <p className="strong">이번 회의에서 빠져요 · 회의록 요약을 따로 보내 드려요</p>
+        ) : (
+          <p className="strong">
+            내 불편 <span className="num">{p.myScore}/5</span> · {p.myReason}
+          </p>
+        )}
+        <span className="meta">나만 보여요</span>
+      </div>
       {others.map((r) => (
         <div key={r.userId} className={styles.other}>
           <Avatar name={r.name} />
@@ -170,15 +163,11 @@ function Responses({ proposal: p, viewerId }: { proposal: Proposal; viewerId: Id
   // 조정안은 응답을 받지 않으므로 사람별 응답 줄이 없다
   if (p.feedbackOnly) return null
   const accepted = p.responders.filter((r) => r.state === '수락').length
-  const waiting = p.responders.filter((r) => r.state === '대기').map((r) => r.name)
   return (
     <section className="sec">
-      <div className="row-between">
-        <h2 className={styles.flush}>사람별 응답</h2>
-        <span className="strong num">
-          {p.responders.length}명 중 {accepted}명 수락
-        </span>
-      </div>
+      <h2 className={`${styles.flush} num`}>
+        {p.responders.length}명 중 {accepted}명 수락
+      </h2>
       <div className={styles.responses}>
         {p.responders.map((r) => (
           <div key={r.userId}>
@@ -191,7 +180,6 @@ function Responses({ proposal: p, viewerId }: { proposal: Proposal; viewerId: Id
           </div>
         ))}
       </div>
-      {waiting.length > 0 && <p className="meta">아직 답하지 않은 사람: {waiting.join(', ')}</p>}
     </section>
   )
 }
@@ -202,10 +190,9 @@ function MyFeedbackCard({ proposal: p }: { proposal: Proposal }) {
   if (!f) return null
   return (
     <section className="sec">
-      <span className="meta">이 시간에 남긴 한 줄</span>
       <p className="strong">“{f.text}”</p>
       {!f.change ? (
-        <p className="meta">남겨 줘서 고마워요. 시간 선호와는 상관없는 말이라 바꾼 건 없어요.</p>
+        <p className="meta">시간 얘기는 아니라서 선호는 그대로 뒀어요.</p>
       ) : (
         <div className="row-between">
           <span className="meta">{f.undone ? '되돌렸어요. 선호는 그대로예요.' : f.change}</span>
