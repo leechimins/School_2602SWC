@@ -52,6 +52,7 @@
 | 404 | `NOT_FOUND` | 없는 자원 |
 | 409 | `ALREADY_CONFIRMED` | 이미 확정된 것을 또 확정 |
 | 409 | `ALREADY_RUNNING` | 이미 도는 조율이 있는데 또 시작 |
+| 409 | `CLASS_CONFLICT` | 넣으려는 일정이 이미 있는 수업과 겹침("이미 수업이 있습니다.") |
 | 409 | `AWAITING_RESPONSE` | 수락을 기다리는 회의가 있는데 새 조율을 시작. 회의가 끝난 시각이 지나면 풀림 |
 | 503 | `AGENT_TIMEOUT` | AI 실패·시간 초과 → 다시 하기 |
 
@@ -120,7 +121,7 @@
 | Task | 담당자 넘기기 | POST | `/rooms/{room_id}/tasks/{id}/reassign` | B | Medium | 할일 내용 고치기랑 병합 가능 | **완료** | 미착수 |
 | MyPage | 내 프로필 보기 | GET | `/rooms/{room_id}/me/profile` | A | Medium | 누적 양보 단계·회의별 양보 기록 | 미착수 | 미착수 |
 | MyPage | 주간 시간표 보기 | GET | `/rooms/{room_id}/me/schedule` | A | Medium | 수업·알바·약속·팀 회의 구분. **11/7**: `?week=YYYY-MM-DD`(그 주 아무 날, 없으면 시연 시계 이번 주). 응답 `{week_start, week_end, items:[{kind: class·event·meeting, title, start_at, end_at, source, item_id, meeting_id, meeting_status}]}`. 알바·약속은 `event` 하나(브리프 11/4). 제목 없는 약속(구글)은 `title: null`. 내 것만 | **완료** | 미착수 |
-| MyPage | 일정 직접 추가 | POST | `/me/schedule/items` | A | Medium | 요일 여러 개를 한 번에 | 미착수 | 미착수 |
+| MyPage | 일정 직접 추가 | POST | `/me/schedule/items` | A | Medium | 요일 여러 개를 한 번에. **11/7**: 목업 "일정 추가"와 같은 모양 `{title(20자), kind: class·event, days:[{weekday, start_min, end_min}]}` — 요일마다 시간이 달라도 됨, 매주 반복만. 저장 한 번 = 한 묶음(같은 `group_id`). **이미 있는 수업과 겹치면 409 `CLASS_CONFLICT` "이미 수업이 있습니다."** 응답 `{group_id, title, kind, days:[{id, weekday, start_min, end_min}]}` | **완료** | 미착수 |
 | MyPage | 일정 지우기 | DELETE | `/me/schedule/items/{id}` | A | Medium |  | 미착수 | 미착수 |
 | MyPage | 묶인 일정 고치기 | PUT | `/me/schedule/groups/{id}` | A | Low | 요일마다 다른 시간 | 미착수 | 미착수 |
 | MyPage | 묶인 일정 지우기 | DELETE | `/me/schedule/groups/{id}` | A | Low |  | 미착수 | 미착수 |
