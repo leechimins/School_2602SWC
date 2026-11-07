@@ -93,7 +93,7 @@
 | Meeting | ~~불참안 받아들이기~~ | ~~POST~~ | ~~`/rooms/{room_id}/schedulings/{id}/accept-absent`~~ | A | — | **빗금 11/5**: `pick`과 같은 이유입니다. 전원 가능한 시간이 없으면 판단 에이전트가 불참안까지 포함해 불편·양보 점수로 정하고 바로 확정하므로, 사람이 "받아들이기"를 누를 자리가 없습니다 | 안 만듦 | 안 만듦 |
 | Meeting | ~~거절 뒤 다시 조율~~ | ~~POST~~ | ~~`/rooms/{room_id}/schedulings/{id}/rerun`~~ | A | — | **빗금 11/7**: 따로 안 만들었습니다. **거절하면 `respond`가 그 자리에서 다시 조율합니다** — 라운드 예산(조율 하나에 3)이 남았으면 옛 회의를 `cancelled`로 두고 남은 라운드만 돕니다. 거절한 시간은 그 사람 시간표에 제목 없는 일회성 일정(팀에는 "바쁨")으로 들어갑니다. "이 시간만 / 그날 종일" 선택은 목업·프론트 거절 창에 없어 **이 시간만**입니다. 예산이 0이면 다시 돌지 않고 그 사람을 불참으로 둔 채, 나머지가 모두 수락하면 확정됩니다 | 안 만듦 | 안 만듦 |
 | Meeting | 회의 목록 보기 | GET | `/rooms/{room_id}/proposals` | A | Low | **11/5**: `GET /rooms/{room_id}/schedule`이 같은 일을 합니다(조율 중·잡힘·지남 세 묶음). 따로 쓸 화면이 생기면 만듭니다 | 안 만듦 | 안 만듦 |
-| Meeting | 회의 보기 | GET | `/rooms/{room_id}/proposals/{id}` | A | High | 차선책 빠짐. 보는 사람마다 내용이 다름 | **완료** | 미착수 |
+| Meeting | 회의 보기 | GET | `/rooms/{room_id}/proposals/{id}` | A | High | 차선책 빠짐. 보는 사람마다 내용이 다름. **11/7**: `scheduling_id`(이 회의를 낸 조율, 취소된 회의에도 남음, 조율 없이 만든 회의는 null) — "조율 과정 보기" 버튼이 씀 | **완료** | 미착수 |
 | Meeting | 수락·거절하기 | POST | `/rooms/{room_id}/proposals/{id}/respond` | A | High | 피드백 한 줄 함께. 전원 수락 시 자동 확정. **조정된 회의(`settled`)는 이미 확정이라 피드백만 받습니다**. **11/7**: 거절하면 예산 안에서 자동으로 다시 조율 — 응답에 `rerun: true`·`rounds_left`, 화면은 조율 화면으로(`?after=`로 새 발언만). 다시 도는 동안 옛 회의에 답하면 409 `CLOSED` | **완료** | 미착수 |
 | Meeting | 선호 변경 되돌리기 | POST | `/me/preference-changes/{id}/undo` | A | Medium | 말없이 바꾸면 안 되므로 필요. **11/5**: 피드백 한 줄을 `meeting_response.feedback`에 저장만 하고 선호를 자동으로 바꾸지 않으므로 되돌릴 것이 아직 없습니다. 자동 반영을 넣을 때 같이 만듭니다 | 미착수 | 미착수 |
 | Meeting | 일정 보기(회의 관리) | GET | `/rooms/{room_id}/schedule` | A | High | 회의 관리로 바뀜 (전 timeline). 조율 중도 자리 잡음 | **완료** | 미착수 |
