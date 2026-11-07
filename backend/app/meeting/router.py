@@ -497,6 +497,7 @@ def read_proposal(
         status=meeting.status,
         rationale=meeting.rationale,
         scheduling_status=scheduling.status if scheduling else None,
+        scheduling_id=meeting.scheduling_id,
         my_score=my_cost.score if my_cost else None,
         my_reason=my_cost.reason if my_cost else "",
         my_yield_points=(

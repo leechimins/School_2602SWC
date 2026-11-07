@@ -739,3 +739,43 @@ def test_거절한_시간과_겹치는_후보도_다시_내놓지_않는다(
     session.expire_all()
     새 = session.exec(select(Meeting).where(Meeting.status == MeetingStatus.PROPOSED)).one()
     assert 새.start_at.astimezone(KST).hour == 18  # 15시는 거절한 14–16시와 겹쳐서 빠진다
+
+
+def test_회의에_그_회의를_낸_조율_번호가_실린다(
+    client: TestClient, session: Session, 방: 팀, login
+) -> None:
+    """화면의 "조율 과정 보기"가 이 번호로 간다. 없으면 실서버에서 버튼이 안 나온다."""
+    meeting = _합의된_회의(session, 방)
+    login("지수")
+
+    body = client.get(f"{API}/rooms/{방.room_id}/proposals/{meeting.id}").json()
+
+    assert body["scheduling_id"] == meeting.scheduling_id is not None
+
+
+def test_거절로_취소된_회의에도_조율_번호가_남는다(
+    client: TestClient, session: Session, 방: 팀, login
+) -> None:
+    """취소 뒤에도 "다시 조율하는 과정 보기"로 같은 조율 화면에 가야 한다."""
+    old = _두_후보로_합의된_회의(session, 방)
+    login("현우")
+    _응답(client, 방.room_id, old.id, accept=False)  # type: ignore[union-attr]
+
+    body = client.get(f"{API}/rooms/{방.room_id}/proposals/{old.id}").json()
+
+    assert body["status"] == "cancelled"
+    assert body["scheduling_id"] == old.scheduling_id
+
+
+def test_조율_없이_만든_회의는_조율_번호가_없다(
+    client: TestClient, session: Session, 방: 팀, login
+) -> None:
+    m = Meeting(
+        room_id=방.room_id, topic="바로 기록한 회의", start_at=MON, end_at=MON + timedelta(hours=1),
+        mode=Mode.OFFLINE, status=MeetingStatus.DONE,
+    )
+    session.add(m)
+    session.commit()
+    login("지수")
+
+    assert client.get(f"{API}/rooms/{방.room_id}/proposals/{m.id}").json()["scheduling_id"] is None
