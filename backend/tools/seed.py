@@ -255,7 +255,7 @@ def seed(session: Session) -> None:
         ]
     )
 
-    _seed_minutes_and_tasks(session, room, second, jisu, minji, hyunwoo, seoyeon)
+    _seed_minutes_and_tasks(session, room, second, first, jisu, minji, hyunwoo, seoyeon)
 
     session.commit()
 
@@ -264,6 +264,7 @@ def _seed_minutes_and_tasks(
     session: Session,
     room: Room,
     meeting: Meeting,
+    earlier: Meeting,
     jisu: User,
     minji: User,
     hyunwoo: User,
@@ -273,7 +274,8 @@ def _seed_minutes_and_tasks(
 
     기준 시점은 시연 시계의 오늘, 2026-11-10이다. 기한이 그보다 앞서고
     끝나지 않은 할 일이 하나 있어야 늦음 뱃지가 보이고, 담당자 없는 할
-    일이 있어야 "담당자 없음" 묶음이 보인다.
+    일이 있어야 "담당자 없음" 묶음이 보인다. 그 전 회의(10/27)에서 나와
+    10/31 회의에서 끝난 일이 하나 있어야 회의록의 "회의에서 끝난 일"이 보인다.
     """
     held = at(2026, 10, 31, 12)  # 회의가 끝난 시각 이후로 모든 기록을 찍는다
 
@@ -325,10 +327,13 @@ def _seed_minutes_and_tasks(
     )
 
     # --- 확정된 할 일 ---
-    def confirmed(title, due, assignee, state, *, by, origin=TaskOrigin.AI, src=meeting):
+    def confirmed(
+        title, due, assignee, state, *, by, origin=TaskOrigin.AI, src=meeting, done_in=None
+    ):
         return Task(
             room_id=room.id,
             meeting_id=src.id if src else None,
+            done_meeting_id=done_in.id if done_in else None,
             title=title,
             due_date=due,
             assignee_user_id=assignee.id if assignee else None,
@@ -356,8 +361,15 @@ def _seed_minutes_and_tasks(
                 TaskState.BLOCKED,
                 by=jisu,
             ),
+            # 10/27 회의에서 나와 10/31 회의에서 "끝났다"고 한 일 → 회의에서 끝난 일
             confirmed(
-                "참고 사례 조사", date(2026, 11, 5), jisu, TaskState.DONE, by=jisu
+                "참고 사례 조사",
+                date(2026, 11, 5),
+                jisu,
+                TaskState.DONE,
+                by=jisu,
+                src=earlier,
+                done_in=meeting,
             ),
             # 담당자 없음은 오류가 아니라 정상 시작 상태다
             confirmed("발표 대본 작성", date(2026, 11, 17), None, TaskState.TODO, by=jisu),

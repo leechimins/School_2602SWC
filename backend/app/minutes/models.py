@@ -162,4 +162,10 @@ class Task(SQLModel, table=True):
     )
     confirmed_at: datetime | None = ts(nullable=True)
     dropped: bool = Field(default=False)
+    # 회의 중 "끝났다"고 말해 완료로 바뀐 회의. 회의록의 "회의에서 끝난 일"에 보인다.
+    # 완료가 아닌 상태로 되돌리면 비운다. 이 칸을 채우는 판정(회의록에서 끝난 일
+    # 찾기)은 아직 없다 — 자동 완료 판정이 미정이라 지금은 시드만 채운다.
+    done_meeting_id: int | None = Field(
+        default=None, foreign_key="meeting.id", ondelete="SET NULL", index=True
+    )
     created_at: datetime = ts(auto_now=True)
