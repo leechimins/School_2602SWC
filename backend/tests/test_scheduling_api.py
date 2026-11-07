@@ -212,7 +212,8 @@ def test_겹치는_수업이_있으면_그_사람은_안_된다(
     ).all()
     assert 현우_점수
     assert all(c.available is False for c in 현우_점수)
-    assert all("알바와 겹칩니다" in c.reason for c in 현우_점수)
+    # 일정 이름("알바")이 아니라 분류로 말한다 — 이름은 본인에게만 보인다
+    assert all(c.reason == "아르바이트가 있습니다" for c in 현우_점수)
 
     # 한 사람만 안 되면 1명 불참안 재료로 남는다. 전부 absent 단계다.
     slots = session.exec(select(CandidateSlot)).all()

@@ -206,3 +206,163 @@ def test_팀원이_아니면_못_본다(client: TestClient, session: Session, �
     login("남")
 
     assert client.get(f"{API}/rooms/{room.id}/me/schedule").status_code == 403
+
+
+# ── 일정 직접 추가 (POST /me/schedule/items) ─────────────────────────
+
+
+def _넣기(client: TestClient, **body):
+    return client.post(f"{API}/me/schedule/items", json=body)
+
+
+def _알바(**바꿀것) -> dict:
+    body = {
+        "title": "카페 알바",
+        "kind": "event",
+        "days": [
+            {"weekday": 1, "start_min": 18 * 60, "end_min": 21 * 60},  # 화 18–21시
+            {"weekday": 5, "start_min": 11 * 60, "end_min": 15 * 60},  # 토 11–15시
+        ],
+    }
+    body.update(바꿀것)
+    return body
+
+
+def _내일정(session: Session, user: User) -> list[ScheduleItem]:
+    session.expire_all()
+    from sqlmodel import select
+
+    return list(session.exec(select(ScheduleItem).where(ScheduleItem.user_id == user.id)).all())
+
+
+def test_요일마다_시간이_달라도_한_묶음으로_들어가고_시간표에_나온다(
+    client: TestClient, session: Session, 방, login
+) -> None:
+    """목업의 "일정 추가": 요일 여러 개, 요일마다 시간. 저장 한 번 = 한 묶음."""
+    room, 지수, _ = 방
+    login("지수")
+
+    res = _넣기(client, **_알바())
+
+    assert res.status_code == 201, res.text
+    body = res.json()
+    assert body["kind"] == "event" and body["title"] == "카페 알바"
+    assert [(d["weekday"], d["start_min"], d["end_min"]) for d in body["days"]] == [
+        (1, 1080, 1260), (5, 660, 900)
+    ]
+    rows = _내일정(session, 지수)
+    assert len(rows) == 2 and len({r.group_id for r in rows}) == 1  # 같은 묶음
+    assert all(r.kind == ScheduleKind.APPOINTMENT for r in rows)  # "일정"은 약속으로
+
+    items = _보기(client, room, week=str(MON))["items"]
+    assert [(i["kind"], i["title"], i["start_at"][11:16], i["end_at"][11:16]) for i in items] == [
+        ("event", "카페 알바", "18:00", "21:00"),  # 화
+        ("event", "카페 알바", "11:00", "15:00"),  # 토
+    ]
+
+
+def test_묶음_번호가_시드의_고정_번호와_안_섞인다(
+    client: TestClient, session: Session, 방, login
+) -> None:
+    """시드는 group_id를 101 같은 고정값으로 넣는다. 첫 줄의 id를 쓰면 언젠가 겹친다."""
+    _, 지수, _ = 방
+    기존 = _매주(지수, weekday=0, start=540, end=600, title="수업")
+    기존.group_id = 101
+    session.add(기존)
+    session.commit()
+    login("지수")
+
+    assert _넣기(client, **_알바()).json()["group_id"] == 102
+
+
+def test_수업과_겹치면_막고_아무것도_안_넣는다(
+    client: TestClient, session: Session, 방, login
+) -> None:
+    _, 지수, _ = 방
+    session.add(_매주(지수, weekday=1, start=13 * 60, end=14 * 60 + 30, title="서비스디자인"))
+    session.commit()
+    login("지수")
+
+    res = _넣기(client, **_알바(days=[
+        {"weekday": 3, "start_min": 600, "end_min": 660},          # 목: 괜찮음
+        {"weekday": 1, "start_min": 13 * 60 + 30, "end_min": 15 * 60},  # 화: 수업과 겹침
+    ]))
+
+    assert res.status_code == 409
+    assert res.json() == {"code": "CLASS_CONFLICT", "field": "days", "message": "이미 수업이 있습니다."}
+    assert len(_내일정(session, 지수)) == 1  # 목요일 것도 안 들어갔다
+
+
+def test_수업_끝에_딱_붙여_넣는_건_된다(client: TestClient, session: Session, 방, login) -> None:
+    _, 지수, _ = 방
+    session.add(_매주(지수, weekday=1, start=13 * 60, end=14 * 60 + 30, title="서비스디자인"))
+    session.commit()
+    login("지수")
+
+    res = _넣기(client, **_알바(days=[{"weekday": 1, "start_min": 14 * 60 + 30, "end_min": 16 * 60}]))
+    assert res.status_code == 201, res.text
+
+
+def test_지난_학기_수업과는_겹쳐도_된다(client: TestClient, session: Session, 방, login) -> None:
+    _, 지수, _ = 방
+    session.add(_매주(지수, weekday=1, start=13 * 60, end=15 * 60, title="지난 학기",
+                    valid_to=date(2026, 6, 20)))
+    session.commit()
+    login("지수")
+
+    res = _넣기(client, **_알바(days=[{"weekday": 1, "start_min": 13 * 60, "end_min": 14 * 60}]))
+    assert res.status_code == 201, res.text
+
+
+@pytest.mark.parametrize(
+    "바꿀것",
+    [
+        {"days": [{"weekday": 7, "start_min": 600, "end_min": 660}]},  # 요일 범위 밖
+        {"days": [{"weekday": 1, "start_min": 660, "end_min": 660}]},  # 시작 = 끝
+        {"days": []},                                                  # 요일 없음
+        {"title": "가" * 21},                                          # 이름 21자
+        {"days": [{"weekday": 1, "start_min": 600, "end_min": 660},
+                  {"weekday": 1, "start_min": 700, "end_min": 760}]},  # 같은 요일 두 번
+        {"kind": "parttime"},                                          # 화면에 없는 종류
+    ],
+)
+def test_형식이_틀리면_400이고_아무것도_안_넣는다(
+    client: TestClient, session: Session, 방, login, 바꿀것: dict
+) -> None:
+    _, 지수, _ = 방
+    login("지수")
+
+    res = _넣기(client, **_알바(**바꿀것))
+
+    assert res.status_code == 400, res.text
+    assert res.json()["code"] == "INVALID_INPUT"
+    assert _내일정(session, 지수) == []
+
+
+def test_로그인_안_하면_401(client: TestClient, 방) -> None:
+    assert _넣기(client, **_알바()).status_code == 401
+
+
+def test_넣은_일정은_다음_조율에서_막힌_시간이_되고_이름은_안_나간다(
+    client: TestClient, session: Session, 방, login, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """조율이 같은 schedule_item을 읽는지. 그리고 근거에 일정 이름이 아니라 분류가 들어가는지."""
+    from sqlmodel import select
+
+    from app.meeting.models import SlotCost
+
+    monkeypatch.setattr("app.meeting.runner.start", lambda scheduling_id: None)  # 열기만 본다
+    room, _, 민지 = 방
+    login("민지")
+    _넣기(client, title="편의점 알바", kind="event",
+         days=[{"weekday": d, "start_min": 0, "end_min": 1440} for d in range(7)])
+
+    login("지수")
+    res = client.post(f"{API}/rooms/{room.id}/schedulings", json={
+        "topic": "회의", "window_start": "2026-11-09T09:00:00+09:00",
+        "window_end": "2026-11-10T18:00:00+09:00", "duration_min": 60, "mode": "any"})
+    assert res.status_code == 201, res.text
+
+    민지_점수 = session.exec(select(SlotCost).where(SlotCost.user_id == 민지.id)).all()
+    assert 민지_점수 and all(c.available is False for c in 민지_점수)
+    assert all(c.reason == "일정이 있습니다" for c in 민지_점수)  # "편의점 알바"가 안 나간다
