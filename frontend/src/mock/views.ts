@@ -8,6 +8,7 @@ import { NOTICE_KINDS, type ActivityLog, type Notice, type NoticeList } from '..
 import type { Room } from '../types/room.ts'
 import type { Burden, Proposal, Scheduling, Utterance } from '../types/scheduling.ts'
 import type { Task, TeamTasks } from '../types/task.ts'
+import { nextYieldLevel } from './actions.ts'
 import type { DemoState, SeedMeeting, SeedTask } from './seed.ts'
 
 // 목 데이터(원본) → 화면이 받는 모양. 서버가 할 일을 대신한다:
@@ -178,10 +179,14 @@ export function buildProposal(s: DemoState, meetingId: Id, viewer: Id): Proposal
   const m = s.meetings.find((x) => x.id === meetingId)
   const p = s.proposals.find((x) => x.meetingId === meetingId)
   if (!m || !p) throw NOT_FOUND('회의')
-  const mine = p.burdens.find((b) => b.userId === viewer) // 불참안에서 빠진 사람이면 없다
+  const c = s.schedulings.find((x) => x.meetingId === meetingId)
+  const mine = p.burdens.find((b) => b.userId === viewer) // 불참안에서 빠진 사람이면 없다(목업 버그 ③)
   const myState = p.responses[viewer] ?? null
+  const getter = p.burdens.find((b) => b.userId === p.gets)
   return {
     id: m.id,
+    schedulingId: c?.id ?? null,
+    roundsUsed: c ? Math.max(...c.script.map((u) => u.round)) : null,
     topic: m.topic,
     startAt: m.startAt,
     endAt: m.endAt,
@@ -203,8 +208,19 @@ export function buildProposal(s: DemoState, meetingId: Id, viewer: Id): Proposal
       burden: burdenOf(b.score),
       reason: b.reason,
       yieldLevel: s.members.find((x) => x.id === b.userId)?.yieldLevel ?? '아직 없음',
-      feedback: p.feedback[b.userId] ?? null,
+      feedback: p.feedback[b.userId]?.text ?? null,
     })),
+    yieldGetter: getter
+      ? {
+          userId: getter.userId,
+          name: nameOf(s, getter.userId) ?? '',
+          isMe: getter.userId === viewer,
+          burden: burdenOf(getter.score),
+          from: p.getsFrom,
+          to: nextYieldLevel(p.getsFrom),
+        }
+      : null,
+    myFeedback: p.feedback[viewer] ?? null,
   }
 }
 

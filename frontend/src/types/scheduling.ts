@@ -77,9 +77,28 @@ export type Responder = {
   feedback: string | null
 }
 
+/** 이번에 양보 점수를 받는 사람: 누적 단계가 어떻게 바뀌는지. 숫자는 본인에게만(Proposal.myYieldPoints) */
+export type YieldGetter = {
+  userId: Id
+  name: string
+  isMe: boolean
+  burden: Burden // 맞춰 준 시간이 얼마나 불편했는지
+  from: YieldLevel
+  to: YieldLevel // 회의가 확정되면 이 단계가 된다. 가장 높은 단계면 from과 같다
+}
+
+/** 수락·거절할 때 내가 남긴 한 줄과, 내 에이전트가 그 말로 바꾼 선호 */
+export type MyFeedback = {
+  text: string
+  change: string | null // "다음부터 수업 바로 뒤는 30분 띄워서 잡을게요". 시간과 상관없는 말이면 null
+  undone: boolean // 되돌리기를 눌렀다
+}
+
 /** 회의 일정 조율 확인. 보는 사람마다 my* 값이 다르다 */
 export type Proposal = {
   id: Id
+  schedulingId: Id | null // "조율 과정 보기"로 돌아갈 조율
+  roundsUsed: number | null // 몇 라운드에서 정해졌는지
   topic: string
   startAt: IsoDateTime
   endAt: IsoDateTime
@@ -95,6 +114,8 @@ export type Proposal = {
   feedbackOnly: boolean // 조정안은 수락·거절 없이 피드백 한 줄만
   responders: Responder[]
   absentName: string | null // 불참안에서 빠진 사람
+  yieldGetter: YieldGetter | null
+  myFeedback: MyFeedback | null
 }
 
 export type RespondInput = {

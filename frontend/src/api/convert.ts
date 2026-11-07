@@ -334,6 +334,8 @@ export type ServerProposal = {
 
 export const toProposal = (r: ServerProposal): Proposal => ({
   id: id(r.id),
+  schedulingId: null, // 회의 → 조율 ID (백엔드 요청 거리)
+  roundsUsed: null,
   topic: r.topic,
   startAt: r.start_at,
   endAt: r.end_at,
@@ -357,6 +359,8 @@ export const toProposal = (r: ServerProposal): Proposal => ({
     yieldLevel: YIELD[x.yield_level],
     feedback: x.feedback,
   })),
+  yieldGetter: null, // 양보 점수 받는 사람의 단계 변화 (백엔드 요청 거리)
+  myFeedback: null, // 남긴 말로 바뀐 선호 (백엔드 요청 거리)
 })
 
 // ── 회의록 ──────────────────────────────────────────────

@@ -1,3 +1,4 @@
+import { UTTERANCE_MS, later } from '../lib/timers.ts'
 import { mockContext } from '../mock/context.ts'
 import { dispatch } from '../mock/store.ts'
 import { buildProposal, buildSchedule, buildScheduling } from '../mock/views.ts'
@@ -17,7 +18,10 @@ import {
 
 // 회의 잡기(조율)와 일정. 장면 1의 데이터가 모두 여기서 나온다.
 
-/** 조율 시작 (팀장만). 목 모드에서는 준비된 조율 대본을 돌려준다 */
+/**
+ * 조율 시작 (팀장만). 목 모드에서는 준비된 조율 대본을 다시 돌린다:
+ * 바로 "진행 중" 조율을 돌려주고, 화면이 발언을 다 보여 줄 즈음 서버처럼 조율을 끝내 회의안을 낸다.
+ */
 export function startScheduling(roomId: Id, input: SchedulingInput): Promise<Scheduling> {
   return withMockWrite(
     async () =>
@@ -34,8 +38,11 @@ export function startScheduling(roomId: Id, input: SchedulingInput): Promise<Sch
         }),
       ),
     () => {
+      dispatch({ type: 'scheduling/start', input })
       const { s, viewer } = mockContext()
-      return buildScheduling(s, s.schedulings[0].id, viewer)
+      const started = s.schedulings[s.schedulings.length - 1]
+      later(() => dispatch({ type: 'scheduling/finish', schedulingId: started.id }), started.script.length * UTTERANCE_MS)
+      return buildScheduling(s, started.id, viewer)
     },
   )
 }
@@ -71,6 +78,12 @@ export function respondProposal(roomId: Id, proposalId: Id, input: RespondInput)
       dispatch({ type: 'proposal/respond', meetingId: proposalId, userId: viewer, ...input })
     },
   )
+}
+
+/** 남긴 말로 바뀐 선호 되돌리기. 서버에 아직 없는 동작이라 목 데이터만 바꾼다 */
+export function undoFeedbackChange(proposalId: Id): Promise<void> {
+  dispatch({ type: 'feedback/undo', meetingId: proposalId, userId: mockContext().viewer })
+  return Promise.resolve()
 }
 
 /** 일정 탭: 조율 중 → 잡힌 회의 → 지난 회의 */
