@@ -1,14 +1,13 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { messageOf } from '../api/client.ts'
-import { createMeeting } from '../api/records.ts'
+import { canRecordLive, createMeeting } from '../api/records.ts'
 import { getRoom } from '../api/rooms.ts'
 import { getSchedule } from '../api/scheduling.ts'
 import AiMark from '../components/AiMark.tsx'
 import Badge from '../components/Badge.tsx'
 import ConfirmSheet from '../components/ConfirmSheet.tsx'
 import Icon from '../components/Icon.tsx'
-import PeriodCard from '../components/PeriodCard.tsx'
 import RetryBox from '../components/RetryBox.tsx'
 import Screen from '../components/Screen.tsx'
 import { useApi } from '../hooks/useApi.ts'
@@ -21,26 +20,21 @@ import {
   formatTimeRange,
   isSameDay,
   minutesBetween,
-  toIsoDate,
 } from '../lib/date.ts'
 import { PATHS, pathTo } from '../lib/paths.ts'
 import type { IsoDateTime } from '../types/common.ts'
 import type { MeetingBrief, Schedule } from '../types/meeting.ts'
 import styles from './SchedulePage.module.css'
 
-// 일정 탭: 정해진 회의를 관리하는 화면. 기간 → 지금 회의 받아적기 → 조율 중 → 잡힌 회의 → 지난 회의(회의록).
-// 홈은 다음 회의 하나만, 여기서는 지난 것까지 전부를 시간 순으로 본다.
+// 일정 탭: 정해진 회의를 관리하는 화면. 지금 회의 받아적기 → 조율 중 → 잡힌 회의 → 지난 회의(회의록).
+// 홈은 기간과 다음 회의 하나만, 여기서는 지난 것까지 전부를 시간 순으로 본다.
 export default function SchedulePage() {
   const user = useCurrentUser()
-  const now = useClock()
   const res = useApi(() => getSchedule(user.roomId), [user.roomId, user.id])
   const room = useApi(() => getRoom(user.roomId), [user.roomId, user.id])
 
   return (
     <Screen title="일정">
-      {room.status === 'ready' && (
-        <PeriodCard startDate={room.data.startDate} dueDate={room.data.dueDate} today={toIsoDate(now)} />
-      )}
       {res.status === 'error' && <RetryBox message={res.message} onRetry={res.reload} />}
       {res.status === 'ready' && (
         <ScheduleBody schedule={res.data} canStartScheduling={room.status === 'ready' && room.data.canStartScheduling} />
@@ -167,12 +161,16 @@ function UpcomingRow({ meeting: m, isToday }: { meeting: MeetingBrief; isToday: 
   )
 }
 
-// 지금 회의 받아적기: 오늘 잡힌 회의가 있으면 거기에 붙고, 없으면 주제 한 줄(비워도 됨)만 받고 바로 연다
+// 지금 회의 받아적기(실서버는 기록하기): 오늘 잡힌 회의가 있으면 거기에 붙고, 없으면 주제 한 줄(비워도 됨)만 받고 바로 연다
 function RecordNow({ todayMeeting }: { todayMeeting: MeetingBrief | null }) {
   const user = useCurrentUser()
   const navigate = useNavigate()
   const [asking, setAsking] = useState(false)
   const [error, setError] = useState('')
+  // 실서버는 받아적기가 없어 직접 쓰기만 연다(api/records.ts canRecordLive). 문구도 그에 맞춘다
+  const live = canRecordLive()
+  const label = live ? '지금 회의 받아적기' : '지금 회의 기록하기'
+  const verb = live ? '받아적어요' : '기록해요'
 
   const open = async (topic: string) => {
     try {
@@ -194,11 +192,11 @@ function RecordNow({ todayMeeting }: { todayMeeting: MeetingBrief | null }) {
           <Icon name="mic" />
         </span>
         <span>
-          <b>지금 회의 받아적기</b>
+          <b>{label}</b>
           <span>
             {todayMeeting
-              ? `오늘 ${formatTimeRange(todayMeeting.startAt, todayMeeting.endAt)} '${todayMeeting.topic}' 회의를 받아적어요`
-              : '잡힌 회의가 없어도 주제 한 줄만 쓰고 바로 받아적어요'}
+              ? `오늘 ${formatTimeRange(todayMeeting.startAt, todayMeeting.endAt)} '${todayMeeting.topic}' 회의를 ${verb}`
+              : `잡힌 회의가 없어도 주제 한 줄만 쓰고 바로 ${verb}`}
           </span>
         </span>
       </button>

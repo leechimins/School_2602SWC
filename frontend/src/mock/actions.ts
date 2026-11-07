@@ -31,6 +31,7 @@ export type Action =
   | { type: 'task/edit'; taskId: Id; patch: Partial<TaskInput> }
   | { type: 'task/status'; taskId: Id; status: TaskStatus; reason: string | null }
   | { type: 'task/dismiss'; taskId: Id }
+  | { type: 'task/keep'; taskId: Id }
   | { type: 'suggestion/edit'; suggestionId: Id; patch: SuggestionPatch }
   | { type: 'suggestion/dismiss'; suggestionId: Id }
   | { type: 'suggestion/confirm'; suggestionIds: Id[]; by: Id }
@@ -180,6 +181,7 @@ export function reduce(s: DemoState, action: Action): DemoState {
         doneAt: null,
         doneMeetingId: null,
         dismissed: false,
+        unneeded: null,
       }
       return { ...s, tasks: [...s.tasks, added], nextSeq: s.nextSeq + 1 }
     }
@@ -198,6 +200,9 @@ export function reduce(s: DemoState, action: Action): DemoState {
 
     case 'task/dismiss':
       return updateTask(s, action.taskId, (t) => ({ ...t, dismissed: true }))
+
+    case 'task/keep':
+      return updateTask(s, action.taskId, (t) => ({ ...t, unneeded: t.unneeded && { ...t.unneeded, kept: true } }))
 
     case 'suggestion/edit':
       return {
@@ -223,6 +228,7 @@ export function reduce(s: DemoState, action: Action): DemoState {
         doneAt: null,
         doneMeetingId: null,
         dismissed: false,
+        unneeded: null,
       }))
       return {
         ...s,

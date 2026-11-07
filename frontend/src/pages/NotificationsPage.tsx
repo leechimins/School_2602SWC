@@ -17,7 +17,7 @@ import styles from './NotificationsPage.module.css'
 export default function NotificationsPage() {
   const user = useCurrentUser()
   const res = useApi(() => getNotices(user.roomId), [user.roomId, user.id])
-  const activity = useApi(() => getActivity(user.roomId), [user.roomId])
+  const activity = useApi(() => getActivity(user.roomId), [user.roomId, user.id])
 
   const read = (ids: string[]) => ids.length > 0 && markNoticesRead(user.roomId, ids)
   const unread = res.status === 'ready' ? res.data.notices.filter((n) => !n.read).map((n) => n.id) : []

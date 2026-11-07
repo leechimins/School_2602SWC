@@ -72,6 +72,12 @@ export function addTask(roomId: Id, input: TaskInput, meetingId: Id | null = nul
 }
 
 /** 할 일 삭제 (전원). 서버 경로 이름은 dismiss지만 화면 문구는 "삭제" */
+/** "필요 없어 보이는 일"을 그대로 두기. 서버에 이 목록이 없어 목 데이터에만 남긴다 */
+export function keepTask(taskId: Id): Promise<void> {
+  dispatch({ type: 'task/keep', taskId })
+  return Promise.resolve()
+}
+
 export function dismissTask(roomId: Id, taskId: Id) {
   return withMockWrite(
     () => request<void>(`/rooms/${roomId}/tasks/${taskId}/dismiss`, { method: 'POST' }),

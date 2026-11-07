@@ -63,6 +63,22 @@
   min-height: 32px;
 }
 
+.card p {
+  margin: 2px 0 0;
+}
+
+/* 필요 없어 보이는 일: 유지 | 삭제를 오른쪽에 */
+.act {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.act :global(.btn) {
+  min-height: 32px;
+}
+
 /* 닫혀 있는 직접 추가 버튼: 점선 테두리로 "새로 넣는 자리"임을 보인다 */
 .open {
   display: block;

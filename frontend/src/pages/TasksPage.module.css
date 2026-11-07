@@ -95,13 +95,3 @@
   min-height: 32px;
   font-size: 13px;
 }
-
-/* 내 할 일: 출처 한 줄 */
-.source {
-  margin: 2px 0 0;
-  padding-left: 30px;
-}
-
-.source a {
-  color: inherit;
-}
