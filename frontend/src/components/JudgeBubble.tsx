@@ -42,7 +42,7 @@ export default function JudgeBubble({ text, yieldChanges = [], proposal, isNew =
           )}
           {proposal && (
             <div className={styles.yrow}>
-              <span className="meta">제안</span>
+              <span className="meta">고른 시간</span>
               <b className={`num ${styles.wide}`}>{proposal}</b>
             </div>
           )}

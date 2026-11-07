@@ -29,6 +29,7 @@ const STATUS: Record<SchedulingStatus, { label: string; tone: Tone; title: strin
 const slotText = (slot: Slot) => `${formatSlot(slot.startAt, slot.endAt)} · ${slot.mode}`
 
 // 시간 정하는 과정: 왜 이 시간이 나왔는지 대화로 보여 준다. 앱에서 가장 중요한 화면이다.
+// 라운드마다 개인 에이전트 어필 → 판단 에이전트가 하나를 고름 → 개인 에이전트 수락·거절. 사람은 끝난 결과만 받는다
 // 발언 목록을 한 번에 받아 1.6초마다 하나씩 쌓는다. 스피너로 덮지 않고, 라운드 표시가 같이 오른다.
 export default function SchedulingPage() {
   const { schedulingId } = useParams()
@@ -174,7 +175,7 @@ function Dock({ scheduling: s, status, round, slot, isLeader }: DockProps) {
       <div className={styles.sum}>
         {badge}{' '}
         <span className="meta num">
-          {s.roundsUsed}라운드{status === 'agreed' ? '에서 합의' : ' 뒤 판단 에이전트가 정함 · 그대로 확정돼요'}
+          {s.roundsUsed}라운드{status === 'agreed' ? '에서 모두 수락 · 바로 확정돼요' : ' 뒤 판단 에이전트가 정함 · 바로 확정돼요'}
         </span>
         {slot && <b className={`${styles.when} num`}>{slotText(slot)}</b>}
       </div>

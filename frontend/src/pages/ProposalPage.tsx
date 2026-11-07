@@ -1,10 +1,9 @@
 import { useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { messageOf } from '../api/client.ts'
-import { getProposal, respondProposal, undoFeedbackChange } from '../api/scheduling.ts'
+import { getProposal, leaveFeedback, undoFeedbackChange } from '../api/scheduling.ts'
 import Avatar from '../components/Avatar.tsx'
 import Badge from '../components/Badge.tsx'
-import ConfirmSheet, { type ConfirmResult } from '../components/ConfirmSheet.tsx'
 import JudgeBubble from '../components/JudgeBubble.tsx'
 import RetryBox from '../components/RetryBox.tsx'
 import Screen from '../components/Screen.tsx'
@@ -16,15 +15,12 @@ import { withJosa } from '../lib/korean.ts'
 import { PATHS, pathTo } from '../lib/paths.ts'
 import { BURDEN_LABEL, BURDEN_TONE } from '../lib/tones.ts'
 import type { Id } from '../types/common.ts'
-import type { Proposal, ResponseState } from '../types/scheduling.ts'
+import type { Proposal } from '../types/scheduling.ts'
 import styles from './ProposalPage.module.css'
 
-const RESPONSE_TONE = { 대기: 'plain', 수락: 'ok', 거절: 'danger' } as const
-
-// 회의 일정 조율 확인: 시간 → 부담(내 줄은 숫자, 다른 사람은 말로만) → 판단 근거 → 사람별 응답.
-// 화면은 "결과 표시"와 "확정 방식(응답 영역)"으로 나뉜다.
-//   합의안: 사람이 수락·거절하고, 전원 수락하면 자동 확정
-//   조정안: 판단 에이전트가 바로 확정했으므로 피드백 한 줄만 받는다
+// 회의 일정 조율 확인: 시간 → 부담(내 줄은 숫자, 다른 사람은 말로만) → 판단 근거 → 피드백 한 줄.
+// 수락·거절은 개인 에이전트끼리 시간 정하는 과정에서 끝냈고, 회의는 이미 확정이다(11/7).
+// 사람은 이 시간에 대해 한 줄만 남기고, 내 에이전트가 다음 회의부터 참고한다
 export default function ProposalPage() {
   const { proposalId } = useParams()
   const user = useCurrentUser()
@@ -41,7 +37,7 @@ export default function ProposalPage() {
 
   const p = res.data
   return (
-    <Screen title="회의 일정" backTo={PATHS.home} dock={<RespondDock proposal={p} roomId={user.roomId} />}>
+    <Screen title="회의 일정" backTo={PATHS.home}>
       <ResultSummary proposal={p} />
       <Burdens proposal={p} viewerId={user.id} />
       <div className={styles.judge}>
@@ -49,9 +45,7 @@ export default function ProposalPage() {
           <YieldGetterBox proposal={p} />
         </JudgeBubble>
       </div>
-      <Responses proposal={p} viewerId={user.id} />
-      {p.feedbackOnly && !p.myFeedback && <SettledFeedback proposal={p} roomId={user.roomId} />}
-      {p.myFeedback && <MyFeedbackCard proposal={p} />}
+      {p.myFeedback ? <MyFeedbackCard proposal={p} /> : <FeedbackBox proposal={p} roomId={user.roomId} />}
       {p.schedulingId && (
         <div className={styles.center}>
           <Link to={pathTo.scheduling(p.schedulingId)} className="link">
@@ -78,14 +72,14 @@ function ResultSummary({ proposal: p }: { proposal: Proposal }) {
             </>
           )}
         </span>
-        <Badge tone={p.confirmed ? 'ok' : 'warn'}>{p.confirmed ? '확정' : '확정 대기'}</Badge>
+        <Badge tone={p.confirmed ? 'ok' : 'plain'}>{p.confirmed ? '확정' : '정리 중'}</Badge>
       </div>
       <b className={`${styles.big} num`}>{formatSlot(p.startAt, p.endAt)}</b>
       <p className="meta">
         <span className={styles.mode}>{p.mode}</span> · {formatDuration(minutesBetween(p.startAt, p.endAt))} · {p.topic}
       </p>
       {p.absentName && <p className="meta">{p.absentName} 빠짐 · 회의록 요약을 따로 보내요</p>}
-      {p.confirmed && !p.settled && <p className="meta">모두 수락해서 회의가 확정됐어요</p>}
+      {p.confirmed && !p.settled && <p className="meta">에이전트들이 모두 수락해서 확정됐어요</p>}
     </section>
   )
 }
@@ -159,31 +153,6 @@ function YieldGetterBox({ proposal: p }: { proposal: Proposal }) {
   )
 }
 
-function Responses({ proposal: p, viewerId }: { proposal: Proposal; viewerId: Id }) {
-  // 조정안은 응답을 받지 않으므로 사람별 응답 줄이 없다
-  if (p.feedbackOnly) return null
-  const accepted = p.responders.filter((r) => r.state === '수락').length
-  return (
-    <section className="sec">
-      <h2 className={`${styles.flush} num`}>
-        {p.responders.length}명 중 {accepted}명 수락
-      </h2>
-      <div className={styles.responses}>
-        {p.responders.map((r) => (
-          <div key={r.userId}>
-            <Avatar name={r.name} size="large" />
-            <span>
-              {r.name}
-              {r.userId === viewerId && ' (나)'}
-            </span>
-            <Badge tone={RESPONSE_TONE[r.state]}>{r.state}</Badge>
-          </div>
-        ))}
-      </div>
-    </section>
-  )
-}
-
 // 내가 남긴 한 줄과 반영 결과. 선호가 바뀌었으면 무엇이 바뀌었는지 보여 주고 되돌릴 수 있다
 function MyFeedbackCard({ proposal: p }: { proposal: Proposal }) {
   const f = p.myFeedback
@@ -207,14 +176,11 @@ function MyFeedbackCard({ proposal: p }: { proposal: Proposal }) {
   )
 }
 
-// ── 확정 방식(응답 영역) ─────────────────────────────────
-
-// 조정안: 이미 확정이라 수락·거절 창 없이 피드백 칸이 화면에 바로 보인다
-function SettledFeedback({ proposal: p, roomId }: { proposal: Proposal; roomId: Id }) {
+// 피드백 한 줄: 확정된 시간이라 확인 창 없이 칸이 화면에 바로 보인다. 비워 두면 아무것도 보내지 않는다
+function FeedbackBox({ proposal: p, roomId }: { proposal: Proposal; roomId: Id }) {
   const [text, setText] = useState('')
   const [error, setError] = useState<string | null>(null)
-  const send = () =>
-    respondProposal(roomId, p.id, { accept: true, feedback: text.trim() || null }).catch((e: unknown) => setError(messageOf(e)))
+  const send = () => leaveFeedback(roomId, p.id, { feedback: text.trim() }).catch((e: unknown) => setError(messageOf(e)))
 
   return (
     <section className="sec">
@@ -236,70 +202,4 @@ function SettledFeedback({ proposal: p, roomId }: { proposal: Proposal; roomId: 
       {error && <p className="meta">{error}</p>}
     </section>
   )
-}
-
-type Asking = 'accept' | 'reject' | null
-
-// 합의안: 거절(글자) | 수락(버튼). 누르면 한 줄을 받는 창이 뜨고, 전원이 수락하면 따로 누르지 않아도 확정된다
-function RespondDock({ proposal: p, roomId }: { proposal: Proposal; roomId: Id }) {
-  const [asking, setAsking] = useState<Asking>(null)
-  const [error, setError] = useState<string | null>(null)
-
-  if (p.feedbackOnly || p.confirmed || p.myState === null) return null
-
-  const respond = async (accept: boolean, { ok, value }: ConfirmResult) => {
-    setAsking(null)
-    if (!ok) return
-    try {
-      await respondProposal(roomId, p.id, { accept, feedback: value || null })
-    } catch (e) {
-      setError(messageOf(e))
-    }
-  }
-
-  return (
-    <>
-      {error && <p className="meta">{error}</p>}
-      <DockBody state={p.myState} waiting={p.responders.filter((r) => r.state !== '수락').map((r) => r.name)} onAsk={setAsking} />
-      {asking === 'accept' && (
-        <ConfirmSheet
-          title="이 시간으로 수락할까요?"
-          body="이 시간이 어떤지 한 줄 남기면 내 에이전트가 다음 회의부터 참고해요. 비워 둬도 돼요."
-          okLabel="수락하기"
-          irreversible={false}
-          input={{ label: '이 시간 어때요', placeholder: '예: 수업 바로 뒤라 조금 빠듯해요' }}
-          onClose={(r) => respond(true, r)}
-        />
-      )}
-      {asking === 'reject' && (
-        <ConfirmSheet
-          title="조율 결과를 거절할까요?"
-          body="이유를 한 줄 남기면 판단 에이전트가 다음 라운드에 반영하고, 내 에이전트도 다음 회의부터 참고해요. 비워 둬도 돼요."
-          okLabel="거절하기"
-          irreversible={false}
-          input={{ label: '거절 이유', placeholder: '예: 금요일은 역시 힘들어요' }}
-          onClose={(r) => respond(false, r)}
-        />
-      )}
-    </>
-  )
-}
-
-function DockBody({ state, waiting, onAsk }: { state: ResponseState; waiting: string[]; onAsk: (a: Asking) => void }) {
-  if (state === '대기') {
-    return (
-      <div className="btn-row">
-        <button type="button" className="btn quiet" onClick={() => onAsk('reject')}>
-          거절
-        </button>
-        <button type="button" className="btn primary" onClick={() => onAsk('accept')}>
-          수락
-        </button>
-      </div>
-    )
-  }
-  if (state === '거절') {
-    return <p className="meta">거절을 전달했어요. 남은 라운드로 다시 조율하면 알려 드려요.</p>
-  }
-  return <p className="meta">수락했어요. {waiting.join(', ')}의 응답을 기다리는 중이에요.</p>
 }

@@ -64,25 +64,6 @@
   font-size: var(--fs-meta);
 }
 
-.responses {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: var(--gap-1);
-  margin: var(--gap-2) 0;
-  text-align: center;
-  font-size: var(--fs-meta);
-}
-
-.responses > div {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--gap-1);
-}
-
-.flush {
-  margin: 0 !important;
-}
 
 .inline {
   display: flex;

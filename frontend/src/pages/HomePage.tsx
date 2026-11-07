@@ -96,21 +96,20 @@ function NextMeeting({ home }: { home: Home }) {
       </section>
     )
   }
+  // 조율이 끝나면 바로 확정이라 사람이 응답할 것은 없다. proposed는 서버가 정리 중일 때만 잠깐 보인다
   const confirmed = m.status === 'confirmed'
-  const waiting = !confirmed && m.myState === '대기'
   return (
     <section className="sec">
       <div className="row-between">
         <h2>다음 회의</h2>
-        <Badge tone={confirmed ? 'ok' : 'warn'}>{confirmed ? '확정' : '확정 대기'}</Badge>
+        <Badge tone={confirmed ? 'ok' : 'plain'}>{confirmed ? '확정' : '정리 중'}</Badge>
       </div>
       <p className="strong">{m.topic}</p>
       <p className="meta num">
         {formatSlot(m.startAt, m.endAt)} · {m.mode}
-        {!confirmed && m.myState && ` · 내 응답 ${m.myState}`}
       </p>
-      <Link to={pathTo.proposal(m.id)} className={`btn small block ${waiting ? 'primary' : ''}`}>
-        {waiting ? '조율 결과 보고 응답하기' : '조율 결과 보기'}
+      <Link to={pathTo.proposal(m.id)} className="btn small block">
+        조율 결과 보기
       </Link>
     </section>
   )
