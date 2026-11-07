@@ -6,8 +6,8 @@
 회의  GET /proposals/{id}, POST /proposals/{id}/respond
 일정    GET /schedule
 
-pick은 없앴다(11/5) — 사람이 후보를 고르는 단계가 없어졌다. widen·rerun은
-아직 없다. 한 파일에 둔 이유는 셋이 같은 네 테이블(scheduling,
+pick은 없앴다(11/5) — 사람이 후보를 고르는 단계가 없어졌다. widen도 없앴다
+(11/7) — 새 기간으로 조율을 다시 열면 된다. rerun은 아직 없다. 한 파일에 둔 이유는 셋이 같은 네 테이블(scheduling,
 candidate_slot, meeting, meeting_response)을 보고 같은 약속 하나를 지켜야
 하기 때문이다: **남의 불편 점수는 응답에 담지 않는다**(명세 권장 규칙 3).
 나눠 두면 한쪽만 burden()을 거쳐 내보내는 일이 생긴다.
