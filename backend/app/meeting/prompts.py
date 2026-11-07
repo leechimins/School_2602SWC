@@ -55,7 +55,7 @@ class Speaker:
     name: str
     score: int  # 1~5
     available: bool
-    reason: str  # "알바와 겹칩니다" 같은, 이미 한국어인 근거
+    reason: str  # "아르바이트가 있습니다" 같은, 이미 한국어인 근거. 일정 제목은 안 들어간다
     accepts: bool  # 점수가 정한 결과. 모델이 뒤집으면 안 된다
     yield_step: str  # "아직 없음" / "조금 맞춰 줌" / "많이 맞춰 줌"
     yield_rank: int  # 누적 양보 원래 숫자. 누구를 꺾을지 정할 때만 쓴다

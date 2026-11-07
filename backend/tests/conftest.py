@@ -56,7 +56,7 @@ def schema(test_engine: Engine) -> Engine:
 
 
 @pytest.fixture
-def session(schema: Engine) -> Iterator[Session]:
+def session(schema: Engine, monkeypatch: pytest.MonkeyPatch) -> Iterator[Session]:
     """매 테스트마다 행만 비운다. 테이블은 그대로 둔다.
 
     테스트가 제약 위반을 일부러 일으켜 트랜잭션이 더러워지므로 롤백으로
@@ -79,13 +79,17 @@ def session(schema: Engine) -> Iterator[Session]:
         tables = ", ".join(f'"{name}"' for name in SQLModel.metadata.tables)
         conn.execute(text(f"TRUNCATE TABLE {tables} RESTART IDENTITY CASCADE"))
     with Session(schema) as db:
-        with pytest.MonkeyPatch.context() as mp:
-            # 뒷단 루프에게 **자기 세션**을 준다. 요청 세션을 같이 쓰면 한
-            # 세션이 두 군데서 add/commit을 받아 같은 발언이 두 번 들어간다
-            # (uq_utterance_seq로 터진다). 운영도 자기 세션을 쓴다.
-            mp.setattr("app.shared.db.background_session", lambda: Session(schema))
-            mp.setattr("app.meeting.runner.start", runner.run_to_end)
-            yield db
+        # 뒷단 루프에게 **자기 세션**을 준다. 요청 세션을 같이 쓰면 한 세션이 두
+        # 군데서 add/commit을 받아 같은 발언이 두 번 들어간다(uq_utterance_seq로
+        # 터진다). 운영도 자기 세션을 쓴다.
+        #
+        # 테스트와 **같은 monkeypatch**로 바꾼다. 따로 MonkeyPatch.context()를 쓰면
+        # 되돌리는 순서가 꼬인다 — 테스트가 같은 걸 한 번 더 바꾸면(열기만 등),
+        # monkeypatch가 맨 나중에 되돌리면서 테스트용 값을 다시 덮어써, 뒤의 테스트가
+        # 진짜 runner.start 대신 그 값을 부르게 된다. 한 줄로 쌓이면 역순으로 정확히 풀린다.
+        monkeypatch.setattr("app.shared.db.background_session", lambda: Session(schema))
+        monkeypatch.setattr("app.meeting.runner.start", runner.run_to_end)
+        yield db
 
 
 # ── API 테스트 공용 (레인 B) ─────────────────────────────────────────

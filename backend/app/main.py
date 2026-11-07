@@ -17,6 +17,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from app.home.router import router as home_router
 from app.integration.router import router as integration_router
 from app.me.router import router as me_router
+from app.me.schedule import items_router as schedule_items_router
 from app.me.schedule import router as my_schedule_router
 from app.meeting.router import router as meeting_router
 from app.minutes.record_router import router as record_router
@@ -65,6 +66,7 @@ app.include_router(auth_router, prefix=API_PREFIX)
 app.include_router(home_router, prefix=API_PREFIX)
 app.include_router(me_router, prefix=API_PREFIX)
 app.include_router(my_schedule_router, prefix=API_PREFIX)
+app.include_router(schedule_items_router, prefix=API_PREFIX)
 app.include_router(meeting_router, prefix=API_PREFIX)
 app.include_router(notice_router, prefix=API_PREFIX)
 app.include_router(agent_log_router, prefix=API_PREFIX)

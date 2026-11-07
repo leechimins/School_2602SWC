@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from app.me.models import Preference, ScheduleItem
+from app.shared.enums import ScheduleKind
 from app.shared.base import KST
 
 # 회의는 30분 단위다. 후보의 시작도 :00 아니면 :30이다.
@@ -34,8 +35,8 @@ class Busy:
     user_id: int
     start_at: datetime
     end_at: datetime
-    # 에이전트가 말할 때 쓰는 이름. 개인 약속은 "바쁨"이다 —
-    # 구글 캘린더에서 온 제목을 팀원에게 보여 주지 않는다.
+    # 에이전트가 말할 때 쓰는 이름. 제목이 아니라 분류다(수업·아르바이트·일정) —
+    # 일정 이름은 본인에게만 보인다(_label).
     label: str
 
     def overlaps(self, start_at: datetime, end_at: datetime) -> bool:
@@ -113,9 +114,19 @@ def _in_term(item: ScheduleItem, day: object) -> bool:
     return True
 
 
+# 조율 발언에 쓰는 분류 이름. **일정의 제목은 넘기지 않는다** — 목업의 "이름 (나만
+# 보여요)". 제목을 넘기면 "편의점 알바와 겹칩니다"처럼 그대로 팀에 나간다. LLM은 이
+# 근거를 다듬기만 하므로 여기서 막아야 한다.
+_LABEL = {
+    ScheduleKind.CLASS: "수업",
+    ScheduleKind.PARTTIME: "아르바이트",
+    ScheduleKind.APPOINTMENT: "일정",
+}
+
+
 def _label(item: ScheduleItem) -> str:
-    """제목이 비면 "바쁨"이다. appointment는 일부러 제목을 비워 둔다."""
-    return item.title or "바쁨"
+    """일정 종류의 큰 분류. 수업 / 아르바이트 / 일정."""
+    return _LABEL.get(item.kind, "일정")
 
 
 def candidate_windows(
