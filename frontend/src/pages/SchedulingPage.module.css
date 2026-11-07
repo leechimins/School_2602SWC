@@ -1,0 +1,95 @@
+.head {
+  padding: 2px var(--sp) 10px;
+}
+
+.topic {
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.4;
+  letter-spacing: -0.02em;
+}
+
+.state {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 6px;
+}
+
+.chips span {
+  padding: 1px 9px;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  background: var(--card);
+  font-size: 12px;
+}
+
+/* 라운드 표시: 세 칸이 차례로 찬다 */
+.rounds {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-1);
+  margin-top: 10px;
+}
+
+.rounds i {
+  flex: 1;
+  height: 4px;
+  border-radius: 99px;
+  background: var(--line);
+  transition: background 0.3s;
+}
+
+.rounds i.on {
+  background: var(--point);
+}
+
+.rounds span {
+  margin-left: 6px;
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.talk {
+  padding: 0 var(--gap-3);
+}
+
+.roundDiv {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 16px 0 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.roundDiv::before,
+.roundDiv::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+.replay {
+  text-align: center;
+}
+
+.sum {
+  margin-bottom: var(--gap-2);
+}
+
+.when {
+  display: block;
+  margin: 2px 0;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}

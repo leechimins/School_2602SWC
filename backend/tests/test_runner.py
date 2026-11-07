@@ -312,3 +312,21 @@ def test_발언_순서가_seq대로_나간다(
     seqs = [u["seq"] for u in 발언]
     assert seqs == sorted(seqs) == list(range(1, len(seqs) + 1))
     assert 발언[0]["speaker_kind"] in (SpeakerKind.MEMBER, SpeakerKind.JUDGE)
+
+
+def test_after를_주면_이미_본_발언은_다시_안_보낸다(
+    client: TestClient, session: Session, 방: Room
+) -> None:
+    """거절로 조율이 다시 돌 때 화면이 옛 대화를 또 재생하지 않게 한다."""
+    started = _start(client, 방.id)
+    길 = f"{API}/rooms/{방.id}/schedulings/{started['id']}/stream"
+    with client.stream("GET", 길) as res:
+        전체 = _발언들("".join(res.iter_text()))[:-1]
+    assert len(전체) >= 3
+
+    with client.stream("GET", f"{길}?after=2") as res:
+        본문 = "".join(res.iter_text())
+    이어서 = _발언들(본문)[:-1]
+
+    assert [u["seq"] for u in 이어서] == [u["seq"] for u in 전체 if u["seq"] > 2]
+    assert "event: done" in 본문

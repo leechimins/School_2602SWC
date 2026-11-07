@@ -275,14 +275,19 @@ export type ServerScheduling = {
   status: SchedulingStatus
   rounds_used: number
   candidate_count: number
+  meeting_id: number | null
   utterances: ServerUtterance[]
 }
 
-// 서버 발언에는 아직 text만 있다. 어필/응답 구분·불편 단계·제안 시간은 백엔드 요청 거리라 비워 둔다
-const toUtterance = (u: ServerUtterance): Utterance => ({
+// 서버 발언에는 아직 text만 있다. 불편 단계·제안 시간은 백엔드 요청 거리라 비워 둔다.
+// 어필/응답은 순서로 가른다: 한 라운드에서 판단 에이전트보다 먼저 나온 팀원 발언이 어필, 뒤에 나온 것이 수락·거절이다
+const judgeSeqByRound = (us: ServerUtterance[]) =>
+  new Map(us.filter((u) => u.speaker_kind === 'judge').map((u) => [u.round_no, u.seq]))
+
+const toUtterance = (u: ServerUtterance, judgeSeq: Map<number, number>): Utterance => ({
   seq: u.seq,
   round: u.round_no,
-  kind: u.speaker_kind === 'judge' ? 'judge' : 'answer',
+  kind: u.speaker_kind === 'judge' ? 'judge' : u.seq < (judgeSeq.get(u.round_no) ?? Infinity) ? 'appeal' : 'answer',
   speakerId: optId(u.speaker_user_id),
   speakerName: u.speaker_name,
   text: u.text,
@@ -293,18 +298,21 @@ const toUtterance = (u: ServerUtterance): Utterance => ({
   yieldChanges: [],
 })
 
-export const toScheduling = (r: ServerScheduling): Scheduling => ({
-  id: id(r.id),
-  topic: r.topic,
-  windowStart: r.window_start,
-  windowEnd: r.window_end,
-  durationMin: r.duration_min,
-  mode: MODE[r.mode],
-  status: r.status,
-  roundsUsed: r.rounds_used,
-  utterances: r.utterances.map(toUtterance),
-  proposalId: null, // 서버가 아직 조율 → 회의 ID를 주지 않는다 (백엔드 요청 거리)
-})
+export const toScheduling = (r: ServerScheduling): Scheduling => {
+  const judgeSeq = judgeSeqByRound(r.utterances)
+  return {
+    id: id(r.id),
+    topic: r.topic,
+    windowStart: r.window_start,
+    windowEnd: r.window_end,
+    durationMin: r.duration_min,
+    mode: MODE[r.mode],
+    status: r.status,
+    roundsUsed: r.rounds_used,
+    utterances: r.utterances.map((u) => toUtterance(u, judgeSeq)),
+    proposalId: optId(r.meeting_id), // 합의·조정이 끝나야 생긴다
+  }
+}
 
 export type ServerProposal = {
   id: number
@@ -334,11 +342,14 @@ export type ServerProposal = {
 
 export const toProposal = (r: ServerProposal): Proposal => ({
   id: id(r.id),
+  schedulingId: null, // 회의 → 조율 ID (백엔드 요청 거리)
+  roundsUsed: null,
   topic: r.topic,
   startAt: r.start_at,
   endAt: r.end_at,
   mode: meetingMode(r.mode),
   confirmed: r.status === 'confirmed',
+  cancelled: r.status === 'cancelled',
   settled: r.scheduling_status === 'settled',
   rationale: r.rationale,
   myScore: r.my_score,
@@ -357,6 +368,8 @@ export const toProposal = (r: ServerProposal): Proposal => ({
     yieldLevel: YIELD[x.yield_level],
     feedback: x.feedback,
   })),
+  yieldGetter: null, // 양보 점수 받는 사람의 단계 변화 (백엔드 요청 거리)
+  myFeedback: null, // 남긴 말로 바뀐 선호 (백엔드 요청 거리)
 })
 
 // ── 회의록 ──────────────────────────────────────────────
@@ -389,6 +402,7 @@ export type ServerMeetingDetail = {
   transcript: { seq: number; speaker_user_id: number | null; speaker_name: string | null; text: string }[]
   minutes: ServerMinutes | null
   tasks: ServerTask[]
+  done_tasks?: ServerTask[]
   suggestions: ServerSuggestion[]
 }
 
@@ -423,6 +437,7 @@ export const toMeetingDetail = (r: ServerMeetingDetail): MeetingDetail => ({
   transcript: r.transcript.map((l) => ({ seq: l.seq, speakerId: optId(l.speaker_user_id), speakerName: l.speaker_name, text: l.text })),
   minutes: r.minutes,
   tasks: r.tasks.map(toTask),
+  doneTasks: (r.done_tasks ?? []).map(toTask), // 서버에 아직 없는 묶음. 없으면 비워 둔다
   suggestions: r.suggestions.map(toSuggestion),
 })
 
@@ -452,31 +467,31 @@ const NOTICE_KIND: Record<ServerNoticeKind, NoticeKind> = {
   meeting_confirmed: '회의 확정',
 }
 
+// backend/app/notice/router.py의 NotificationListOut. 읽음은 시각(read_at)으로 오고, 할 일 제목은 reason 안에 이미 있다
 export type ServerNoticeList = {
-  notifications: {
+  items: {
     id: number
     kind: ServerNoticeKind
     reason: string
     task_id: number | null
-    task_title: string | null
     meeting_id: number | null
+    read_at: string | null
     created_at: string
-    read: boolean
   }[]
   unread_count: number
 }
 
 export const toNoticeList = (r: ServerNoticeList): NoticeList => ({
-  notices: r.notifications.map(
+  notices: r.items.map(
     (n): Notice => ({
       id: id(n.id),
       kind: NOTICE_KIND[n.kind],
       reason: n.reason,
       taskId: optId(n.task_id),
-      taskTitle: n.task_title,
+      taskTitle: null, // 서버가 따로 주지 않는다. 카드 문구(reason)에 제목이 들어 있다
       meetingId: optId(n.meeting_id),
       createdAt: n.created_at,
-      read: n.read,
+      read: n.read_at !== null,
     }),
   ),
   unreadCount: r.unread_count,

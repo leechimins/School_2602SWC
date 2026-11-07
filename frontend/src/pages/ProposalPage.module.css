@@ -1,0 +1,101 @@
+.big {
+  display: block;
+  margin: 6px 0 2px;
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.03em;
+}
+
+/* 방식(대면·비대면): 장소가 갈리는 정보라 메타 줄 안에서 진하게 */
+.mode {
+  color: var(--text);
+  font-weight: 700;
+}
+
+/* 부담 묶음 맨 위의 내 줄: 나만 보이는 줄이라 포인트 바탕 */
+.mine {
+  display: flex;
+  gap: var(--gap-2);
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--gap-1);
+  padding: var(--gap-2) var(--gap-3);
+  border-radius: 10px;
+  background: var(--point-soft);
+}
+
+.mine > :global(.meta) {
+  flex: none;
+}
+
+.other {
+  display: grid;
+  grid-template-columns: 28px 40px auto 1fr;
+  gap: var(--gap-2);
+  align-items: center;
+  min-height: 40px;
+  border-bottom: 1px solid var(--line);
+}
+
+.other:last-child {
+  border-bottom: 0;
+}
+
+/* 판단 에이전트 카드: 묶음(.sec)과 같은 좌우 여백 */
+.judge {
+  margin: 10px 12px 0;
+}
+
+/* 판단 에이전트 카드 안의 양보 점수 상자 */
+.box {
+  margin-top: var(--gap-2);
+  padding: var(--gap-2) var(--gap-3);
+  border-radius: 10px;
+  background: var(--sub-wash);
+}
+
+.yrow {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  gap: var(--gap-2);
+  align-items: center;
+  min-height: 24px;
+  font-size: var(--fs-meta);
+}
+
+.responses {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--gap-1);
+  margin: var(--gap-2) 0;
+  text-align: center;
+  font-size: var(--fs-meta);
+}
+
+.responses > div {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--gap-1);
+}
+
+.flush {
+  margin: 0 !important;
+}
+
+.inline {
+  display: flex;
+  gap: var(--gap-2);
+  margin-top: var(--gap-2);
+}
+
+.inline > :global(.field) {
+  flex: 1;
+  min-width: 0;
+}
+
+.center {
+  margin-top: var(--gap-2);
+  text-align: center;
+}

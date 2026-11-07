@@ -9,7 +9,7 @@ export type ResponseState = '대기' | '수락' | '거절'
 
 /**
  * 조율 상태. 화면 문구가 아니라 화면 갈래를 나누는 값이라 서버 코드를 그대로 쓴다.
- * running 라운드 도는 중 · agreed 전원 합의(사람이 수락·거절) · settled 판단 에이전트가 정함(바로 확정) · failed 후보 없음
+ * running 라운드 도는 중 · agreed 개인 에이전트가 모두 수락(이어서 사람이 수락·거절) · settled 3라운드 안에 모두 수락하지 않아 판단 에이전트가 정함(바로 확정) · failed 후보 없음
  */
 export type SchedulingStatus = 'running' | 'agreed' | 'settled' | 'failed'
 
@@ -36,8 +36,9 @@ export type YieldChange = {
 }
 
 /**
- * 시간 정하는 과정의 발언 한 줄.
- * appeal = 팀원이 원하는 시간 어필, answer = 판단 에이전트 안에 대한 수락·거절, judge = 판단 에이전트
+ * 시간 정하는 과정의 발언 한 줄. 라운드마다 어필 → 판단 → 응답 순서다.
+ * appeal = 개인 에이전트가 원하는 시간 어필(1라운드는 모두, 2라운드부터는 거절당한 시간을 낸 에이전트만 새 시간을 낸다)
+ * judge = 판단 에이전트가 어필 중 하나를 고름, answer = 개인 에이전트의 수락·거절(거절은 이유만 말하고 시간은 내지 않는다)
  */
 export type Utterance = {
   seq: number
@@ -77,14 +78,34 @@ export type Responder = {
   feedback: string | null
 }
 
+/** 이번에 양보 점수를 받는 사람: 누적 단계가 어떻게 바뀌는지. 숫자는 본인에게만(Proposal.myYieldPoints) */
+export type YieldGetter = {
+  userId: Id
+  name: string
+  isMe: boolean
+  burden: Burden // 맞춰 준 시간이 얼마나 불편했는지
+  from: YieldLevel
+  to: YieldLevel // 회의가 확정되면 이 단계가 된다. 가장 높은 단계면 from과 같다
+}
+
+/** 수락·거절할 때 내가 남긴 한 줄과, 내 에이전트가 그 말로 바꾼 선호 */
+export type MyFeedback = {
+  text: string
+  change: string | null // "다음부터 수업 바로 뒤는 30분 띄워서 잡을게요". 시간과 상관없는 말이면 null
+  undone: boolean // 되돌리기를 눌렀다
+}
+
 /** 회의 일정 조율 확인. 보는 사람마다 my* 값이 다르다 */
 export type Proposal = {
   id: Id
+  schedulingId: Id | null // "조율 과정 보기"로 돌아갈 조율
+  roundsUsed: number | null // 몇 라운드에서 정해졌는지
   topic: string
   startAt: IsoDateTime
   endAt: IsoDateTime
   mode: MeetingMode
   confirmed: boolean // 전원 수락 또는 조정으로 확정됨
+  cancelled: boolean // 사람이 거절해 취소되고 남은 라운드로 다시 조율하는 중
   settled: boolean // 판단 에이전트가 정해 바로 확정 (화면 "확정 · 조정")
   rationale: string // 누구를 왜 배려했는지 한 줄
   myScore: number | null // 내 불편 1~5. 빠진 사람이면 null
@@ -95,6 +116,8 @@ export type Proposal = {
   feedbackOnly: boolean // 조정안은 수락·거절 없이 피드백 한 줄만
   responders: Responder[]
   absentName: string | null // 불참안에서 빠진 사람
+  yieldGetter: YieldGetter | null
+  myFeedback: MyFeedback | null
 }
 
 export type RespondInput = {

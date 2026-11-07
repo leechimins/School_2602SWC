@@ -14,7 +14,7 @@ from __future__ import annotations
 from collections.abc import Iterator, Mapping, Sequence
 from datetime import datetime
 
-from sqlmodel import Session, col, select
+from sqlmodel import Session, col, func, select
 
 from app.me.models import Preference
 from app.meeting.models import (
@@ -35,7 +35,9 @@ from app.meeting.scorer import (
     yield_points,
     yield_weighted_cost,
 )
+from app.notice.agent_log import record
 from app.shared import demo_clock, llm
+from app.shared.base import KST
 from app.shared.notify import emit
 from app.shared.enums import (
     MeetingStatus,
@@ -70,13 +72,25 @@ def run_rounds(db: Session, scheduling: Scheduling) -> Iterator[Utterance]:
     names = member_names(db, scheduling.room_id)
     yields = yield_totals(db, scheduling.room_id)
     members = sorted(names)
-    세다 = _Counter()
-    rejections: list[str] = []
+
+    # **이어 돌기.** 사람이 합의된 회의를 거절하면(rerun.reopen) 같은 조율을
+    # 남은 라운드만큼 다시 돈다. 새로 시작할 때는 이미돈이 0이고 제안된 후보도
+    # 없어서 아래가 전부 전과 똑같이 움직인다.
+    이미돈 = scheduling.rounds_used
+    세다 = _Counter(_last_seq(db, scheduling.id))
+    rejections, 사람이거절한시간 = _human_rejections(db, scheduling.id, names)
 
     전부 = _scored(db, scheduling.id)
-    남은것 = [p for p in 전부 if unavailable_count(p[1]) == 0]
+    제안됨 = _proposed_slots(db, scheduling.id)
+    남은것 = [
+        p
+        for p in 전부
+        if unavailable_count(p[1]) == 0
+        and p[0] not in 제안됨
+        and not _겹친다(p[0], 사람이거절한시간)
+    ]
 
-    for round_no in range(1, MAX_ROUNDS + 1):
+    for round_no in range(이미돈 + 1, MAX_ROUNDS + 1):
         if not 남은것:
             break
         appeals = _appeals(members, 남은것)
@@ -113,7 +127,11 @@ def run_rounds(db: Session, scheduling: Scheduling) -> Iterator[Utterance]:
 
     # 3라운드 실패, 또는 전원 가능한 후보가 아예 없음. 둘 다 같은 길이다 —
     # 판단 에이전트가 전체에서 고르고 바로 확정한다(브리프 11/5).
-    ordered = pick_order(전부, yields, REJECT_AT)
+    # 사람이 거절한 시간은 조정에서도 다시 고르지 않는다. 그 사람이 싫다고 한
+    # 시간을 판단 에이전트가 "바로 확정"해 버리면 거절이 아무 뜻이 없다.
+    ordered = pick_order(
+        [p for p in 전부 if not _겹친다(p[0], 사람이거절한시간)], yields, REJECT_AT
+    )
     if not ordered:
         scheduling.status = SchedulingStatus.FAILED
         db.add(scheduling)
@@ -144,10 +162,10 @@ def run_rounds(db: Session, scheduling: Scheduling) -> Iterator[Utterance]:
 
 
 class _Counter:
-    """발언 순번. 라운드를 넘어 이어진다."""
+    """발언 순번. 라운드를 넘어 이어지고, 이어 돌 때는 쌓인 마지막에서 시작한다."""
 
-    def __init__(self) -> None:
-        self.seq = 0
+    def __init__(self, start: int = 0) -> None:
+        self.seq = start
 
     def next(self) -> int:
         self.seq += 1
@@ -178,6 +196,76 @@ def _say(
         db.commit()
         db.refresh(utterance)
         yield utterance
+
+
+def _last_seq(db: Session, scheduling_id: int) -> int:
+    """이미 쌓인 발언의 마지막 번호. 없으면 0."""
+    return (
+        db.exec(
+            select(func.max(Utterance.seq)).where(
+                Utterance.scheduling_id == scheduling_id
+            )
+        ).one()
+        or 0
+    )
+
+
+def _proposed_slots(
+    db: Session, scheduling_id: int
+) -> set[tuple[datetime, datetime]]:
+    """이미 제안된 후보. 거절됐든(에이전트든 사람이든) 다시 내놓지 않는다."""
+    rows = db.exec(
+        select(CandidateSlot.start_at, CandidateSlot.end_at).where(
+            CandidateSlot.scheduling_id == scheduling_id,
+            col(CandidateSlot.proposed).is_(True),
+        )
+    ).all()
+    return {(start, end) for start, end in rows}
+
+
+def _겹친다(
+    slot: tuple[datetime, datetime], 시간들: set[tuple[datetime, datetime]]
+) -> bool:
+    """사람이 거절한 시간과 조금이라도 겹치는지.
+
+    **같은 후보만 빼면 안 된다.** 후보는 30분 간격이라 서로 겹친다. 15:00–17:00을
+    거절했는데 14:30–16:30을 내놓으면 거절이 아무 뜻이 없다. 거절한 시간은 그 사람
+    시간표에 "바쁨"으로 들어갔지만, 저장된 후보 점수는 조율을 열 때 매긴 그대로라
+    겹치는 후보에서 그 사람이 여전히 "올 수 있음"으로 나온다. 그래서 여기서 뺀다.
+    """
+    return any(slot[0] < end and start < slot[1] for start, end in 시간들)
+
+
+def _human_rejections(
+    db: Session, scheduling_id: int, names: Mapping[int, str]
+) -> tuple[list[str], set[tuple[datetime, datetime]]]:
+    """사람이 거절해서 취소된 회의들. (판단 에이전트에게 알릴 말, 그 시간들).
+
+    말은 "이름: 이유" 모양이다 — 에이전트가 거절한 것과 같은 꼴이라 발언
+    만드는 쪽이 구분하지 않아도 된다. 이유는 거절할 때 남긴 한 줄이고, 안
+    남겼으면 기본 문장이다.
+    """
+    cancelled = db.exec(
+        select(Meeting).where(
+            Meeting.scheduling_id == scheduling_id,
+            Meeting.status == MeetingStatus.CANCELLED,
+        )
+    ).all()
+    말: list[str] = []
+    시간: set[tuple[datetime, datetime]] = set()
+    for meeting in cancelled:
+        시간.add((meeting.start_at, meeting.end_at))
+        for r in db.exec(
+            select(MeetingResponse).where(
+                MeetingResponse.meeting_id == meeting.id,
+                MeetingResponse.state == ResponseState.DECLINED,
+            )
+        ).all():
+            말.append(
+                f"{names.get(r.user_id, '팀원')}: "
+                f"{r.feedback or '그 시간은 어렵다고 했어요'}"
+            )
+    return 말, 시간
 
 
 def _appeals(
@@ -503,6 +591,12 @@ def _propose(
         NotificationKind.MEETING_PROPOSED,
         f"{scheduling.topic} 회의 일정이 나왔습니다. 수락·거절해 주세요.",
     )
+    record(
+        db,
+        scheduling.room_id,
+        f"{scheduling.topic} 회의를 {_때(candidate)}으로 제안했어요",
+        meeting.rationale or "팀 전체로 가장 덜 불편한 시간이에요",
+    )
     db.commit()
 
 
@@ -555,7 +649,18 @@ def _confirm(
         NotificationKind.MEETING_CONFIRMED,
         f"{scheduling.topic} 회의가 확정됐습니다. {_왜조정(rounds_ran)}",
     )
+    record(
+        db,
+        scheduling.room_id,
+        f"{scheduling.topic} 회의를 {_때(candidate)}으로 정했어요",
+        _왜조정(rounds_ran),
+    )
     db.commit()
+
+
+def _때(candidate: CandidateSlot) -> str:
+    """기록에 쓸 회의 시각. 한국 시각으로 바꿔 읽는다 — DB가 다른 시간대로 돌려줘도 같은 글자가 나오게."""
+    return when(candidate.start_at.astimezone(KST), candidate.end_at.astimezone(KST))
 
 
 def _왜조정(rounds_ran: int) -> str:

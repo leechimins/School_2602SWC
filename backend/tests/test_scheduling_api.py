@@ -19,7 +19,8 @@ from sqlmodel import Session, select
 from app.main import app
 from app.me.models import Preference, ScheduleItem
 from app.meeting import scorer
-from app.meeting.models import CandidateSlot, Meeting, SlotCost, Utterance
+from app.meeting.models import CandidateSlot, Meeting, Scheduling, SlotCost, Utterance
+from app.shared import demo_clock
 from app.shared.base import KST
 from app.shared.db import session_dep
 from app.shared.enums import (
@@ -211,7 +212,8 @@ def test_겹치는_수업이_있으면_그_사람은_안_된다(
     ).all()
     assert 현우_점수
     assert all(c.available is False for c in 현우_점수)
-    assert all("알바와 겹칩니다" in c.reason for c in 현우_점수)
+    # 일정 이름("알바")이 아니라 분류로 말한다 — 이름은 본인에게만 보인다
+    assert all(c.reason == "아르바이트가 있습니다" for c in 현우_점수)
 
     # 한 사람만 안 되면 1명 불참안 재료로 남는다. 전부 absent 단계다.
     slots = session.exec(select(CandidateSlot)).all()
@@ -501,9 +503,13 @@ def test_확정_대기_회의도_후보에서_빠진다(
             start_at=막힌때,
             end_at=막힌때 + timedelta(hours=1),
             mode=Mode.OFFLINE,
-            status=MeetingStatus.PROPOSED,  # 아직 수락 대기다
+            status=MeetingStatus.PROPOSED,  # 수락 대기가 끝나지 않고 남은 회의
         )
     )
+    # 회의가 끝난 뒤로 시계를 둔다. 안 끝난 수락 대기 회의가 있으면 조율 자체를
+    # 못 여는데(아래 테스트), 그건 새 조율을 막는 규칙이고 여기서 보려는 건
+    # "남아 있는 proposed가 후보 시간을 차지하는가"다.
+    demo_clock.set_clock(session, 막힌때 + timedelta(hours=2))
     session.commit()
 
     _login(client, "지수")
@@ -514,3 +520,74 @@ def test_확정_대기_회의도_후보에서_빠진다(
     ).all()
     assert 후보들, "후보가 아예 없으면 이 테스트가 뜻이 없다"
     assert all(c.start_at != 막힌때 for c in 후보들)
+
+
+def test_합의되면_조율_응답에_회의_번호가_실린다(
+    client: TestClient, session: Session, 방: 팀
+) -> None:
+    """화면이 "조율 결과 확인하기"로 그 회의에 가려면 번호가 있어야 한다.
+    전에는 빠져 있어서 버튼이 아예 안 그려졌다."""
+    _login(client, "지수")
+    started = _start(client, 방.room.id).json()  # type: ignore[union-attr,attr-defined]
+
+    body = client.get(f"{API}/rooms/{방.room.id}/schedulings/{started['id']}").json()
+
+    회의 = session.exec(select(Meeting)).one()
+    assert body["status"] in ("agreed", "settled")
+    assert body["meeting_id"] == 회의.id
+
+
+def test_도는_중이면_회의_번호가_없다(client: TestClient, 방: 팀, 열기만: None) -> None:
+    _login(client, "지수")
+    body = _start(client, 방.room.id).json()  # type: ignore[union-attr,attr-defined]
+    assert body["status"] == "running"
+    assert body["meeting_id"] is None
+
+
+def test_수락을_기다리는_회의가_있으면_새_조율을_못_연다(
+    client: TestClient, session: Session, 방: 팀, 열기만: None
+) -> None:
+    """거절로 옛 조율을 되살릴 때 "한 방에 running 하나"와 부딪치지 않게, 그리고
+    같은 시간이 후보로 또 나오지 않게 막는다."""
+    회의때 = WINDOW_START.replace(hour=14)
+    session.add(
+        Meeting(
+            room_id=방.room.id,  # type: ignore[arg-type]
+            topic="1차 회의",
+            start_at=회의때,
+            end_at=회의때 + timedelta(hours=1),
+            mode=Mode.OFFLINE,
+            status=MeetingStatus.PROPOSED,
+        )
+    )
+    demo_clock.set_clock(session, WINDOW_START - timedelta(days=1))  # 아직 안 지났다
+    session.commit()
+
+    _login(client, "지수")
+    res = _start(client, 방.room.id)  # type: ignore[union-attr]
+
+    assert res.status_code == 409  # type: ignore[attr-defined]
+    assert res.json()["code"] == "AWAITING_RESPONSE"  # type: ignore[attr-defined]
+    assert session.exec(select(Scheduling)).all() == []  # 조율 행도 안 생겼다
+
+
+def test_이미_지난_수락_대기_회의는_새_조율을_막지_않는다(
+    client: TestClient, session: Session, 방: 팀, 열기만: None
+) -> None:
+    """아무도 안 답하고 시간이 지나 버린 회의가 영영 팀장을 막으면 안 된다."""
+    회의때 = WINDOW_START.replace(hour=14)
+    session.add(
+        Meeting(
+            room_id=방.room.id,  # type: ignore[arg-type]
+            topic="1차 회의",
+            start_at=회의때,
+            end_at=회의때 + timedelta(hours=1),
+            mode=Mode.OFFLINE,
+            status=MeetingStatus.PROPOSED,
+        )
+    )
+    demo_clock.set_clock(session, 회의때 + timedelta(days=1))  # 회의가 끝난 뒤
+    session.commit()
+
+    _login(client, "지수")
+    assert _start(client, 방.room.id).status_code == 201  # type: ignore[union-attr,attr-defined]

@@ -15,11 +15,15 @@ from sqlalchemy import text
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.home.router import router as home_router
+from app.integration.router import router as integration_router
 from app.me.router import router as me_router
+from app.me.schedule import items_router as schedule_items_router
+from app.me.schedule import router as my_schedule_router
 from app.meeting.router import router as meeting_router
 from app.minutes.record_router import router as record_router
 from app.minutes.suggest_router import router as suggest_router
 from app.minutes.task_router import router as task_router
+from app.notice.router import log_router as agent_log_router
 from app.notice.router import router as notice_router
 from app.room.router import router as room_router
 from app.shared.auth import router as auth_router
@@ -61,12 +65,16 @@ app.add_middleware(
 app.include_router(auth_router, prefix=API_PREFIX)
 app.include_router(home_router, prefix=API_PREFIX)
 app.include_router(me_router, prefix=API_PREFIX)
+app.include_router(my_schedule_router, prefix=API_PREFIX)
+app.include_router(schedule_items_router, prefix=API_PREFIX)
 app.include_router(meeting_router, prefix=API_PREFIX)
 app.include_router(notice_router, prefix=API_PREFIX)
+app.include_router(agent_log_router, prefix=API_PREFIX)
 app.include_router(room_router, prefix=API_PREFIX)
 app.include_router(record_router, prefix=API_PREFIX)
 app.include_router(suggest_router, prefix=API_PREFIX)
 app.include_router(task_router, prefix=API_PREFIX)
+app.include_router(integration_router, prefix=API_PREFIX)
 
 
 # 에러 모양을 명세에 맞춘다 — {"code": ..., "message": 화면에 그대로 띄울 한 줄}.

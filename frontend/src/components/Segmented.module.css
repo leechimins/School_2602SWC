@@ -1,0 +1,22 @@
+.seg {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.seg button {
+  min-height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--card);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.seg button[aria-pressed='true'] {
+  border-color: var(--point);
+  background: var(--point);
+  color: var(--on-point);
+}

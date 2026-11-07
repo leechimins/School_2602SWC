@@ -182,3 +182,60 @@ svg.i.s {
   justify-content: center;
   color: inherit;
 }
+
+/* 한 줄 양끝: 왼쪽 제목·뱃지 | 오른쪽 보조 */
+.row-between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 나란히 놓인 두 버튼: 왼쪽 글자(.quiet) 1 | 오른쪽 버튼(.primary) 2 */
+.btn-row {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-row > .btn {
+  flex: 1;
+}
+
+.btn-row > .btn.primary {
+  flex: 2;
+}
+
+/* 버튼 모양 링크 */
+a.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+/* 목록 안 묶음 이름표: "기한 지남 2" · "민지 (나) 5". --mc로 점 색만 바꾼다(글자가 늘 함께 있다) */
+.cat {
+  --mc: var(--check-idle);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 10px 0 0;
+  padding: 2px 10px;
+  border-radius: 99px;
+  background: var(--soft);
+  font-size: var(--fs-meta);
+  font-weight: 700;
+}
+
+.cat::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--mc);
+}
+
+.cat .n {
+  color: var(--muted);
+  font-weight: 500;
+}

@@ -17,8 +17,9 @@ from datetime import date, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select
 
+from app.me.models import ScheduleItem
 from app.meeting.agent_loop import run_rounds
 from app.meeting.models import (
     CandidateSlot,
@@ -26,6 +27,7 @@ from app.meeting.models import (
     MeetingResponse,
     Scheduling,
     SlotCost,
+    Utterance,
     YieldEntry,
 )
 from app.notice.models import Notification
@@ -37,6 +39,7 @@ from app.shared.enums import (
     ResponseState,
     SchedulingPhase,
     SchedulingStatus,
+    SpeakerKind,
 )
 from app.shared.models import Membership, Room, User
 
@@ -326,15 +329,150 @@ def test_확정되면_확정_알림이_뜬다(
     assert all(n.meeting_id == meeting.id for n in 확정알림)
 
 
-def test_거절하면_회의가_그대로_남는다(
+def _두_후보로_합의된_회의(session: Session, 방: 팀) -> Meeting:
+    """1라운드에 14시로 합의된 회의. 16시가 대안으로 남아 있다.
+
+    점수를 모두 거절선(4) 아래로 둔다. 지수·현우는 14시를, 민지는 16시를
+    원하지만 표가 14시에 더 모여 14시가 먼저 나간다. rounds_used는 1이라
+    예산이 2라운드 남는다.
+    """
+    s = _조율(session, 방)
+    _후보(session, s, hour=14, 점수={방.지수.id: 1, 방.현우.id: 2, 방.민지.id: 3})  # type: ignore[dict-item]
+    _후보(session, s, hour=16, 점수={방.지수.id: 2, 방.현우.id: 2, 방.민지.id: 2})  # type: ignore[dict-item]
+    list(run_rounds(session, s))
+    meeting = session.exec(select(Meeting)).one()
+    assert meeting.start_at.astimezone(KST).hour == 14
+    assert meeting.status == MeetingStatus.PROPOSED
+    return meeting
+
+
+def _예산을_다_쓴_회의(session: Session, 방: 팀) -> Meeting:
+    """3라운드를 다 쓰고 합의된 회의 — 다시 조율할 수 없다."""
+    meeting = _합의된_회의(session, 방)
+    s = session.get(Scheduling, meeting.scheduling_id)
+    assert s is not None
+    s.rounds_used = 3
+    session.add(s)
+    session.commit()
+    return meeting
+
+
+def test_거절하면_예산이_남을_때_바로_다시_조율한다(
     client: TestClient, session: Session, 방: 팀, login
 ) -> None:
-    """거절은 기록만 한다. 팀장이 다시 조율한다."""
-    meeting = _합의된_회의(session, 방)
+    """브리프 11/5. 팀장 승인 없이, 거절한 사람이 누구든 자동으로 돈다."""
+    old = _두_후보로_합의된_회의(session, 방)
+    old_id = old.id
+    login("현우")
+
+    body = _응답(  # type: ignore[union-attr,attr-defined]
+        client, 방.room_id, old_id, accept=False, feedback="그 시간엔 급한 일이 생겼어요"
+    ).json()
+
+    assert body["rerun"] is True
+    assert body["rounds_left"] == 2  # 1라운드를 썼으니 2가 남았다
+    assert body["meeting_status"] == "cancelled"
+
+    session.expire_all()
+    meetings = {m.status: m for m in session.exec(select(Meeting)).all()}
+    assert set(meetings) == {MeetingStatus.CANCELLED, MeetingStatus.PROPOSED}
+    # 거절된 14시는 다시 안 나오고 대안 16시가 나갔다.
+    assert meetings[MeetingStatus.CANCELLED].start_at.astimezone(KST).hour == 14
+    assert meetings[MeetingStatus.PROPOSED].start_at.astimezone(KST).hour == 16
+
+    s = session.get(Scheduling, old.scheduling_id)
+    assert s is not None
+    assert s.status == SchedulingStatus.AGREED  # 다시 합의됐다
+    assert s.rounds_used == 2  # 새로 3을 주지 않고 이어서 썼다
+
+    # 새 회의는 처음부터 다시 답을 받는다.
+    새 = meetings[MeetingStatus.PROPOSED]
+    응답 = session.exec(
+        select(MeetingResponse).where(MeetingResponse.meeting_id == 새.id)
+    ).all()
+    assert {r.state for r in 응답} == {ResponseState.PENDING}
+
+
+def test_거절한_시간이_그_사람의_바쁨으로_들어간다(
+    client: TestClient, session: Session, 방: 팀, login
+) -> None:
+    """이래야 다음 조율에서 같은 시간을 또 내놓지 않는다. 제목은 비운다."""
+    old = _두_후보로_합의된_회의(session, 방)
+    login("현우")
+    _응답(client, 방.room_id, old.id, accept=False)  # type: ignore[union-attr]
+
+    session.expire_all()
+    item = session.exec(
+        select(ScheduleItem).where(ScheduleItem.user_id == 방.현우.id)
+    ).one()
+    assert item.title is None  # 팀에는 "바쁨"으로만 나간다
+    assert item.recurrence == "once"
+    assert item.start_at == old.start_at
+    assert item.end_at == old.end_at
+
+
+def test_다시_조율해도_발언_번호가_이어진다(
+    client: TestClient, session: Session, 방: 팀, login
+) -> None:
+    """uq_utterance_seq에 걸리면 이어 돌기가 터진다."""
+    old = _두_후보로_합의된_회의(session, 방)
+    앞 = len(session.exec(select(Utterance)).all())
+    login("현우")
+    _응답(client, 방.room_id, old.id, accept=False)  # type: ignore[union-attr]
+
+    session.expire_all()
+    seqs = [u.seq for u in session.exec(select(Utterance).order_by(col(Utterance.seq))).all()]
+    assert seqs == list(range(1, len(seqs) + 1))
+    assert len(seqs) > 앞
+    # 판단 에이전트가 누가 왜 거절했는지 짚는다.
+    판단 = session.exec(
+        select(Utterance)
+        .where(Utterance.speaker_kind == SpeakerKind.JUDGE)
+        .order_by(col(Utterance.seq).desc())
+    ).first()
+    assert 판단 is not None and "현우" in 판단.text, 판단.text if 판단 else None
+
+
+def test_다른_후보가_없으면_거절한_시간을_다시_확정하지_않는다(
+    client: TestClient, session: Session, 방: 팀, login
+) -> None:
+    """후보가 하나뿐일 때. 조정이 "바로 확정"하는 길이라 막지 않으면, 현우가
+    싫다고 한 그 시간이 그대로 확정되어 거절이 아무 뜻이 없어진다."""
+    meeting = _합의된_회의(session, 방)  # 후보 하나, rounds_used=1
     login("현우")
 
     body = _응답(client, 방.room_id, meeting.id, accept=False).json()  # type: ignore[union-attr,attr-defined]
 
+    assert body["rerun"] is True
+    session.expire_all()
+    m = session.exec(select(Meeting)).one()
+    assert m.status == MeetingStatus.CANCELLED  # 확정되지 않았다
+    s = session.get(Scheduling, meeting.scheduling_id)
+    assert s is not None and s.status == SchedulingStatus.FAILED
+
+
+def test_다시_조율하는_동안_옛_회의에_답하면_409다(
+    client: TestClient, session: Session, 방: 팀, login
+) -> None:
+    old = _두_후보로_합의된_회의(session, 방)
+    login("현우")
+    _응답(client, 방.room_id, old.id, accept=False)  # type: ignore[union-attr]
+
+    login("민지")
+    res = _응답(client, 방.room_id, old.id)  # type: ignore[union-attr]
+    assert res.status_code == 409  # type: ignore[attr-defined]
+    assert res.json()["code"] == "CLOSED"  # type: ignore[attr-defined]
+
+
+def test_예산이_없으면_다시_조율하지_않고_회의가_그대로_남는다(
+    client: TestClient, session: Session, 방: 팀, login
+) -> None:
+    meeting = _예산을_다_쓴_회의(session, 방)
+    login("현우")
+
+    body = _응답(client, 방.room_id, meeting.id, accept=False).json()  # type: ignore[union-attr,attr-defined]
+
+    assert body["rerun"] is False
     assert body["my_state"] == "declined"
     assert body["declined_count"] == 1
     assert body["meeting_status"] == "proposed"
@@ -342,20 +480,34 @@ def test_거절하면_회의가_그대로_남는다(
     session.expire_all()
     assert session.exec(select(Meeting)).one().status == MeetingStatus.PROPOSED
     assert session.exec(select(YieldEntry)).all() == []
+    assert session.exec(select(ScheduleItem)).all() == []  # 다시 돌지 않으니 바쁨도 없다
 
 
-def test_한_명이_거절하면_나머지가_수락해도_확정되지_않는다(
+def test_예산이_없을_때_거절한_사람을_빼고_나머지가_수락하면_확정된다(
     client: TestClient, session: Session, 방: 팀, login
 ) -> None:
-    meeting = _합의된_회의(session, 방)
+    """브리프 11/5: 그 사람은 불참으로 기록되고 회의는 선다."""
+    meeting = _예산을_다_쓴_회의(session, 방)
     login("현우")
     _응답(client, 방.room_id, meeting.id, accept=False)  # type: ignore[union-attr]
-    for 이름 in ("지수", "민지"):
-        login(이름)
-        body = _응답(client, 방.room_id, meeting.id).json()  # type: ignore[union-attr,attr-defined]
-    assert body["confirmed_now"] is False
-    assert body["pending_count"] == 0  # 다 답했는데도 확정이 아니다
-    assert body["declined_count"] == 1
+    login("지수")
+    중간 = _응답(client, 방.room_id, meeting.id).json()  # type: ignore[union-attr,attr-defined]
+    assert 중간["confirmed_now"] is False  # 민지가 아직이다
+    login("민지")
+    마지막 = _응답(client, 방.room_id, meeting.id).json()  # type: ignore[union-attr,attr-defined]
+
+    assert 마지막["confirmed_now"] is True
+    session.expire_all()
+    assert session.exec(select(Meeting)).one().status == MeetingStatus.CONFIRMED
+
+    # 양보 점수는 와 주는 사람만. 현우(2점)는 거절했으니 못 받고 민지(3점)만 받는다.
+    assert {y.user_id for y in session.exec(select(YieldEntry)).all()} == {방.민지.id}
+
+    알림 = session.exec(
+        select(Notification).where(Notification.kind == NotificationKind.MEETING_CONFIRMED)
+    ).all()
+    assert {n.user_id for n in 알림} == {방.지수.id, 방.현우.id, 방.민지.id}
+    assert all("현우 님은 빠져요" in n.reason for n in 알림)
 
 
 def test_피드백_한_줄이_남는다(
@@ -563,3 +715,27 @@ def test_방_사람이_아니면_일정을_못_본다(
     session.commit()
     login("연우")
     assert client.get(f"{API}/rooms/{방.room_id}/schedule").status_code == 403
+
+
+def test_거절한_시간과_겹치는_후보도_다시_내놓지_않는다(
+    client: TestClient, session: Session, 방: 팀, login
+) -> None:
+    """실서버로 돌려 보다 찾았다. 15:00–17:00을 거절했는데 다시 조율이 14:30–16:30을
+    내놓았다 — 후보는 30분 간격이라 서로 겹치는데, 거절된 그 후보 하나만 뺐기 때문이다.
+
+    14시가 1라운드에 합의된다. 15시는 14시와 겹치고, 18시는 안 겹친다.
+    """
+    s = _조율(session, 방)
+    _후보(session, s, hour=14, 점수={방.지수.id: 1, 방.현우.id: 2, 방.민지.id: 3})  # type: ignore[dict-item]
+    _후보(session, s, hour=15, 점수={방.지수.id: 2, 방.현우.id: 2, 방.민지.id: 2})  # type: ignore[dict-item]
+    _후보(session, s, hour=18, 점수={방.지수.id: 2, 방.현우.id: 2, 방.민지.id: 2})  # type: ignore[dict-item]
+    list(run_rounds(session, s))
+    old = session.exec(select(Meeting)).one()
+    assert old.start_at.astimezone(KST).hour == 14
+
+    login("현우")
+    _응답(client, 방.room_id, old.id, accept=False)  # type: ignore[union-attr]
+
+    session.expire_all()
+    새 = session.exec(select(Meeting).where(Meeting.status == MeetingStatus.PROPOSED)).one()
+    assert 새.start_at.astimezone(KST).hour == 18  # 15시는 거절한 14–16시와 겹쳐서 빠진다

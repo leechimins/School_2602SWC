@@ -80,18 +80,22 @@ def test_학기_밖의_수업은_안_펼쳐진다() -> None:
     assert expand_busy([item], MON, MON + timedelta(days=21)) == []
 
 
-def test_제목이_없으면_바쁨이_된다() -> None:
-    """구글 캘린더에서 온 개인 약속의 제목을 팀원에게 보여 주지 않는다."""
-    item = ScheduleItem(
-        user_id=1,
-        source=ScheduleSource.GOOGLE,
-        kind=ScheduleKind.APPOINTMENT,
-        title=None,
-        recurrence=Recurrence.ONCE,
-        start_at=at(0, 14),
-        end_at=at(0, 15),
-    )
-    assert expand_busy([item], MON, MON + timedelta(days=7))[0].label == "바쁨"
+def test_일정_이름_대신_분류로_말한다() -> None:
+    """일정 이름은 본인에게만 보인다(목업 "이름 (나만 보여요)"). 조율 발언에는 분류만.
+
+    제목이 있어도(편의점 알바) 없어도(구글 약속) 같다. 이름을 넘기면 LLM이 그 근거를
+    그대로 다듬어 "편의점 알바와 겹칩니다"가 팀에 나간다.
+    """
+    def 한칸(kind: ScheduleKind, title: str | None) -> ScheduleItem:
+        return ScheduleItem(
+            user_id=1, source=ScheduleSource.MANUAL, kind=kind, title=title,
+            recurrence=Recurrence.ONCE, start_at=at(0, 14), end_at=at(0, 15),
+        )
+
+    window = (MON, MON + timedelta(days=7))
+    assert expand_busy([한칸(ScheduleKind.CLASS, "서비스디자인")], *window)[0].label == "수업"
+    assert expand_busy([한칸(ScheduleKind.PARTTIME, "편의점 알바")], *window)[0].label == "아르바이트"
+    assert expand_busy([한칸(ScheduleKind.APPOINTMENT, None)], *window)[0].label == "일정"
 
 
 # ── 가능 시간 범위 ──────────────────────────────────────────────────
@@ -141,11 +145,11 @@ def test_한_사람만_안_되는_시간은_남긴다(
 
 
 def test_겹치면_안_되는_시간이_되고_5점이다() -> None:
-    알바 = Busy(user_id=3, start_at=at(0, 18), end_at=at(0, 22), label="알바")
+    알바 = Busy(user_id=3, start_at=at(0, 18), end_at=at(0, 22), label="아르바이트")
     cost = scorer.score_for(at(0, 19), at(0, 20), 3, None, [알바])
     assert cost.available is False
     assert cost.score == 5
-    assert cost.reason == "알바와 겹칩니다"
+    assert cost.reason == "아르바이트가 있습니다"
 
 
 def test_비어_있으면_1점_괜찮음이다() -> None:
@@ -173,22 +177,22 @@ def test_딱_붙은_일정이_가장_빠듯한_것으로_뽑힌다() -> None:
     가장 먼 것으로 뒤집힌다. 제일 빠듯한 경우가 제일 한가한 것으로 읽힌다.
     """
     딱붙음 = Busy(user_id=3, start_at=at(0, 12), end_at=at(0, 14), label="수업")
-    조금뒤 = Busy(user_id=3, start_at=at(0, 15, 15), end_at=at(0, 18), label="알바")
+    조금뒤 = Busy(user_id=3, start_at=at(0, 15, 15), end_at=at(0, 18), label="아르바이트")
 
     cost = scorer.score_for(at(0, 14), at(0, 15), 3, None, [딱붙음, 조금뒤])
     assert "수업" in cost.reason
-    assert "알바" not in cost.reason
+    assert "아르바이트" not in cost.reason
 
 
 def test_뒤에_있는_일정은_바로_전이라고_말한다() -> None:
     """에이전트가 이 문장을 그대로 말한다. 뒤에 있는 알바를 "바로 뒤"라고
     하면 틀린 이유를 말하게 된다.
     """
-    뒤에알바 = Busy(user_id=3, start_at=at(0, 15, 10), end_at=at(0, 19), label="알바")
+    뒤에알바 = Busy(user_id=3, start_at=at(0, 15, 10), end_at=at(0, 19), label="아르바이트")
     앞에수업 = Busy(user_id=3, start_at=at(0, 12), end_at=at(0, 13, 50), label="수업")
 
     뒤 = scorer.score_for(at(0, 14), at(0, 15), 3, None, [뒤에알바])
-    assert 뒤.reason == "알바 바로 전이라 이동이 빠듯합니다"
+    assert 뒤.reason == "아르바이트 바로 전이라 이동이 빠듯합니다"
 
     앞 = scorer.score_for(at(0, 14), at(0, 15), 3, None, [앞에수업])
     assert 앞.reason == "수업 바로 뒤라 이동이 빠듯합니다"
@@ -205,7 +209,7 @@ def test_사람별로_묶으면_남의_일정이_안_섞인다() -> None:
 
     costs = scorer.score_slot(at(0, 10), at(0, 11), [3, 9], {}, grouped)
     assert all(c.available is False for c in costs)
-    assert {c.user_id: c.reason for c in costs}[3] == "내 알바와 겹칩니다"
+    assert {c.user_id: c.reason for c in costs}[3] == "내 알바가 있습니다"
 
 
 def test_못_오는_사람_수를_센다() -> None:
@@ -278,9 +282,7 @@ def test_전원_가능한_후보가_항상_먼저다() -> None:
 
 def test_조사가_받침에_맞게_붙는다() -> None:
     """에이전트가 그대로 말하는 문장이라 조사가 틀리면 바로 보인다."""
-    assert scorer.with_particle("알바") == "알바와"      # 받침 없음
-    assert scorer.with_particle("수업") == "수업과"      # 받침 있음
-    assert scorer.with_particle("바쁨") == "바쁨과"
-    assert scorer.with_particle("서비스디자인") == "서비스디자인과"
-    assert scorer.with_particle("팀 회의") == "팀 회의와"
-    assert scorer.with_particle("CS101") == "CS101와"   # 한글이 아니면 와
+    assert scorer.with_subject("수업") == "수업이"          # 받침 있음
+    assert scorer.with_subject("아르바이트") == "아르바이트가"  # 받침 없음
+    assert scorer.with_subject("일정") == "일정이"
+    assert scorer.with_subject("CS101") == "CS101가"        # 한글이 아니면 가

@@ -56,11 +56,18 @@ export function editTask(roomId: Id, taskId: Id, patch: Partial<TaskInput>) {
   )
 }
 
-/** 직접 추가: 출처는 "직접 추가" */
-export function addTask(roomId: Id, input: TaskInput) {
+/**
+ * 직접 추가: 제안을 거치지 않고 바로 확정된 할 일이 된다.
+ * 회의록에서 추가하면 그 회의가 출처, 할 일 탭에서 추가하면(meetingId 없음) 출처는 "직접 추가"
+ */
+export function addTask(roomId: Id, input: TaskInput, meetingId: Id | null = null) {
   return withMockWrite(
-    () => request<void>(`/rooms/${roomId}/tasks`, { method: 'POST', body: toServerInput(input) }),
-    () => dispatch({ type: 'task/add', input }),
+    () =>
+      request<void>(`/rooms/${roomId}/tasks`, {
+        method: 'POST',
+        body: { ...toServerInput(input), meeting_id: meetingId && Number(meetingId) },
+      }),
+    () => dispatch({ type: 'task/add', input, meetingId, by: mockContext().viewer }),
   )
 }
 

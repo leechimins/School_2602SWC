@@ -55,12 +55,10 @@ export function formatRange(start: DateInput, end: DateInput) {
   return `${formatMD(start)}–${formatMD(end)}`
 }
 
-/** 회의 길이: 40분 · 2시간 · 1시간 30분 */
+/** 회의 길이: 30분 · 2시간 · 1.5시간 (30분 단위라 시간은 소수 한 자리로 짧게) */
 export function formatDuration(minutes: number) {
-  const h = Math.floor(minutes / 60)
-  const m = minutes % 60
-  if (h === 0) return `${m}분`
-  return m === 0 ? `${h}시간` : `${h}시간 ${m}분`
+  if (minutes < 60) return `${minutes}분`
+  return `${Math.round((minutes / 60) * 10) / 10}시간`
 }
 
 /** 시작~끝 사이의 분 */
@@ -94,4 +92,26 @@ export function dueGroup(due: IsoDate | null, now: Dayjs): DueGroup {
   if (days === 0) return '오늘'
   if (days === 1) return '내일'
   return '그 이후'
+}
+
+/** 알림·기록 시각: 11/10 18:42 */
+export function formatStamp(value: DateInput) {
+  return d(value).format('M/D HH:mm')
+}
+
+/** 같은 날인지 (오늘 회의 찾기) */
+export function isSameDay(a: DateInput, b: DateInput) {
+  return d(a).isSame(d(b), 'day')
+}
+
+/** 프로젝트 기간에서 오늘이 어디쯤인지: 전체 날 수, 지난 날 수(0~전체), 마감까지 남은 날 */
+export function periodOf(start: DateInput, due: DateInput, today: DateInput) {
+  const total = Math.max(1, d(due).diff(d(start), 'day'))
+  const left = daysUntil(due, d(today))
+  return { total, passed: Math.min(total, Math.max(0, total - left)), left }
+}
+
+/** 날짜 칸(일정 목록 왼쪽): { month: '11월', day: '18', weekday: '수' } */
+export function dateParts(value: DateInput) {
+  return { month: d(value).format('M월'), day: d(value).format('D'), weekday: weekday(value) }
 }

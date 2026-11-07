@@ -1,0 +1,36 @@
+.list {
+  margin: 0 0 var(--gap-2);
+  padding: 0;
+  list-style: none;
+}
+
+.member {
+  display: grid;
+  grid-template-columns: 34px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  min-height: 52px;
+  border-bottom: 1px solid var(--line);
+}
+
+.member:last-child {
+  border-bottom: 0;
+}
+
+.name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.yield {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--gap-2);
+}
+
+.code {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}

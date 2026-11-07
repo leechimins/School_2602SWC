@@ -1,0 +1,47 @@
+.record {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.record:last-child {
+  border-bottom: 0;
+}
+
+.record p {
+  margin: 0;
+}
+
+/* 에이전트 기록: 무엇을 · 왜 | 언제 */
+.log {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.log > span {
+  flex: none;
+}
+
+.aux {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 6px;
+  font-size: var(--fs-meta);
+}
+
+.push {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.push p {
+  margin: 0;
+}
+
+.push :global(.btn) {
+  flex: none;
+}

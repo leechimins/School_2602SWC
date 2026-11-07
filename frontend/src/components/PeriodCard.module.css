@@ -1,0 +1,66 @@
+.hero {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  border-color: color-mix(in srgb, var(--point) 35%, var(--card));
+  background: color-mix(in srgb, var(--point) 16%, var(--card));
+}
+
+.hero > div:first-child {
+  margin-right: 16px;
+  padding-right: 16px;
+  border-right: 1px solid var(--line);
+}
+
+.label {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.dday {
+  display: block;
+  color: var(--point-ink);
+  font-size: var(--fs-big);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+}
+
+.right {
+  min-width: 0;
+}
+
+.today {
+  color: var(--point-ink);
+  font-size: var(--fs-meta);
+  font-weight: 700;
+}
+
+/* 기간 막대: 지난 만큼 채우고 오늘 자리에 점 */
+.period {
+  position: relative;
+  height: 8px;
+  margin: 10px 0 4px;
+  border-radius: 99px;
+  background: var(--card);
+}
+
+.period > i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--point);
+}
+
+.period > b {
+  position: absolute;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  border: 3px solid var(--card);
+  border-radius: 50%;
+  background: var(--point);
+  transform: translate(-50%, -50%);
+}

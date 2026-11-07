@@ -77,20 +77,19 @@ class Cost:
     reason: str
 
 
-def with_particle(word: str) -> str:
-    """뒤에 "와" 또는 "과"를 붙인다. 받침이 있으면 "과", 없으면 "와".
+def with_subject(word: str) -> str:
+    """뒤에 "이" 또는 "가"를 붙인다. 받침이 있으면 "이", 없으면 "가".
 
     에이전트가 이 문장을 그대로 말하므로 조사가 틀리면 바로 보인다 —
-    "알바과 겹칩니다"는 "알바와 겹칩니다"여야 한다.
+    "수업가 있습니다"는 "수업이 있습니다"여야 한다.
 
     한글 음절의 받침은 (코드포인트 - 0xAC00) % 28로 나온다. 0이면 받침이
-    없다. 한글이 아닌 글자(영문 과목 코드 등)로 끝나면 "와"를 쓴다 —
-    영문 이름의 받침을 추측하면 더 틀린다.
+    없다. 한글이 아닌 글자로 끝나면 "가"를 쓴다 — 받침을 추측하면 더 틀린다.
     """
     code = ord(word[-1])
     if 0xAC00 <= code <= 0xD7A3 and (code - 0xAC00) % 28 != 0:
-        return f"{word}과"
-    return f"{word}와"
+        return f"{word}이"
+    return f"{word}가"
 
 
 def score_for(
@@ -112,7 +111,7 @@ def score_for(
             user_id=user_id,
             score=BLOCKED_SCORE,
             available=False,
-            reason=f"{with_particle(clash.label)} 겹칩니다",
+            reason=f"{with_subject(clash.label)} 있습니다",
         )
 
     score = 1
