@@ -21,6 +21,7 @@ from app.meeting.router import router as meeting_router
 from app.minutes.record_router import router as record_router
 from app.minutes.suggest_router import router as suggest_router
 from app.minutes.task_router import router as task_router
+from app.notice.router import log_router as agent_log_router
 from app.notice.router import router as notice_router
 from app.room.router import router as room_router
 from app.shared.auth import router as auth_router
@@ -64,6 +65,7 @@ app.include_router(home_router, prefix=API_PREFIX)
 app.include_router(me_router, prefix=API_PREFIX)
 app.include_router(meeting_router, prefix=API_PREFIX)
 app.include_router(notice_router, prefix=API_PREFIX)
+app.include_router(agent_log_router, prefix=API_PREFIX)
 app.include_router(room_router, prefix=API_PREFIX)
 app.include_router(record_router, prefix=API_PREFIX)
 app.include_router(suggest_router, prefix=API_PREFIX)
