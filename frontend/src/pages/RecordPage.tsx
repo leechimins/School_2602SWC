@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { messageOf } from '../api/client.ts'
 import { getMeeting, liveTranscript, writeTranscript } from '../api/records.ts'
@@ -166,11 +166,17 @@ function Live({ memberCount, onStop }: { memberCount: number; onStop: (lines: He
   const [script] = useState(liveTranscript)
   const lines = script.slice(0, Math.floor((seconds * 1000) / LIVE_MS))
   const voices = [...new Set(script.map((l) => l.speakerId))]
+  const box = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const id = setInterval(() => setSeconds((s) => s + 1), 1000)
     return () => clearInterval(id)
   }, [])
+
+  // 새 줄이 쌓이면 맨 아래가 보이게
+  useEffect(() => {
+    box.current?.scrollTo({ top: box.current.scrollHeight })
+  }, [lines.length])
 
   const mm = String(Math.floor(seconds / 60)).padStart(2, '0')
   const ss = String(seconds % 60).padStart(2, '0')
@@ -184,7 +190,7 @@ function Live({ memberCount, onStop }: { memberCount: number; onStop: (lines: He
         {mm}:{ss}
       </p>
       <p className="meta">음성은 저장하지 않고 글자만 남겨요.</p>
-      <div className={styles.live} aria-live="polite">
+      <div ref={box} className={styles.live} aria-live="polite">
         {lines.length === 0 ? (
           <p className="meta">말을 시작하면 여기에 글자로 쌓여요</p>
         ) : (

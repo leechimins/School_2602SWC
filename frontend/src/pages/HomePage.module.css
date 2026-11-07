@@ -1,12 +1,3 @@
-.dday {
-  display: block;
-  color: var(--point-ink);
-  font-size: var(--fs-big);
-  font-weight: 700;
-  line-height: 1.2;
-  letter-spacing: -0.03em;
-}
-
 .list {
   margin: 0;
   padding: 0;

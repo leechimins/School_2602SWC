@@ -1,6 +1,6 @@
 import dayjs from 'dayjs'
 import type { Id, IsoDateTime } from '../types/common.ts'
-import { formatMonthDay } from '../lib/date.ts'
+import { formatMD, formatMonthDay } from '../lib/date.ts'
 import type { RecordInput, SuggestionPatch } from '../types/meeting.ts'
 import { YIELD_LEVELS, type RoomInput, type YieldLevel } from '../types/room.ts'
 import type { SchedulingInput } from '../types/scheduling.ts'
@@ -347,7 +347,7 @@ export function reduce(s: DemoState, action: Action): DemoState {
           {
             id: `a${s.nextSeq}`,
             at: now(s),
-            what: `${formatMonthDay(m.startAt)} 회의록에서 할 일 제안 ${suggestions.length}개를 만들었어요`,
+            what: `${formatMD(m.startAt)} 회의록에서 할 일 제안 ${suggestions.length}개를 만들었어요`,
             why: suggestions.length ? '확정 전까지는 회의록에만 보여요.' : '회의에서 맡을 일이 분명히 나오지 않았어요.',
           },
           ...s.agentLog,

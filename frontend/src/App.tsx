@@ -6,6 +6,7 @@ import ComingSoonPage from './pages/ComingSoonPage.tsx'
 import HomePage from './pages/HomePage.tsx'
 import MeetingPage from './pages/MeetingPage.tsx'
 import MePage from './pages/MePage.tsx'
+import MyTasksPage from './pages/MyTasksPage.tsx'
 import NotificationsPage from './pages/NotificationsPage.tsx'
 import ProposalPage from './pages/ProposalPage.tsx'
 import RecordPage from './pages/RecordPage.tsx'
@@ -34,7 +35,7 @@ export default function App() {
         <Route path={PATHS.record} element={<RecordPage />} />
         {/* 할 일 탭 */}
         <Route path={PATHS.tasks} element={<TasksPage />} />
-        <Route path={PATHS.myTasks} element={<ComingSoonPage title="내 할 일" backTo={PATHS.tasks} />} />
+        <Route path={PATHS.myTasks} element={<MyTasksPage />} />
         {/* 나 탭 */}
         <Route path={PATHS.me} element={<MePage />} />
         <Route path={PATHS.team} element={<TeamPage />} />
