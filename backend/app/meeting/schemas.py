@@ -117,6 +117,10 @@ class ProposalOut(SQLModel):
     # 합의(agreed)로 나온 안인지 조정(settled)으로 나온 안인지. 화면이
     # "확정 · 조정" 꼬리표와 "이미 확정됐습니다"를 이걸로 가른다.
     scheduling_status: SchedulingStatus | None = None
+    # 이 회의를 낸 조율. 화면의 "조율 과정 보기"가 이걸로 조율 화면에 간다.
+    # 거절로 취소된 회의에도 남는다 — 취소 뒤 "다시 조율하는 과정 보기"로 가야 해서다.
+    # 조율 없이 만든 회의(회의 기록에서 바로)는 null.
+    scheduling_id: int | None = None
 
     my_score: int | None = None
     my_reason: str = ""
