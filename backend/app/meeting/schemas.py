@@ -9,6 +9,7 @@ total_cost가 이 파일의 어떤 클래스에도 없는 이유다.
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 
 from sqlmodel import Field, SQLModel
 
@@ -50,6 +51,18 @@ class UtteranceOut(SQLModel):
     speaker_name: str | None = None
     text: str
     created_at: datetime
+    # 아래는 말풍선 뱃지. 어필 발언은 전부 null이다.
+    answer: Literal["accept", "reject"] | None = Field(
+        default=None, description="팀원 반응 발언의 수락·거절"
+    )
+    burden: Burden | None = Field(
+        default=None, description="팀원 반응 발언의 불편 단계. 남의 점수는 이것만 나간다"
+    )
+    my_score: int | None = Field(
+        default=None, description="보는 사람 본인의 반응 발언일 때만 1~5 숫자"
+    )
+    slot_start_at: datetime | None = Field(default=None, description="판단 에이전트가 낸 시간")
+    slot_end_at: datetime | None = None
 
 
 class SchedulingOut(SQLModel):
