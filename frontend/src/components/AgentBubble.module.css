@@ -1,0 +1,70 @@
+.msg {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--gap-2);
+  margin: var(--gap-2) 0;
+}
+
+.msg > :first-child {
+  margin-top: 20px; /* 아바타를 이름 줄 아래 말풍선에 맞춘다 */
+}
+
+.body {
+  min-width: 0;
+  max-width: 84%;
+}
+
+.who {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.name {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.text {
+  margin-top: 3px;
+  padding: 7px 12px;
+  border-radius: var(--r);
+  background: var(--bubble);
+}
+
+/* 내 에이전트는 오른쪽, 포인트색 */
+.mine {
+  flex-direction: row-reverse;
+}
+
+.mine > :first-child {
+  margin-top: 0;
+}
+
+.mine .who {
+  justify-content: flex-end;
+}
+
+.mine .text {
+  background: var(--point);
+  color: var(--on-point);
+}
+
+.enter {
+  animation: rise 0.25s ease-out;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .enter {
+    animation: none;
+  }
+}

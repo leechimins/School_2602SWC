@@ -41,7 +41,7 @@ export function startScheduling(roomId: Id, input: SchedulingInput): Promise<Sch
       dispatch({ type: 'scheduling/start', input })
       const { s, viewer } = mockContext()
       const started = s.schedulings[s.schedulings.length - 1]
-      later(() => dispatch({ type: 'scheduling/finish', schedulingId: started.id }), started.script.length * UTTERANCE_MS)
+      later(() => dispatch({ type: 'scheduling/finish', schedulingId: started.id }), (started.script.length - 1) * UTTERANCE_MS)
       return buildScheduling(s, started.id, viewer)
     },
   )
