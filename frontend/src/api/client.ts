@@ -9,6 +9,20 @@ import { markChanged } from '../mock/store.ts'
 const API_URL = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '')
 export const USE_MOCK = API_URL === ''
 
+// 실서버 모드인데 처음에 서버가 안 닿아 "나는 누구"(GET /me)를 못 받았으면, 그 화면은 끝까지 목으로만 돈다.
+// 신원 없이 서버를 부르면 목 ID(room-1 같은)가 서버로 가서 400이 나고, 목과 서버 번호가 섞인다.
+let serverDown = false
+
+/** 신원을 못 받았을 때 api/session.ts가 부른다 */
+export function fallBackToMock() {
+  serverDown = true
+}
+
+/** 지금 실서버로 도는지. 목 모드이거나 서버가 처음부터 안 닿았으면 false */
+export function isRealServer(): boolean {
+  return !USE_MOCK && !serverDown
+}
+
 const TIMEOUT_MS = 5_000 // AI가 도는 요청(요약 등)은 호출하는 쪽에서 timeoutMs로 늘린다
 
 export class ApiError extends Error {
@@ -59,7 +73,7 @@ export async function request<Raw>(path: string, options: RequestOptions = {}): 
  */
 export async function withMock<T>(real: () => Promise<T>, mock: () => T): Promise<T> {
   await debugGate()
-  if (USE_MOCK) return mock()
+  if (!isRealServer()) return mock()
   try {
     return await real()
   } catch (e) {
@@ -79,7 +93,7 @@ async function debugGate() {
 /** 쓰기 요청: withMock과 같고, 끝나면 다른 화면(다른 iframe 포함)이 다시 불러오게 알린다 */
 export async function withMockWrite<T>(real: () => Promise<T>, mock: () => T): Promise<T> {
   const result = await withMock(real, mock)
-  if (!USE_MOCK) markChanged() // 목 모드는 dispatch가 이미 알렸다
+  if (isRealServer()) markChanged() // 목 모드는 dispatch가 이미 알렸다
   return result
 }
 

@@ -521,6 +521,28 @@ def test_확정_대기_회의도_후보에서_빠진다(
     assert all(c.start_at != 막힌때 for c in 후보들)
 
 
+def test_합의되면_조율_응답에_회의_번호가_실린다(
+    client: TestClient, session: Session, 방: 팀
+) -> None:
+    """화면이 "조율 결과 확인하기"로 그 회의에 가려면 번호가 있어야 한다.
+    전에는 빠져 있어서 버튼이 아예 안 그려졌다."""
+    _login(client, "지수")
+    started = _start(client, 방.room.id).json()  # type: ignore[union-attr,attr-defined]
+
+    body = client.get(f"{API}/rooms/{방.room.id}/schedulings/{started['id']}").json()
+
+    회의 = session.exec(select(Meeting)).one()
+    assert body["status"] in ("agreed", "settled")
+    assert body["meeting_id"] == 회의.id
+
+
+def test_도는_중이면_회의_번호가_없다(client: TestClient, 방: 팀, 열기만: None) -> None:
+    _login(client, "지수")
+    body = _start(client, 방.room.id).json()  # type: ignore[union-attr,attr-defined]
+    assert body["status"] == "running"
+    assert body["meeting_id"] is None
+
+
 def test_수락을_기다리는_회의가_있으면_새_조율을_못_연다(
     client: TestClient, session: Session, 방: 팀, 열기만: None
 ) -> None:

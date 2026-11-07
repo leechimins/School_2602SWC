@@ -30,8 +30,9 @@ export function startScheduling(roomId: Id, input: SchedulingInput): Promise<Sch
           method: 'POST',
           body: {
             topic: input.topic,
-            window_start: input.windowStart,
-            window_end: input.windowEnd,
+            // 서버는 오프셋 붙은 시각만 받는다(api-스펙 권장 규칙 2). 날짜를 그날 처음·끝으로 — 목(actions.ts)과 같은 규칙
+            window_start: `${input.windowStart}T00:00:00+09:00`,
+            window_end: `${input.windowEnd}T23:59:00+09:00`,
             duration_min: input.durationMin,
             mode: toServerMode(input.mode),
           },

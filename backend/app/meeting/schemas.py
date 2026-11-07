@@ -68,6 +68,9 @@ class SchedulingOut(SQLModel):
     status: SchedulingStatus
     rounds_used: int
     candidate_count: int
+    # 이 조율로 나온 회의. 합의·조정이 끝나야 생긴다(도는 중·failed는 null).
+    # 화면이 "조율 결과 확인하기"로 이 회의에 간다.
+    meeting_id: int | None = None
     # can_* 권한 플래그(명세 권장 규칙 4)는 여기 없다. 조율을 시작할 수
     # 있는지는 홈 화면이 물어야 하는 것이고, rerun 권한은 아직 미정이다
     # (db-설계.md §9-5). 쓸 화면이 생길 때 그 응답에 붙인다.

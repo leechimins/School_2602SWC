@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
+import { isRealServer } from '../api/client.ts'
 import { getScheduling } from '../api/scheduling.ts'
 import AgentBubble from '../components/AgentBubble.tsx'
 import Badge from '../components/Badge.tsx'
@@ -35,6 +36,15 @@ export default function SchedulingPage() {
   const { schedulingId } = useParams()
   const user = useCurrentUser()
   const res = useApi(() => getScheduling(user.roomId, schedulingId ?? ''), [user.roomId, user.id, schedulingId])
+
+  // 실서버에서는 조율이 뒷단에서 돈다. 도는 동안 발언 간격마다 다시 불러, 새로 쌓인 발언을 Talk가 이어서 재생한다.
+  // 목은 가짜 서버가 끝날 때 저장소가 바뀌어 useApi가 알아서 다시 부르므로 필요 없다.
+  const running = res.status === 'ready' && res.data.status === 'running'
+  const { reload } = res
+  useEffect(() => {
+    if (!running || !isRealServer()) return
+    return later(reload, UTTERANCE_MS)
+  }, [running, reload, res])
 
   if (!schedulingId) return <Navigate to={PATHS.home} replace />
   if (res.status === 'ready') {
