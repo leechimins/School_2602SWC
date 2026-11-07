@@ -4,6 +4,7 @@
 
 http://localhost:8001 을 열고 버튼을 차례로 누른다.
 지수로 로그인 → 구글 연결 → 동기화 → 끊기. 각 응답이 화면에 그대로 나온다.
+맨 위 구글 로그인 버튼은 POST /sessions/google을 본다(내 구글 계정으로 새 사람이 생긴다).
 
 Swagger로는 연결을 확인할 수 없다. 연결에는 구글 팝업이 준 인증 코드가
 필요한데, Swagger에는 그 팝업을 띄우는 길이 없어서 이 페이지를 둔다.
@@ -32,6 +33,8 @@ PAGE = """<!doctype html><meta charset="utf-8"><title>구글 연동 확인</titl
 <script src="https://accounts.google.com/gsi/client" async></script>
 <body style="font-family:sans-serif;padding:16px;max-width:640px">
 <h3>구글 캘린더 연동 확인 (실제 API · 테스트 DB)</h3>
+<p>구글 로그인: <span id="g"></span>
+<button onclick="call('GET','/api/v1/me')">내 계정 보기</button></p>
 <p>
 <button onclick="call('POST','/api/v1/sessions',{name:'지수'})">1. 지수로 로그인</button>
 <button id="c">2. 구글 연결</button>
@@ -48,6 +51,14 @@ async function call(method, url, body) {
   o.textContent = method + ' ' + url + ' → ' + res.status + '\\n' +
     (text ? JSON.stringify(JSON.parse(text), null, 2) : '');
 }
+// 구글 로그인 버튼 → ID 토큰(credential) → POST /sessions/google
+window.onload = () => {
+  google.accounts.id.initialize({
+    client_id: __CLIENT_ID__,
+    callback: (r) => call('POST', '/api/v1/sessions/google', {credential: r.credential}),
+  });
+  google.accounts.id.renderButton(document.getElementById('g'), {theme: 'outline', size: 'medium'});
+};
 document.getElementById('c').onclick = () => {
   google.accounts.oauth2.initCodeClient({
     client_id: __CLIENT_ID__,
