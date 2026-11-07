@@ -8,7 +8,6 @@ import AiMark from '../components/AiMark.tsx'
 import Badge from '../components/Badge.tsx'
 import ConfirmSheet from '../components/ConfirmSheet.tsx'
 import Icon from '../components/Icon.tsx'
-import PeriodCard from '../components/PeriodCard.tsx'
 import RetryBox from '../components/RetryBox.tsx'
 import Screen from '../components/Screen.tsx'
 import { useApi } from '../hooks/useApi.ts'
@@ -21,26 +20,21 @@ import {
   formatTimeRange,
   isSameDay,
   minutesBetween,
-  toIsoDate,
 } from '../lib/date.ts'
 import { PATHS, pathTo } from '../lib/paths.ts'
 import type { IsoDateTime } from '../types/common.ts'
 import type { MeetingBrief, Schedule } from '../types/meeting.ts'
 import styles from './SchedulePage.module.css'
 
-// 일정 탭: 정해진 회의를 관리하는 화면. 기간 → 지금 회의 받아적기 → 조율 중 → 잡힌 회의 → 지난 회의(회의록).
-// 홈은 다음 회의 하나만, 여기서는 지난 것까지 전부를 시간 순으로 본다.
+// 일정 탭: 정해진 회의를 관리하는 화면. 지금 회의 받아적기 → 조율 중 → 잡힌 회의 → 지난 회의(회의록).
+// 홈은 기간과 다음 회의 하나만, 여기서는 지난 것까지 전부를 시간 순으로 본다.
 export default function SchedulePage() {
   const user = useCurrentUser()
-  const now = useClock()
   const res = useApi(() => getSchedule(user.roomId), [user.roomId, user.id])
   const room = useApi(() => getRoom(user.roomId), [user.roomId, user.id])
 
   return (
     <Screen title="일정">
-      {room.status === 'ready' && (
-        <PeriodCard startDate={room.data.startDate} dueDate={room.data.dueDate} today={toIsoDate(now)} />
-      )}
       {res.status === 'error' && <RetryBox message={res.message} onRetry={res.reload} />}
       {res.status === 'ready' && (
         <ScheduleBody schedule={res.data} canStartScheduling={room.status === 'ready' && room.data.canStartScheduling} />
