@@ -26,3 +26,12 @@
   font-weight: 700;
   line-height: 17px;
 }
+
+/* 새 회의 잡기(팀장만): 다음 회의와 따로 둔다 */
+.newMeeting {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--point-ink);
+  text-decoration: none;
+}

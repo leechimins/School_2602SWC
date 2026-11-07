@@ -22,11 +22,7 @@ export default function AgentBubble({ utterance: u, isMine, isNew }: Props) {
       <div className={styles.body}>
         <div className={styles.who}>
           <span className={styles.name}>{isMine ? '내 에이전트' : `${name}의 에이전트`}</span>
-          {u.answer && (
-            <Badge tone={tone}>
-              {u.answer} · <span className="num">{burden}</span>
-            </Badge>
-          )}
+          {u.answer && <Badge tone={tone}>{`${u.answer} · ${burden}`}</Badge>}
         </div>
         <p className={styles.text}>{u.text}</p>
       </div>
