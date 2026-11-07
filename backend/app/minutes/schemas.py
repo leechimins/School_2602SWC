@@ -136,6 +136,9 @@ class MeetingDetailOut(SQLModel):
     transcript: list[TranscriptLineOut] = Field(description="원문. 줄 번호 순")
     minutes: MinutesOut | None = Field(description="요약. 요약 전이면 null")
     tasks: list[TaskOut] = Field(description="이 회의에서 확정된 할 일. 할 일 목록과 같은 모양")
+    done_tasks: list[TaskOut] = Field(
+        description='이 회의에서 끝났다고 말해 완료로 바뀐 할 일("회의에서 끝난 일"). 할 일 목록과 같은 모양'
+    )
     suggestions: list[SuggestionOut] = Field(description="확정 전 AI 제안")
 
 
@@ -227,6 +230,10 @@ class TaskCreateIn(SQLModel):
     title: str = Field(min_length=1, max_length=200, description="제목")
     assignee_user_id: int | None = Field(default=None, description="담당자. 비워도 됨")
     due_date: date | None = Field(default=None, description="기한. 비워도 됨")
+    meeting_id: int | None = Field(
+        default=None,
+        description="출처 회의. 회의록에서 추가하면 그 회의, 비우면 직접 추가(source가 null)",
+    )
 
 
 class ReassignIn(SQLModel):
