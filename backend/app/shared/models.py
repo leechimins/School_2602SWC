@@ -34,11 +34,10 @@ class User(SQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
     name: str = Field(max_length=20, index=True)
+    # 구글 계정 번호(ID 토큰의 sub). 구글로 로그인한 사람만 있다. 시드 4명은 null이고
+    # 이름 로그인(POST /sessions)으로 들어온다. 이메일은 쓸 데가 없어 저장하지 않는다.
+    google_sub: str | None = Field(default=None, max_length=255, unique=True)
     created_at: datetime = ts(auto_now=True)
-
-    # 비밀번호·이메일 열이 없는 이유: 명세가 "인증은 세션 쿠키"로 정했지만
-    # 무엇으로 로그인하는지는 아직 안 적혀 있다. 정해지면 B가 붙인다.
-    # 시연은 POST /demo/switch-user로 사람을 바꾼다.
 
 
 class Room(SQLModel, table=True):

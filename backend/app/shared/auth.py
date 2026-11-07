@@ -16,8 +16,10 @@ Room 도메인이라 레인 표대로면 B(장연우) 것이다. 그런데 /me/*
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from sqlmodel import Session, SQLModel, select
+from sqlalchemy.exc import IntegrityError
+from sqlmodel import Session, SQLModel, col, select
 
+from app.integration import google_calendar as google
 from app.shared.db import session_dep
 from app.shared.models import Membership, User
 
@@ -34,6 +36,14 @@ class LoginIn(SQLModel):
 class LoginOut(SQLModel):
     user_id: int
     name: str
+
+
+class GoogleLoginIn(SQLModel):
+    credential: str  # 구글 로그인 버튼이 준 ID 토큰
+
+
+class GoogleLoginOut(LoginOut):
+    is_new: bool  # 처음 왔다 — 화면이 초대 코드 입력·방 만들기로 간다
 
 
 def current_user_id(request: Request) -> int:
@@ -76,7 +86,11 @@ def login(
     request: Request,
     db: Session = Depends(session_dep),
 ) -> LoginOut:
-    user = db.exec(select(User).where(User.name == body.name)).first()
+    # 구글로 만든 사람은 이름으로 못 들어온다. 막지 않으면 관객이 다른 관객의 구글 이름을
+    # 쳐서 그 사람이 된다. 시드 4명(시연 폰)만 이 길이다.
+    user = db.exec(
+        select(User).where(User.name == body.name, col(User.google_sub).is_(None))
+    ).first()
     if user is None:
         raise HTTPException(
             status.HTTP_404_NOT_FOUND,
@@ -96,3 +110,51 @@ def login(
 def logout(request: Request) -> Response:
     request.session.clear()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/google", status_code=status.HTTP_201_CREATED)
+def login_google(
+    body: GoogleLoginIn,
+    request: Request,
+    db: Session = Depends(session_dep),
+) -> GoogleLoginOut:
+    """구글 로그인. 같은 구글 계정이면 같은 사람이고, 처음이면 만든다.
+
+    - 토큰이 틀렸거나 만료됐거나 다른 앱 것이면 401 `UNAUTHENTICATED`.
+    - 구글이 안 받으면 503 `GOOGLE_UNAVAILABLE`, 서버에 클라이언트 ID가 없으면 503
+      `GOOGLE_NOT_CONFIGURED`.
+    """
+    if google.login_client_id() is None:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"code": "GOOGLE_NOT_CONFIGURED", "message": "구글 로그인이 아직 설정되지 않았어요."},
+        )
+    try:
+        sub, name = google.verify_id_token(body.credential)
+    except google.InvalidGrant:
+        raise HTTPException(
+            status.HTTP_401_UNAUTHORIZED,
+            detail={"code": "UNAUTHENTICATED", "message": "구글 로그인을 다시 해 주세요."},
+        ) from None
+    except google.GoogleError:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"code": "GOOGLE_UNAVAILABLE", "message": "구글에 연결할 수 없어요. 잠시 뒤 다시 해 주세요."},
+        ) from None
+
+    user = db.exec(select(User).where(User.google_sub == sub)).first()
+    is_new = user is None
+    if user is None:
+        user = User(name=name.strip()[:20] or "팀원", google_sub=sub)
+        db.add(user)
+        try:
+            db.commit()
+        except IntegrityError:
+            # 같은 계정으로 두 창에서 동시에 처음 들어왔다. 먼저 만든 쪽을 쓴다.
+            db.rollback()
+            user = db.exec(select(User).where(User.google_sub == sub)).one()
+            is_new = False
+
+    assert user.id is not None
+    request.session[SESSION_KEY] = user.id
+    return GoogleLoginOut(user_id=user.id, name=user.name, is_new=is_new)

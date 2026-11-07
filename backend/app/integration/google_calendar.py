@@ -23,6 +23,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 TOKEN_URL = "https://oauth2.googleapis.com/token"
+TOKENINFO_URL = "https://oauth2.googleapis.com/tokeninfo"
+ISSUERS = ("accounts.google.com", "https://accounts.google.com")
 CALENDAR_URL = "https://www.googleapis.com/calendar/v3/calendars/primary"
 SCOPE = "https://www.googleapis.com/auth/calendar.readonly"
 
@@ -69,6 +71,35 @@ def _client() -> tuple[str, str] | None:
 def configured() -> bool:
     """클라이언트 ID·시크릿이 다 있나. 없으면 연동만 빠지고 앱은 돈다."""
     return _client() is not None
+
+
+def login_client_id() -> str | None:
+    """구글 로그인에 쓰는 클라이언트 ID. 로그인은 시크릿 없이 ID만 있으면 된다."""
+    return os.getenv("GOOGLE_CLIENT_ID", "").strip() or None
+
+
+def verify_id_token(credential: str) -> tuple[str, str]:
+    """구글 로그인 버튼이 준 ID 토큰을 확인하고 (sub, 이름)을 돌려준다.
+
+    서명·만료는 구글 tokeninfo가 본다. 우리는 **우리 앱에 준 토큰인지**(aud)와 구글이
+    낸 것인지(iss)를 본다 — 안 보면 다른 앱의 토큰을 들고 와도 로그인된다.
+    """
+    client_id = login_client_id()
+    if client_id is None:
+        raise Unavailable("구글 클라이언트 설정이 없다")
+    try:
+        res = httpx.get(TOKENINFO_URL, params={"id_token": credential}, timeout=TIMEOUT_SEC)
+    except httpx.HTTPError as exc:
+        raise Unavailable(type(exc).__name__) from None
+    if res.status_code == 400:
+        raise InvalidGrant("id token")  # 서명이 틀렸거나 만료
+    if res.status_code != 200:
+        raise Unavailable(f"tokeninfo {res.status_code}")
+    claims = res.json()
+    sub = claims.get("sub")
+    if claims.get("aud") != client_id or claims.get("iss") not in ISSUERS or not sub:
+        raise InvalidGrant("id token claims")
+    return sub, claims.get("name") or claims.get("given_name") or "팀원"
 
 
 def _token_request(data: dict[str, str]) -> dict:
