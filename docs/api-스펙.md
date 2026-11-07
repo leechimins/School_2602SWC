@@ -81,7 +81,7 @@
 | Home | 홈 보기 | GET | `/rooms/{room_id}/home` | A | High | 진척률·단계 빠짐 → 디데이만. my_tasks는 B 데이터 | **완료** | 미착수 |
 | Notice | 알림 목록 보기 | GET | `/rooms/{room_id}/notifications` | A | High | 3종(늦음·막힘·완료) + 30분 전. 카드는 B가 만듦 | **완료** | 미착수 |
 | Notice | 알림 읽음 처리 | POST | `/rooms/{room_id}/notifications/read` | A | Medium | 모두 / 개별 | **완료** | 미착수 |
-| Notice | 에이전트가 한 일 보기 | GET | `/rooms/{room_id}/agent-log` | A | Medium | 무엇을·왜·언제. 읽음 처리 없이 쌓임 | 미착수 | 미착수 |
+| Notice | 에이전트가 한 일 보기 | GET | `/rooms/{room_id}/agent-log` | A | Medium | 무엇을·왜·언제. 읽음 처리 없이 쌓임. **11/7**: 응답 `{agent_log:[{id, at, what, why}], yield_records:[{id, meeting_label, user_id, name, why}]}` — 프론트 `ActivityLog`와 같은 모양. 양보 기록도 여기 같이(알림 화면 아래 두 칸). 남는 자리: 합의·조정·전원 수락·거절. 점수 숫자는 안 나감 | **완료** | 미착수 |
 | Notice | 웹 푸시 등록 | PUT | `/me/push-subscription` | A | Low | 팀 전체 빼는 1순위 | 미착수 | 미착수 |
 | Notice | 웹 푸시 끄기 | DELETE | `/me/push-subscription` | A | Low | “ | 미착수 | 미착수 |
 | Meeting | 조율 시작하기 | POST | `/rooms/{room_id}/schedulings` | A | High | 팀장만. 회의 길이 30분 단위. **11/7**: 수락 대기 회의가 있으면 409 `AWAITING_RESPONSE`. 조율은 뒷단에서 돌고 이 요청은 바로 돌아옴(`status: running`) | **완료** | 미착수 |
@@ -119,7 +119,7 @@
 | Task | 할 일 직접 추가 | POST | `/rooms/{room_id}/tasks` | B | High | AI 없이 도는 길이라 High | **완료** | 미착수 |
 | Task | 담당자 넘기기 | POST | `/rooms/{room_id}/tasks/{id}/reassign` | B | Medium | 할일 내용 고치기랑 병합 가능 | **완료** | 미착수 |
 | MyPage | 내 프로필 보기 | GET | `/rooms/{room_id}/me/profile` | A | Medium | 누적 양보 단계·회의별 양보 기록 | 미착수 | 미착수 |
-| MyPage | 주간 시간표 보기 | GET | `/rooms/{room_id}/me/schedule` | A | Medium | 수업·알바·약속·팀 회의 구분 | 미착수 | 미착수 |
+| MyPage | 주간 시간표 보기 | GET | `/rooms/{room_id}/me/schedule` | A | Medium | 수업·알바·약속·팀 회의 구분. **11/7**: `?week=YYYY-MM-DD`(그 주 아무 날, 없으면 시연 시계 이번 주). 응답 `{week_start, week_end, items:[{kind: class·event·meeting, title, start_at, end_at, source, item_id, meeting_id, meeting_status}]}`. 알바·약속은 `event` 하나(브리프 11/4). 제목 없는 약속(구글)은 `title: null`. 내 것만 | **완료** | 미착수 |
 | MyPage | 일정 직접 추가 | POST | `/me/schedule/items` | A | Medium | 요일 여러 개를 한 번에 | 미착수 | 미착수 |
 | MyPage | 일정 지우기 | DELETE | `/me/schedule/items/{id}` | A | Medium |  | 미착수 | 미착수 |
 | MyPage | 묶인 일정 고치기 | PUT | `/me/schedule/groups/{id}` | A | Low | 요일마다 다른 시간 | 미착수 | 미착수 |
