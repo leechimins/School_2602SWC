@@ -1,4 +1,4 @@
-"""외부 연동 — 구글 캘린더 연결·끊기·동기화. 레인 B.
+"""외부 연동 — 에브리타임 연결·끊기, 구글 캘린더 연결·끊기·동기화. 레인 B.
 
 Swagger 그룹은 노션 API 명세에서 MyPage 아래지만, A의 `me` 그룹과 섞이지
 않게 `integration`으로 둔다.
@@ -9,9 +9,10 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlmodel import Session
 
+from app.integration import everytime, everytime_service, timetable
 from app.integration import google_calendar as google
 from app.integration import service as integration
-from app.integration.schemas import GoogleConnectIn, IntegrationOut
+from app.integration.schemas import EverytimeConnectIn, GoogleConnectIn, IntegrationOut
 from app.minutes.models import CalendarLink
 from app.shared.auth import current_user_id
 from app.shared.db import session_dep
@@ -54,6 +55,85 @@ def _reconnect() -> HTTPException:
         "GOOGLE_RECONNECT_NEEDED",
         "구글 캘린더 연결이 끊겼어요. 다시 연결해 주세요.",
     )
+
+
+# ── 에브리타임 ───────────────────────────────────────────────────────
+
+_ET_INVALID = "링크를 읽지 못했어요. 직접 입력해 주세요."
+_ET_RETRY = "에브리타임을 잠시 못 읽었어요. 잠시 후 다시 해 주세요."
+
+
+@router.post(
+    "/everytime",
+    response_model=IntegrationOut,
+    responses={
+        400: {"description": "`EVERYTIME_LINK_INVALID` 링크 모양이 아니거나 시간표가 없음(비공개)"},
+        503: {"description": "`EVERYTIME_UNAVAILABLE` 에브리타임 응답 없음·막힘. 다시 하기"},
+    },
+    summary="에브리타임 연결 · 다시 불러오기",
+)
+def connect_everytime(
+    body: EverytimeConnectIn,
+    user_id: int = Depends(current_user_id),
+    db: Session = Depends(session_dep),
+) -> IntegrationOut:
+    """공유 링크(`everytime.kr/@아이디`)로 시간표를 읽어 수업을 넣습니다. 사람 확인 단계는 없습니다.
+
+    - 과목 하나가 묶음 하나(`group_id`)이고, 요일마다 한 줄입니다. 학기 범위 밖의 주는 조율이 안 셉니다.
+    - 이미 연결돼 있으면 "다시 불러오기"입니다. 이전 에브리타임 수업을 지우고 새로 넣습니다. 직접 넣은 일정은 그대로입니다.
+    - 링크 모양이 아니거나 시간표가 비공개면 400 `EVERYTIME_LINK_INVALID`.
+    - 에브리타임이 응답하지 않으면 503 `EVERYTIME_UNAVAILABLE`.
+    - 실패하면 전에 들어온 수업은 남고, 연결돼 있었다면 상태가 `failed`가 됩니다.
+    - 읽는 데 몇 초 걸립니다(브라우저로 공유 페이지를 엽니다).
+    """
+    if not everytime.configured():
+        raise _error(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "EVERYTIME_UNAVAILABLE",
+            "지금은 에브리타임을 연결할 수 없어요. 시간표를 직접 넣어 주세요.",
+        )
+    try:
+        link, table = everytime_service.connect(db, user_id, body.url)
+    except everytime.LinkInvalid:
+        db.commit()  # 연결돼 있던 사람의 failed 표시
+        raise _error(status.HTTP_400_BAD_REQUEST, "EVERYTIME_LINK_INVALID", _ET_INVALID) from None
+    except everytime.EverytimeError:
+        db.commit()
+        raise _error(
+            status.HTTP_503_SERVICE_UNAVAILABLE, "EVERYTIME_UNAVAILABLE", _ET_RETRY
+        ) from None
+    db.commit()
+    return IntegrationOut(
+        kind=CalendarKind.EVERYTIME,
+        connected=True,
+        status=link.status,
+        account=f"everytime.kr/@{link.external_ref}",
+        last_synced_at=link.last_synced_at,
+        imported_count=timetable.class_count(db, user_id),
+        term=timetable.term_label(table),
+    )
+
+
+@router.delete(
+    "/everytime",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="에브리타임 끊기",
+)
+def disconnect_everytime(
+    user_id: int = Depends(current_user_id),
+    db: Session = Depends(session_dep),
+) -> Response:
+    """연결을 끊고, 에브리타임에서 들어온 수업도 지웁니다.
+
+    - 직접 넣은 일정·구글 약속은 그대로입니다.
+    - 연결이 없어도 204입니다.
+    """
+    everytime_service.disconnect(db, user_id)
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# ── 구글 캘린더 ──────────────────────────────────────────────────────
 
 
 @router.post(
