@@ -62,6 +62,13 @@ export type Suggestion = {
   assigneeName: string | null
 }
 
+/** 회의에서 안 해도 된다고 한 확정된 할 일. 유지하거나 삭제한다. 백엔드에 이 목록이 없어 목 모드에서만 채워진다 */
+export type UnneededTask = {
+  task: Task
+  why: string
+  kept: boolean // 유지하기로 함
+}
+
 export type MeetingDetail = {
   id: Id
   topic: string
@@ -75,6 +82,7 @@ export type MeetingDetail = {
   tasks: Task[] // 이 회의에서 확정된 할 일
   doneTasks: Task[] // 회의에서 끝났다고 말해 완료로 바뀐 지난 할 일 ("회의에서 끝난 일")
   suggestions: Suggestion[]
+  unneededTasks: UnneededTask[] // "필요 없어 보이는 일"
 }
 
 /** 회의록 목록의 한 줄 */

@@ -439,6 +439,7 @@ export const toMeetingDetail = (r: ServerMeetingDetail): MeetingDetail => ({
   tasks: r.tasks.map(toTask),
   doneTasks: (r.done_tasks ?? []).map(toTask), // 서버에 아직 없는 묶음. 없으면 비워 둔다
   suggestions: r.suggestions.map(toSuggestion),
+  unneededTasks: [], // 서버에 없는 목록(AI가 고르지 않는다). 실서버에서는 이 칸이 안 보인다
 })
 
 export const toMeetingSummary = (m: ServerMeetingSummary): MeetingSummary => ({

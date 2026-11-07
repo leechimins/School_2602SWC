@@ -10,7 +10,7 @@ import type { TaskStatus } from '../types/task.ts'
 // 이 값은 서버의 DB 역할이라 보는 사람과 상관없는 원본만 담는다. 화면에 줄 모양(내 점수, can_*)은 mock/views.ts가 만든다.
 // SEED는 직접 바꾸지 않는다. 저장소는 항상 structuredClone(SEED)로 시작한다(목업 버그 ④).
 
-export const SEED_VERSION = 6 // 할 일에 "회의에서 완료"한 회의(doneMeetingId)를 붙였다. 3은 사람 수락·거절을 뺐던 판이라 건너뛴다
+export const SEED_VERSION = 7 // 할 일에 "필요 없어 보이는 일"(unneeded)을 붙였다. 6은 doneMeetingId. 3은 사람 수락·거절을 뺐던 판이라 건너뛴다
 
 /** 사람 ID는 여기서 한 번만 정한다. 화면 코드에 'minji' 같은 값을 쓰지 않는다 */
 export const USER = {
@@ -41,6 +41,8 @@ export type SeedTask = {
   doneAt: IsoDateTime | null // 완료로 바뀐 때. 완료 알림을 만든다
   doneMeetingId: Id | null // 회의에서 끝났다고 말해 완료로 바뀐 회의. 회의록의 "회의에서 끝난 일"에 보인다
   dismissed: boolean // "삭제"한 할 일. 목록에서 빠진다
+  /** 회의에서 안 해도 된다고 한 일(회의록 "필요 없어 보이는 일"). kept = 그래도 두기로 함. 서버에는 없는 목록이라 목에서만 쓴다 */
+  unneeded: { meetingId: Id; why: string; kept: boolean } | null
 }
 
 export type SeedSuggestion = {
@@ -140,6 +142,7 @@ const task = (t: Partial<SeedTask> & Pick<SeedTask, 'id' | 'title' | 'dueDate' |
   doneAt: null,
   doneMeetingId: null,
   dismissed: false,
+  unneeded: null,
   ...t,
 })
 
@@ -290,7 +293,10 @@ export const SEED: DemoState = {
   ],
   tasks: [
     task({ id: 't1', title: '경쟁 서비스 사례 조사', dueDate: '2026-11-07', assigneeId: jisu, status: '진행 중' }),
-    task({ id: 't2', title: '경쟁 서비스 사례 조사 2차', dueDate: '2026-11-20', assigneeId: jisu }),
+    task({
+      id: 't2', title: '경쟁 서비스 사례 조사 2차', dueDate: '2026-11-20', assigneeId: jisu,
+      unneeded: { meetingId: 'm3', why: '회의에서 안 해도 된다고 했어요', kept: false },
+    }),
     task({ id: 't3', title: '중간 점검 자료', dueDate: '2026-11-15', assigneeId: null }),
     task({ id: 't4', title: '발표 대본 초안', dueDate: '2026-11-11', assigneeId: minji, meetingId: 'm2', confirmedBy: minji }),
     task({ id: 't5', title: '인터뷰 대상자 연락', dueDate: '2026-11-12', assigneeId: minji }),

@@ -245,6 +245,9 @@ export function buildMeetingDetail(s: DemoState, meetingId: Id, viewer: Id, now:
     suggestions: s.suggestions
       .filter((g) => g.meetingId === m.id)
       .map((g) => ({ id: g.id, title: g.title, dueDate: g.dueDate, assigneeId: g.assigneeId, assigneeName: nameOf(s, g.assigneeId) })),
+    unneededTasks: liveTasks(s).flatMap((t) =>
+      t.unneeded?.meetingId === m.id ? [{ task: toTask(s, t, viewer, now), why: t.unneeded.why, kept: t.unneeded.kept }] : [],
+    ),
   }
 }
 

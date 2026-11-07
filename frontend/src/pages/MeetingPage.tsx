@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { confirmSuggestions, dismissSuggestion, editSuggestion, getMeeting } from '../api/records.ts'
 import { getRoom } from '../api/rooms.ts'
-import { addTask, changeTaskStatus } from '../api/tasks.ts'
+import { addTask, changeTaskStatus, dismissTask, keepTask } from '../api/tasks.ts'
 import AddTaskCard from '../components/AddTaskCard.tsx'
 import Badge from '../components/Badge.tsx'
 import ConfirmSheet from '../components/ConfirmSheet.tsx'
@@ -11,6 +11,7 @@ import RetryBox from '../components/RetryBox.tsx'
 import Screen from '../components/Screen.tsx'
 import SuggestionCard from '../components/SuggestionCard.tsx'
 import TaskRow from '../components/TaskRow.tsx'
+import UnneededCard from '../components/UnneededCard.tsx'
 import Waiting from '../components/Waiting.tsx'
 import { useApi } from '../hooks/useApi.ts'
 import { useCurrentUser } from '../hooks/useCurrentUser.ts'
@@ -22,7 +23,7 @@ import type { MeetingDetail, Minutes } from '../types/meeting.ts'
 import type { Member } from '../types/room.ts'
 import styles from './MeetingPage.module.css'
 
-// 회의록: 주제 한 줄 → 원문(펼쳐 보기) → 요약(결정·논의·보류) → 회의에서 끝난 일 → 업무 배정 검토(할 일 제안).
+// 회의록: 주제 한 줄 → 원문(펼쳐 보기) → 요약(결정·논의·보류) → 회의에서 끝난 일 → 업무 배정 검토(할 일 제안) → 필요 없어 보이는 일.
 // 할 일 제안은 여기서만 보이고, 확정해야 할 일 탭에 들어간다.
 export default function MeetingPage() {
   const { meetingId = '' } = useParams()
@@ -223,6 +224,22 @@ function Review({ meeting: m, members }: { meeting: MeetingDetail; members: Memb
         </article>
       ))}
       <AddTaskCard label="+ 직접 추가" members={members} onAdd={(input) => addTask(user.roomId, input, m.id)} />
+      {m.unneededTasks.length > 0 && (
+        <>
+          <div className="sec-h">
+            <h2>필요 없어 보이는 일</h2>
+            <span className="meta">따로 확인해요</span>
+          </div>
+          {m.unneededTasks.map((item) => (
+            <UnneededCard
+              key={item.task.id}
+              item={item}
+              onKeep={() => keepTask(item.task.id)}
+              onDelete={() => dismissTask(user.roomId, item.task.id)}
+            />
+          ))}
+        </>
+      )}
       {pending > 0 && (
         <p className={`meta ${styles.foot}`}>
           확정 전 제안은 할 일 탭에 보이지 않아요. <Link to={PATHS.tasks}>할 일 탭</Link>
