@@ -401,6 +401,7 @@ export type ServerMeetingDetail = {
   transcript: { seq: number; speaker_user_id: number | null; speaker_name: string | null; text: string }[]
   minutes: ServerMinutes | null
   tasks: ServerTask[]
+  done_tasks?: ServerTask[]
   suggestions: ServerSuggestion[]
 }
 
@@ -435,6 +436,7 @@ export const toMeetingDetail = (r: ServerMeetingDetail): MeetingDetail => ({
   transcript: r.transcript.map((l) => ({ seq: l.seq, speakerId: optId(l.speaker_user_id), speakerName: l.speaker_name, text: l.text })),
   minutes: r.minutes,
   tasks: r.tasks.map(toTask),
+  doneTasks: (r.done_tasks ?? []).map(toTask), // 서버에 아직 없는 묶음. 없으면 비워 둔다
   suggestions: r.suggestions.map(toSuggestion),
 })
 

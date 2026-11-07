@@ -4,6 +4,7 @@ import DemoPage from './demo/DemoPage.tsx'
 import { PATHS } from './lib/paths.ts'
 import ComingSoonPage from './pages/ComingSoonPage.tsx'
 import HomePage from './pages/HomePage.tsx'
+import MeetingPage from './pages/MeetingPage.tsx'
 import MePage from './pages/MePage.tsx'
 import NotificationsPage from './pages/NotificationsPage.tsx'
 import ProposalPage from './pages/ProposalPage.tsx'
@@ -28,7 +29,7 @@ export default function App() {
         <Route path={PATHS.proposal} element={<ProposalPage />} />
         {/* 일정 탭 */}
         <Route path={PATHS.schedule} element={<SchedulePage />} />
-        <Route path={PATHS.meeting} element={<ComingSoonPage title="회의록" backTo={PATHS.schedule} />} />
+        <Route path={PATHS.meeting} element={<MeetingPage />} />
         <Route path={PATHS.record} element={<ComingSoonPage title="회의 기록" backTo={PATHS.schedule} />} />
         {/* 할 일 탭 */}
         <Route path={PATHS.tasks} element={<TasksPage />} />

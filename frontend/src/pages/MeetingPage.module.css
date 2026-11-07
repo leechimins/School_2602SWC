@@ -1,0 +1,121 @@
+/* 주제 한 줄이 맨 위: 나중에 목록에서 찾는 이름이다 */
+.topic {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.4;
+}
+
+.metaRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 8px;
+  margin: 2px 0 0;
+  font-size: var(--fs-meta);
+  color: var(--muted);
+}
+
+/* 원문: 말한 사람 | 말 */
+.lines {
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.line {
+  display: grid;
+  grid-template-columns: 34px 1fr;
+  gap: 8px;
+  padding: 6px;
+  border-radius: var(--r-s);
+}
+
+.line b {
+  font-size: var(--fs-meta);
+  color: var(--muted);
+}
+
+/* 요약: 결정 / 논의 / 보류 */
+.group + .group {
+  margin-top: 14px;
+}
+
+.group > b {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.item {
+  margin: 0;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+}
+
+.item:last-child {
+  border-bottom: 0;
+}
+
+.list {
+  margin: 0;
+  padding: 0;
+}
+
+/* 업무 배정 검토 머리: 몇 개 나왔고 몇 개 확정했는지 | 모두 확정 */
+.reviewTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin: 18px 14px 0;
+}
+
+.reviewTop > div {
+  flex: 1;
+}
+
+.reviewTop p {
+  margin: 0;
+}
+
+.bar {
+  height: 5px;
+  margin-top: 4px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: var(--line);
+}
+
+.bar > i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--point);
+}
+
+/* 이미 확정한 할 일: 제안 카드와 같은 자리, 흰 카드 + 확정 뱃지 */
+.confirmed {
+  margin: 8px 12px 0;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-l);
+  background: var(--card);
+}
+
+.confirmed p {
+  margin: 2px 0 0;
+}
+
+.confirmedHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.foot {
+  margin: 10px 18px 0;
+}
