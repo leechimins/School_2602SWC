@@ -24,8 +24,10 @@ class RoomCreateIn(SQLModel):
     description: str = Field(default="", max_length=500, description="과제 설명 두세 줄")
     start_date: date = Field(description="시작일 (YYYY-MM-DD)")
     due_date: date = Field(description="마감일 (YYYY-MM-DD). 마감 디데이의 기준")
+    # 11/4 브리프에서 방 만들기 화면의 평가 방식 칸이 빠졌다. 예전 프론트가 보내도
+    # 받도록 칸은 남기고 선택으로 둔다(테이블 칸이 NOT NULL이라 빈 글자로 저장).
     eval_method: str = Field(
-        min_length=1, max_length=50, description="평가 방식 (발표·보고서·시연 등)"
+        default="", max_length=50, description="평가 방식. 선택 — 화면에서 빠짐(11/4)"
     )
     member_count: int = Field(ge=2, le=6, description="팀원 수 (2~6명). 정원으로 쓴다")
 

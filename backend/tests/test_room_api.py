@@ -174,6 +174,20 @@ def test_방을_만들면_만든_사람이_팀장이고_초대_코드가_나온�
     assert set(body["invite_code"]) <= set(INVITE_ALPHABET)
 
 
+def test_평가_방식_없이도_방을_만든다(
+    client: TestClient, session: Session, login
+) -> None:
+    """11/4 브리프에서 화면의 평가 방식 칸이 빠졌다. 안 보내도 400이 아니다."""
+    _new_user(session, "새팀장")
+    login("새팀장")
+    body = {k: v for k, v in NEW_ROOM.items() if k != "eval_method"}
+
+    res = client.post(f"{API}/rooms", json=body)
+
+    assert res.status_code == 201, res.text
+    assert res.json()["eval_method"] == ""
+
+
 def test_초대_코드가_겹치면_다시_뽑는다(
     client: TestClient, seeded: Session, login, monkeypatch
 ) -> None:
