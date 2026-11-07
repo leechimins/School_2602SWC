@@ -152,6 +152,10 @@ class RespondOut(SQLModel):
     declined_count: int = 0
     # 피드백만 저장했나(조정된 회의).
     feedback_only: bool = False
+    # 거절해서 조율이 다시 돌기 시작했나. 참이면 화면이 스트림으로 간다.
+    # rounds_left는 그때 남은 라운드(1~2). 예산이 0이면 다시 돌지 않고 거짓이다.
+    rerun: bool = False
+    rounds_left: int = 0
 
 
 class MeetingBrief(SQLModel):
