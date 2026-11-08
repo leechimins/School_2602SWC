@@ -8,6 +8,7 @@
 - **다 갈아엎으셔도 됩니다.** 자유롭게 수정해주세요!
 - **11/3 (이진희)**: 디자인 브리프(11/3판)와 어긋나는 줄에 `~~빗금~~`을 쳤습니다. **지우지는 않았습니다** — 뭐가 빠졌는지 보이는 게 나아서요. 네 군데 다 레인 B라 **되살릴지는 장연우님이 정하시면 됩니다.** 되살리려면 빗금만 지우세요.
 - **11/7 (이진희)**: BE 작업 상태를 **코드에 맞췄습니다.** `app.openapi()`의 경로와 이 표를 기계로 대조해, 코드에 있는데 "미착수"였던 22개를 "완료"로 고쳤습니다(레인 B 21개 포함 — 장연우님 확인 부탁드립니다). 표에 없던 로그인 두 줄도 더했습니다. FE 작업 상태는 건드리지 않았습니다. `기간 넓혀 다시 조율`은 빗금입니다.
+- **11/8 (장연우)**: 레인 B 상태를 코드에 맞췄습니다. 11/7에 완료로 고친 B 21개는 코드와 맞습니다. 받아적기 4줄·에브리타임 2줄·구글 캘린더 3줄을 완료로, 방 만들기·회의록 보기·할 일 직접 추가는 바뀐 칸을 비고에 적었습니다. 받아적기는 엔진과 무관한 API만 완료이고 엔진(무엇으로 받아적을지)은 아직 고르는 중입니다.
 
 ## 담당 레인
 
@@ -72,7 +73,7 @@
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Room | 내 계정 보기 | GET | `/me` | B | High | 방 밖에서도 가능 | **완료** | 미착수 |
 | Room | 방 정보·팀원 보기 | GET | `/rooms/{room_id}` | B | High | 팀 화면이 이것 하나로 그려짐. 누적 양보는 단계만 | **완료** | 미착수 |
-| Room | 방 만들기 | POST | `/rooms` | B | High | 팀장만. 플랜 없이 바로 생성 | **완료** | 미착수 |
+| Room | 방 만들기 | POST | `/rooms` | B | High | 팀장만. 플랜 없이 바로 생성. 평가 방식(`eval_method`)은 선택(11/4 브리프에서 빠짐) | **완료** | 미착수 |
 | Room | 초대 코드로 방 미리보기 | GET | `/rooms/by-invite-code/{code}` | B | Medium |  | **완료** | 미착수 |
 | Room | 방 들어가기 | POST | `/rooms/join` | B | High |  | **완료** | 미착수 |
 | Onboard | 온보딩 답 해석하기 | POST | `/me/onboarding/interpret` | A | High | AI. 4문항, 1번이 두 값을 냄 | **완료** | 미착수 |
@@ -98,13 +99,13 @@
 | Meeting | 일정 보기(회의 관리) | GET | `/rooms/{room_id}/schedule` | A | High | 회의 관리로 바뀜 (전 timeline). 조율 중도 자리 잡음 | **완료** | 미착수 |
 | Record | 회의록 목록 보기 | GET | `/rooms/{room_id}/meetings` | B | High | 주제 한 줄이 보여야 나중에 찾음 | **완료** | 미착수 |
 | Record | 회의 기록 시작하기 | POST | `/rooms/{room_id}/meetings` | B | High | 확정된 회의 없이도 됨 | **완료** | 미착수 |
-| Record | 회의록 보기 | GET | `/rooms/{room_id}/meetings/{id}` | B | High | 원문 + 요약 + 그 회의에서 확정된 할 일 | **완료** | 미착수 |
+| Record | 회의록 보기 | GET | `/rooms/{room_id}/meetings/{id}` | B | High | 원문 + 요약 + 그 회의에서 확정된 할 일 + 회의에서 끝난 일(`done_tasks`). 받아적기 상태(`recording_state`), 줄마다 목소리 라벨(`speaker_label`) | **완료** | 미착수 |
 | Record | 직접 쓰기 | PUT | `/rooms/{room_id}/meetings/{id}/transcript` | B | High | 보조 경로지만 가장 먼저 만듦 (AI 없이 도는 길) | **완료** | 미착수 |
 | Record | 요약·할 일 뽑기 | POST | `/rooms/{room_id}/meetings/{id}/summarize` | B | High | AI. 네 묶음을 한 호출로 | **완료** | 미착수 |
-| Record | 받아적기 시작 | POST | `/rooms/{room_id}/meetings/{id}/recording/start` | B | High | ~~동의 고려 필요성~~ → 브리프 11/3 "참석자 동의 없앰. 브라우저 마이크 권한만 최초 1회". **엔드포인트는 그대로 필요합니다.** 장연우님 확인 | 미착수 | 미착수 |
-| Record | 받아적은 글 올리기 | POST | `/rooms/{room_id}/meetings/{id}/transcript/segments` | B | High | 끊겼다 다시 올려도 중복·누락 없게 | 미착수 | 미착수 |
-| Record | 받아적기 정지 | POST | `/rooms/{room_id}/meetings/{id}/recording/stop` | B | High | 원문을 먼저 저장하고 요약은 따로 | 미착수 | 미착수 |
-| Record | 말한 사람 확인 | PUT | `/rooms/{room_id}/meetings/{id}/speaker-mapping` | B | Medium | ~~목소리 A~D → 사람.~~ → 브리프 "자동 화자 구분 없음. **받아적는 사람이 고릅니다**". 자동 화자 구분은 STT 서비스를 고르는 문제라 공짜가 아닙니다. 한 번에 전체 반영은 그대로. 장연우님 확인 | 미착수 | 미착수 |
+| Record | 받아적기 시작 | POST | `/rooms/{room_id}/meetings/{id}/recording/start` | B | High | ~~동의 고려 필요성~~ → 브리프 11/3 "참석자 동의 없앰. 브라우저 마이크 권한만 최초 1회". **엔드포인트는 그대로 필요합니다.** 받아적는 중 다시 눌러도 그대로. 직접 쓴 원문이 있으면 409, 멈춘 뒤 다시 시작 불가 | **완료** | 미착수 |
+| Record | 받아적은 글 올리기 | POST | `/rooms/{room_id}/meetings/{id}/transcript/segments` | B | High | 끊겼다 다시 올려도 중복·누락 없게. 번호·목소리 라벨·글자를 50줄까지, 같은 번호는 건너뜀, 응답에 빠진 번호 | **완료** | 미착수 |
+| Record | 받아적기 정지 | POST | `/rooms/{room_id}/meetings/{id}/recording/stop` | B | High | 원문을 먼저 저장하고 요약은 따로. 두 번 눌러도 그대로. 받아적는 중에는 직접 쓰기·요약이 409 | **완료** | 미착수 |
+| Record | 말한 사람 확인 | PUT | `/rooms/{room_id}/meetings/{id}/speaker-mapping` | B | Medium | ~~목소리 A~D → 사람.~~ → 브리프 "자동 화자 구분 없음. **받아적는 사람이 고릅니다**". 자동 화자 구분은 STT 서비스를 고르는 문제라 공짜가 아닙니다. 한 번에 전체 반영은 그대로. 목소리 라벨 → 팀원 한 번에 + 줄마다 고치기(우선), null은 모름 | **완료** | 미착수 |
 | Suggest | 제안 확정하기 | POST | `/rooms/{room_id}/suggestions/confirm` | B | High | 한꺼번에 확정 필수. 담당자 없이도 확정됨 | **완료** | 미착수 |
 | Suggest | 제안 고치기 | PATCH | `/rooms/{room_id}/suggestions/{id}` | B | High | 제목·담당자·기한 (예상 시간 빠짐). 확정 전에만 | **완료** | 미착수 |
 | Suggest | 제안 버리기 | DELETE | `/rooms/{room_id}/suggestions/{id}` | B | High | 되돌릴 수 없어 한 번 더 물음 | **완료** | 미착수 |
@@ -116,7 +117,7 @@
 | Task | 할 일 상태 바꾸기 | PATCH | `/rooms/{room_id}/tasks/{id}/status` | B | High | 담당자만. 막힘을 고르면 팀에 바로 알림 | **완료** | 미착수 |
 | Task | 할 일 내용 고치기 | PATCH | `/rooms/{room_id}/tasks/{id}` | B | High | 전원. 제목·담당자·기한 | **완료** | 미착수 |
 | Task | 할 일 빼기 ("필요 없음") | POST | `/rooms/{room_id}/tasks/{id}/dismiss` | B | High | 전원. "삭제"라고 쓰지 않음 | **완료** | 미착수 |
-| Task | 할 일 직접 추가 | POST | `/rooms/{room_id}/tasks` | B | High | AI 없이 도는 길이라 High | **완료** | 미착수 |
+| Task | 할 일 직접 추가 | POST | `/rooms/{room_id}/tasks` | B | High | AI 없이 도는 길이라 High. 회의록에서 추가하면 `meeting_id`로 출처 회의 | **완료** | 미착수 |
 | Task | 담당자 넘기기 | POST | `/rooms/{room_id}/tasks/{id}/reassign` | B | Medium | 할일 내용 고치기랑 병합 가능 | **완료** | 미착수 |
 | MyPage | 내 프로필 보기 | GET | `/rooms/{room_id}/me/profile` | A | Medium | 누적 양보 단계·회의별 양보 기록 | 미착수 | 미착수 |
 | MyPage | 주간 시간표 보기 | GET | `/rooms/{room_id}/me/schedule` | A | Medium | 수업·알바·약속·팀 회의 구분 | 미착수 | 미착수 |
@@ -124,11 +125,11 @@
 | MyPage | 일정 지우기 | DELETE | `/me/schedule/items/{id}` | A | Medium |  | 미착수 | 미착수 |
 | MyPage | 묶인 일정 고치기 | PUT | `/me/schedule/groups/{id}` | A | Low | 요일마다 다른 시간 | 미착수 | 미착수 |
 | MyPage | 묶인 일정 지우기 | DELETE | `/me/schedule/groups/{id}` | A | Low |  | 미착수 | 미착수 |
-| MyPage | 에브리타임 연결 | POST | `/me/integrations/everytime` | B | Low | 링크 붙여넣기. 사람 확인 단계 없음 | 미착수 | 미착수 |
-| MyPage | 에브리타임 끊기 | DELETE | `/me/integrations/everytime` | B | Low |  | 미착수 | 미착수 |
-| MyPage | 구글 캘린더 연결 | POST | `/me/integrations/google-calendar` | B | Low | 읽기 권한만. 팀 전체 빼는 2순위 | 미착수 | 미착수 |
-| MyPage | 구글 캘린더 끊기 | DELETE | `/me/integrations/google-calendar` | B | Low | “ | 미착수 | 미착수 |
-| MyPage | 구글 캘린더 동기화 | POST | `/me/integrations/google-calendar/sync` | B | Low | “ | 미착수 | 미착수 |
+| MyPage | 에브리타임 연결 | POST | `/me/integrations/everytime` | B | Low | 링크 붙여넣기. 사람 확인 단계 없음. 다시 보내면 다시 불러오기. 약 11초 | **완료** | 미착수 |
+| MyPage | 에브리타임 끊기 | DELETE | `/me/integrations/everytime` | B | Low | 에브리타임 수업만 지움 | **완료** | 미착수 |
+| MyPage | 구글 캘린더 연결 | POST | `/me/integrations/google-calendar` | B | Low | 읽기 권한만. 팀 전체 빼는 2순위. 약속은 제목 없이 "바쁨" | **완료** | 미착수 |
+| MyPage | 구글 캘린더 끊기 | DELETE | `/me/integrations/google-calendar` | B | Low | “ | **완료** | 미착수 |
+| MyPage | 구글 캘린더 동기화 | POST | `/me/integrations/google-calendar/sync` | B | Low | “ | **완료** | 미착수 |
 | Demo | 실시간 변경 받기 | GET | `/rooms/{room_id}/events` | 공통 | High | SSE. 한쪽 수락 → 다른 쪽 즉시 반영 | 미착수 | 미착수 |
 | Demo | 사용자 바꾸기 | POST | `/demo/switch-user` | 공통 | High | 시연 필수 | 미착수 | 미착수 |
 | Demo | 시연 시계 보기 | GET | `/demo/clock` | 공통 | High | 새로고침해도 어디 가 있는지 알아야 함 | 미착수 | 미착수 |

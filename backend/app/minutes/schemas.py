@@ -8,6 +8,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Literal
 
+from pydantic import field_validator
 from sqlmodel import Field, SQLModel
 
 from app.shared.enums import (
@@ -51,6 +52,54 @@ class RecordStartIn(SQLModel):
     )
 
 
+class SegmentIn(SQLModel):
+    """받아적은 한 줄."""
+
+    seq: int = Field(ge=0, le=100_000, description="줄 번호. 0부터 하나씩. 같은 번호를 다시 보내면 건너뜀")
+    speaker_label: str | None = Field(
+        default=None, max_length=8, description='엔진이 붙인 목소리 라벨("A" 등). 없으면 null'
+    )
+    text: str = Field(min_length=1, max_length=1000, description="받아적은 글. 공백만 있으면 400")
+
+    @field_validator("text")
+    @classmethod
+    def _not_blank(cls, value: str) -> str:
+        # 공백만 있는 줄을 조용히 버리면 그 번호가 영영 missing에 남아
+        # 프론트가 끝없이 다시 보낸다. 받기 전에 분명히 거절한다.
+        value = value.strip()
+        if not value:
+            raise ValueError("빈 줄은 보낼 수 없습니다.")
+        return value
+
+
+class SegmentsIn(SQLModel):
+    """받아적은 줄을 여러 개 한 번에. 끊겼다 다시 보내도 된다."""
+
+    segments: list[SegmentIn] = Field(min_length=1, max_length=50, description="한 번에 50줄까지")
+
+
+class SegmentsOut(SQLModel):
+    added: int = Field(description="이번에 새로 쌓인 줄 수")
+    skipped: int = Field(description="이미 있던 번호라 건너뛴 줄 수")
+    last_seq: int = Field(description="지금까지 받은 가장 큰 줄 번호")
+    missing: list[int] = Field(
+        description="0부터 last_seq 사이에서 아직 안 온 번호(앞에서 100개까지). 이것만 다시 보내면 됨"
+    )
+
+
+class SpeakerMappingIn(SQLModel):
+    """말한 사람 정하기. 둘 다 비워도 되고, 같이 보내면 줄마다 고친 것이 이긴다."""
+
+    labels: dict[str, int | None] = Field(
+        default_factory=dict,
+        description='목소리 라벨 → 팀원 ID. 그 라벨의 모든 줄에 한 번에 반영. null은 "모름". 예: {"A": 3, "B": null}',
+    )
+    lines: dict[int, int | None] = Field(
+        default_factory=dict,
+        description='줄 번호 → 팀원 ID. 라벨 연결보다 우선. null은 "모름". 예: {"7": 5}',
+    )
+
+
 class TranscriptIn(SQLModel):
     """직접 쓰기. 원문 전체를 보내면 통째로 바꾼다."""
 
@@ -70,6 +119,9 @@ class PersonOut(SQLModel):
 
 class TranscriptLineOut(SQLModel):
     seq: int = Field(description="줄 번호 (0부터)")
+    speaker_label: str | None = Field(
+        description='받아적기 엔진이 붙인 목소리 라벨("A" 등). 말한 사람 고르기 화면용. 직접 쓰기면 null'
+    )
     speaker_user_id: int | None = Field(description="말한 사람. 모르면 null")
     speaker_name: str | None = Field(description="말한 사람 이름. 모르면 null")
     text: str = Field(description="발언")
@@ -131,6 +183,9 @@ class MeetingDetailOut(SQLModel):
     status: MeetingStatus = Field(description="회의 상태")
     transcript_mode: TranscriptMode | None = Field(
         description="기록 방식 (stt 받아적기 / manual 직접 쓰기). 기록 전이면 null"
+    )
+    recording_state: Literal["none", "recording", "stopped"] = Field(
+        description="받아적기 상태. none 시작 전(또는 직접 쓰기) / recording 받아적는 중 / stopped 멈춤"
     )
     attendees: list[PersonOut] = Field(description="참석자 (수락한 사람)")
     transcript: list[TranscriptLineOut] = Field(description="원문. 줄 번호 순")

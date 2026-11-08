@@ -1,4 +1,4 @@
-"""Record — 회의록 목록·보기, 기록 시작, 직접 쓰기, 요약·할 일 뽑기. 레인 B.
+"""Record — 회의록 목록·보기, 기록 시작, 직접 쓰기, 받아적기, 요약·할 일 뽑기. 레인 B.
 
 Swagger 그룹과 파일 이름은 노션 API 명세의 도메인(Record)과 맞춘다. 그룹 이름은 다른 레인처럼 소문자.
 """
@@ -11,9 +11,9 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlmodel import Session, select
 
 from app.meeting.models import Meeting
-from app.minutes import summarize, transcript
+from app.minutes import recording, summarize, transcript
 from app.minutes import tasks as task_calc
-from app.minutes.models import Minutes
+from app.minutes.models import Minutes, TranscriptSegment
 from app.minutes.record import (
     RECORDABLE,
     meeting_detail,
@@ -24,6 +24,9 @@ from app.minutes.schemas import (
     MeetingDetailOut,
     MeetingListOut,
     RecordStartIn,
+    SegmentsIn,
+    SegmentsOut,
+    SpeakerMappingIn,
     TranscriptIn,
 )
 from app.shared import demo_clock
@@ -53,9 +56,17 @@ def _meeting(db: Session, room_id: int, meeting_id: int) -> Meeting:
     return meeting
 
 
-def _recordable_meeting(db: Session, room_id: int, meeting_id: int) -> Meeting:
-    """기록을 붙일 수 있는 회의. 회의안·취소된 회의면 409 `NOT_CONFIRMED`."""
+def _recordable_meeting(
+    db: Session, room_id: int, meeting_id: int, *, lock: bool = False
+) -> Meeting:
+    """기록을 붙일 수 있는 회의. 회의안·취소된 회의면 409 `NOT_CONFIRMED`.
+
+    lock이면 행을 잠근 **뒤에** 상태를 본다. 먼저 보고 잠그면 그 사이 취소된
+    회의에 받아적기가 붙을 수 있다.
+    """
     meeting = _meeting(db, room_id, meeting_id)
+    if lock:
+        db.refresh(meeting, with_for_update=True)
     if meeting.status not in RECORDABLE:
         raise HTTPException(
             status.HTTP_409_CONFLICT,
@@ -172,14 +183,203 @@ def write_transcript(
     - 줄마다 한 발언입니다. 빈 줄은 버립니다.
     - `이름: 내용` 꼴이고 이름이 이 방 팀원이면 말한 사람으로 나눕니다. 아니면 말한 사람 없음.
     - 확정 전 회의안이나 취소된 회의면 409 `NOT_CONFIRMED`.
+    - 받아적는 중이면 409 `RECORDING`. 멈춘 뒤에는 받아적은 원문을 이걸로 고쳐 쓸 수 있습니다(목소리 라벨은 사라짐).
     """
     require_member(db, room_id, user_id)
-    meeting = _recordable_meeting(db, room_id, meeting_id)
+    meeting = _locked_recordable(db, room_id, meeting_id)
+    recording.reject_while_recording(meeting)
 
     lines = transcript.parse(body.text, member_names(db, room_id))
     transcript.replace(db, meeting_id, lines)
     meeting.transcript_mode = TranscriptMode.MANUAL
     db.add(meeting)
+    db.commit()
+    db.refresh(meeting)
+    return meeting_detail(db, meeting, user_id)
+
+
+# ── 받아적기 ─────────────────────────────────────────────────────────
+
+
+def _locked_recordable(db: Session, room_id: int, meeting_id: int) -> Meeting:
+    """기록을 붙일 수 있는 회의를 잠가서. 두 폰이 동시에 눌러도 한 번만 바뀐다."""
+    return _recordable_meeting(db, room_id, meeting_id, lock=True)
+
+
+@router.post(
+    "/meetings/{meeting_id}/recording/start",
+    response_model=MeetingDetailOut,
+    responses={
+        409: {
+            "description": "`NOT_CONFIRMED` 확정 전·취소된 회의 / "
+            "`TRANSCRIPT_EXISTS` 직접 쓴 원문이 있음 / `RECORDING_STOPPED` 이미 멈춤"
+        }
+    },
+    summary="받아적기 시작",
+)
+def start_recording(
+    room_id: int,
+    meeting_id: int,
+    user_id: int = Depends(current_user_id),
+    db: Session = Depends(session_dep),
+) -> MeetingDetailOut:
+    """이 회의를 받아적기로 기록하기 시작합니다. 시작 시각은 시연 시계의 지금입니다.
+
+    - 받아적는 중에 다시 눌러도 그대로 진행합니다(200, 시작 시각 안 바뀜).
+    - 직접 쓴 원문이 이미 있으면 409 `TRANSCRIPT_EXISTS` — 두 원문이 섞이지 않게.
+    - 이미 멈춘 받아적기는 다시 시작할 수 없습니다. 409 `RECORDING_STOPPED`.
+    - 확정 전 회의안이나 취소된 회의면 409 `NOT_CONFIRMED`.
+    - 음성은 서버에 저장하지 않습니다. 받아적은 글은 조각 올리기로 보냅니다.
+    """
+    require_member(db, room_id, user_id)
+    meeting = _locked_recordable(db, room_id, meeting_id)
+
+    current = recording.state(meeting)
+    if current == "stopped":
+        raise recording.stopped_error()
+    if current == "none":
+        has_text = db.exec(
+            select(TranscriptSegment.id).where(TranscriptSegment.meeting_id == meeting_id)
+        ).first()
+        if has_text is not None:
+            raise recording.conflict("TRANSCRIPT_EXISTS", "이미 직접 쓴 원문이 있어요.")
+        meeting.transcript_mode = TranscriptMode.STT
+        meeting.recording_started_at = demo_clock.now(db)
+        meeting.recording_stopped_at = None
+        db.add(meeting)
+    db.commit()
+    db.refresh(meeting)
+    return meeting_detail(db, meeting, user_id)
+
+
+@router.post(
+    "/meetings/{meeting_id}/transcript/segments",
+    response_model=SegmentsOut,
+    responses={
+        409: {"description": "`NOT_RECORDING` 시작 전 / `RECORDING_STOPPED` 멈춘 뒤 / `NOT_CONFIRMED`"}
+    },
+    summary="받아적은 글 올리기",
+)
+def add_segments(
+    room_id: int,
+    meeting_id: int,
+    body: SegmentsIn,
+    user_id: int = Depends(current_user_id),
+    db: Session = Depends(session_dep),
+) -> SegmentsOut:
+    """받아적은 줄을 번호와 함께 쌓습니다. 끊겼다 다시 보내도 빠짐·중복이 없습니다.
+
+    - 같은 번호를 다시 보내면 건너뜁니다(`skipped`). 처음 온 줄이 남습니다.
+    - 응답의 `missing`은 0부터 지금까지 받은 가장 큰 번호 사이에서 아직 안 온 번호입니다. 그것만 다시 보내세요.
+    - 순서가 섞여 와도 원문은 언제나 번호 순입니다.
+    - 받아적기를 시작하기 전이면 409 `NOT_RECORDING`, 멈춘 뒤면 409 `RECORDING_STOPPED`.
+      멈추기 전에 `missing`이 빌 때까지 보내 주세요.
+    """
+    require_member(db, room_id, user_id)
+    meeting = _locked_recordable(db, room_id, meeting_id)
+    current = recording.state(meeting)
+    if current == "none":
+        raise recording.not_recording_error()
+    if current == "stopped":
+        raise recording.stopped_error()
+
+    stacked = recording.stack(
+        db,
+        meeting_id,
+        [recording.Piece(s.seq, s.speaker_label, s.text) for s in body.segments],
+    )
+    db.commit()
+    return SegmentsOut(
+        added=stacked.added,
+        skipped=stacked.skipped,
+        last_seq=stacked.last_seq,
+        missing=stacked.missing,
+    )
+
+
+@router.post(
+    "/meetings/{meeting_id}/recording/stop",
+    response_model=MeetingDetailOut,
+    responses={409: {"description": "`NOT_RECORDING` 시작 전 / `NOT_CONFIRMED`"}},
+    summary="받아적기 멈추기",
+)
+def stop_recording(
+    room_id: int,
+    meeting_id: int,
+    user_id: int = Depends(current_user_id),
+    db: Session = Depends(session_dep),
+) -> MeetingDetailOut:
+    """받아적기를 멈춥니다. 쌓인 원문은 그대로 남고, 요약은 요약 API를 따로 불러 주세요.
+
+    - 두 번 눌러도 그대로입니다(200, 멈춘 시각 안 바뀜).
+    - 멈춘 뒤에는 조각을 더 받지 않습니다. 멈추기 전에 조각 올리기의 `missing`이 빌 때까지 보내 주세요.
+    - 다시 시작할 수 없습니다. 원문을 고치려면 말한 사람 정하기나 직접 쓰기를 쓰세요.
+    - 시작 전이면 409 `NOT_RECORDING`.
+    """
+    require_member(db, room_id, user_id)
+    meeting = _locked_recordable(db, room_id, meeting_id)
+    current = recording.state(meeting)
+    if current == "none":
+        raise recording.not_recording_error()
+    if current == "recording":
+        meeting.recording_stopped_at = demo_clock.now(db)
+        db.add(meeting)
+    db.commit()
+    db.refresh(meeting)
+    return meeting_detail(db, meeting, user_id)
+
+
+@router.put(
+    "/meetings/{meeting_id}/speaker-mapping",
+    response_model=MeetingDetailOut,
+    responses={
+        400: {"description": "`INVALID_INPUT` 이 방 팀원이 아님 / 없는 줄 번호"},
+        409: {"description": "`RECORDING` 받아적는 중 / `NOT_CONFIRMED`"},
+    },
+    summary="말한 사람 정하기",
+)
+def map_speakers(
+    room_id: int,
+    meeting_id: int,
+    body: SpeakerMappingIn,
+    user_id: int = Depends(current_user_id),
+    db: Session = Depends(session_dep),
+) -> MeetingDetailOut:
+    """원문의 줄마다 누가 말했는지 정합니다. 받아적기를 멈춘 뒤에 씁니다.
+
+    - `labels`: 목소리 라벨("A")을 팀원에 연결하면 그 라벨의 모든 줄에 한 번에 반영됩니다.
+    - `lines`: 줄 번호마다 직접 고릅니다. 같은 요청의 라벨 연결보다 우선합니다. 엔진이 화자를 못 나누면 이것만 씁니다.
+    - `null`은 "모름"입니다. 보내지 않은 라벨·줄은 그대로입니다.
+    - 정한 뒤 요약을 다시 부르면 바뀐 이름으로 담당자를 추정합니다.
+    - 이 방 팀원이 아니거나 없는 줄 번호면 400 `INVALID_INPUT`. 받아적는 중이면 409 `RECORDING`.
+    """
+    require_member(db, room_id, user_id)
+    meeting = _locked_recordable(db, room_id, meeting_id)
+    recording.reject_while_recording(meeting)
+
+    members = {u.id for u in task_calc.members(db, room_id)}
+    chosen = {v for v in (*body.labels.values(), *body.lines.values()) if v is not None}
+    if not chosen <= members:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail={
+                "code": "INVALID_INPUT",
+                "field": "speaker_user_id",
+                "message": "이 방 팀원만 고를 수 있습니다.",
+            },
+        )
+    seqs = set(
+        db.exec(
+            select(TranscriptSegment.seq).where(TranscriptSegment.meeting_id == meeting_id)
+        ).all()
+    )
+    if not set(body.lines) <= seqs:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail={"code": "INVALID_INPUT", "field": "lines", "message": "그 줄이 없습니다."},
+        )
+
+    recording.map_speakers(db, meeting_id, body.labels, body.lines)
     db.commit()
     db.refresh(meeting)
     return meeting_detail(db, meeting, user_id)
@@ -206,9 +406,11 @@ def summarize_meeting(
     - 다시 부르면 요약을 바꾸고, 아직 확정하지 않은 AI 제안을 새 제안으로 바꿉니다. 확정된 할 일과 원문은 그대로입니다.
     - AI가 실패하면 503 `AGENT_TIMEOUT`. 처음이면 요약 상태가 `failed`, 전에 요약이 있었으면 그 요약이 그대로 남습니다.
     - 원문이 없으면 409 `NO_TRANSCRIPT`, 확정 전·취소된 회의면 409 `NOT_CONFIRMED`.
+    - 받아적는 중이면 409 `RECORDING`. 멈춘 뒤에 불러 주세요.
     """
     require_member(db, room_id, user_id)
     meeting = _recordable_meeting(db, room_id, meeting_id)
+    recording.reject_while_recording(meeting)
 
     users = task_calc.members(db, room_id)
     names_by_id = {u.id: u.name for u in users if u.id is not None}
