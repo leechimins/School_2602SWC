@@ -1,0 +1,100 @@
+.week {
+  display: grid;
+  grid-template-columns: 24px repeat(7, 1fr);
+  gap: 0 3px;
+  margin-top: 8px;
+}
+
+.wd {
+  padding-bottom: 3px;
+  text-align: center;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.hours,
+.col {
+  position: relative;
+  height: 180px;
+}
+
+.hours {
+  font-size: 10.5px;
+  color: var(--muted);
+}
+
+.hours span {
+  position: absolute;
+  left: 0;
+  transform: translateY(-50%);
+}
+
+.col {
+  border-radius: 5px;
+  background: var(--soft);
+}
+
+.blk {
+  position: absolute;
+  left: 1px;
+  right: 1px;
+  overflow: hidden;
+  padding: 2px 3px;
+  border-radius: 4px;
+  font-size: 10px;
+  line-height: 1.2;
+  word-break: keep-all;
+}
+
+/* 수업은 회색, 일정은 보조색, 팀 회의는 포인트색, 확정 대기는 점선 */
+.blk[data-k='class'],
+.legend i[data-k='class'] {
+  background: color-mix(in srgb, var(--text) 14%, var(--card));
+}
+
+.blk[data-k='event'],
+.legend i[data-k='event'] {
+  background: var(--sub-soft);
+  color: var(--sub-ink);
+}
+
+.blk[data-k='class'],
+.blk[data-k='event'] {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 14%, transparent);
+}
+
+.blk[data-k='meeting'],
+.legend i[data-k='meeting'] {
+  background: var(--point);
+  color: var(--on-point);
+  font-weight: 600;
+}
+
+.blk[data-k='waiting'],
+.legend i[data-k='waiting'] {
+  border: 1.5px dashed var(--point);
+  background: var(--card);
+  color: var(--point-ink);
+  font-weight: 600;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  margin-top: 8px;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.legend i {
+  width: 11px;
+  height: 11px;
+  border-radius: 3px;
+}

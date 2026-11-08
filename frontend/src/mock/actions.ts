@@ -1,11 +1,14 @@
 import dayjs from 'dayjs'
 import type { Id, IsoDateTime } from '../types/common.ts'
 import { formatMD, formatMonthDay } from '../lib/date.ts'
+import type { Preferences, ScheduleItemInput } from '../types/me.ts'
 import type { RecordInput, SuggestionPatch } from '../types/meeting.ts'
 import { YIELD_LEVELS, type RoomInput, type YieldLevel } from '../types/room.ts'
 import type { SchedulingInput } from '../types/scheduling.ts'
 import type { TaskInput, TaskStatus } from '../types/task.ts'
 import {
+  DEMO_EVERYTIME_CLASSES,
+  DEMO_GOOGLE_EVENTS,
   DEMO_RECORDING,
   DEMO_SCENARIO,
   SEED,
@@ -14,6 +17,7 @@ import {
   type DemoState,
   type SeedFeedback,
   type SeedMeeting,
+  type SeedScheduleItem,
   type SeedScheduling,
   type SeedTask,
 } from './seed.ts'
@@ -41,6 +45,10 @@ export type Action =
   | { type: 'meeting/create'; meetingId: Id; input: RecordInput }
   | { type: 'meeting/transcript'; meetingId: Id; text: string }
   | { type: 'meeting/summarize'; meetingId: Id }
+  | { type: 'me/prefs'; userId: Id; prefs: Preferences }
+  | { type: 'me/schedule-add'; userId: Id; input: ScheduleItemInput }
+  | { type: 'me/everytime'; userId: Id }
+  | { type: 'me/google'; userId: Id }
 
 const now = (s: DemoState): IsoDateTime => s.clockNow
 
@@ -89,6 +97,22 @@ const updateTask = (s: DemoState, id: Id, fn: (t: SeedTask) => SeedTask): DemoSt
   tasks: s.tasks.map((t) => (t.id === id ? fn(t) : t)),
 })
 
+/** 한 곳(에브리타임·구글)에서 온 일정을 통째로 바꾼다. 연결돼 있는지는 그곳에서 온 일정이 있는지로 본다 */
+function replaceSource(
+  s: DemoState,
+  userId: Id,
+  source: SeedScheduleItem['source'],
+  rows: Omit<SeedScheduleItem, 'id' | 'userId' | 'groupId'>[],
+): DemoState {
+  const kept = s.scheduleItems.filter((i) => !(i.userId === userId && i.source === source))
+  const added = rows.map((r, i) => ({ ...r, id: `s${s.nextSeq + i}`, userId, groupId: s.nextSeq + i }))
+  return {
+    ...s,
+    scheduleItems: [...kept, ...added],
+    nextSeq: s.nextSeq + added.length,
+  }
+}
+
 export function reduce(s: DemoState, action: Action): DemoState {
   switch (action.type) {
     case 'clock/move':
@@ -102,6 +126,26 @@ export function reduce(s: DemoState, action: Action): DemoState {
       const { name, description, startDate, dueDate, memberCount } = action.input
       return { ...s, room: { ...s.room, name, description, startDate, dueDate, memberCount } }
     }
+
+    case 'me/prefs':
+      return { ...s, prefs: { ...s.prefs, [action.userId]: action.prefs } }
+
+    case 'me/schedule-add': {
+      // 요일마다 한 줄, 같은 묶음 번호
+      const { userId, input } = action
+      const rows = input.days.map((d, i) => ({
+        id: `s${s.nextSeq + i}`, userId, groupId: s.nextSeq, title: input.title, kind: input.kind,
+        source: 'manual' as const, weekday: d.weekday, startMin: d.startHour * 60, endMin: d.endHour * 60,
+      }))
+      return { ...s, scheduleItems: [...s.scheduleItems, ...rows], nextSeq: s.nextSeq + rows.length }
+    }
+
+    case 'me/everytime':
+      // 다시 불러오기: 이전 에브리타임 수업을 지우고 새로 넣는다(직접 넣은 일정은 그대로)
+      return replaceSource(s, action.userId, 'everytime', DEMO_EVERYTIME_CLASSES)
+
+    case 'me/google':
+      return replaceSource(s, action.userId, 'google', DEMO_GOOGLE_EVENTS)
 
     case 'scheduling/start': {
       // 아직 확정 전인 지난 조율 결과는 새 조율로 바뀐다. 확정된 회의는 그대로 둔다

@@ -1,0 +1,21 @@
+.profile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 18px 4px;
+}
+
+.name {
+  font-size: 18px;
+}
+
+.notice {
+  margin-top: 8px;
+}
+
+.act {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 10px;
+}

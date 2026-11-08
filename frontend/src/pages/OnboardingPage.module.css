@@ -1,0 +1,16 @@
+/* 온보딩 질문 제목: 한 화면에 질문 하나 */
+.q {
+  margin: 22px 18px 2px;
+  font-size: 21px;
+  font-weight: 800;
+  line-height: 1.35;
+  letter-spacing: -0.02em;
+}
+
+.hint {
+  margin: 0 18px 4px;
+}
+
+.notice {
+  margin-top: 8px;
+}

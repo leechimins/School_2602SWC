@@ -1,0 +1,24 @@
+.pref {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.pref:first-child {
+  padding-top: 4px;
+}
+
+.pref:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.pref > :global(.meta) {
+  display: block;
+}
+
+.avoid {
+  display: block;
+  width: 100%;
+  min-height: 60px;
+  margin: 6px 0;
+}

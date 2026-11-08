@@ -2,12 +2,12 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import AppShell from './components/AppShell.tsx'
 import DemoPage from './demo/DemoPage.tsx'
 import { PATHS } from './lib/paths.ts'
-import ComingSoonPage from './pages/ComingSoonPage.tsx'
 import HomePage from './pages/HomePage.tsx'
 import MeetingPage from './pages/MeetingPage.tsx'
 import MePage from './pages/MePage.tsx'
 import MyTasksPage from './pages/MyTasksPage.tsx'
 import NotificationsPage from './pages/NotificationsPage.tsx'
+import OnboardingPage from './pages/OnboardingPage.tsx'
 import ProposalPage from './pages/ProposalPage.tsx'
 import RecordPage from './pages/RecordPage.tsx'
 import SchedulePage from './pages/SchedulePage.tsx'
@@ -18,7 +18,6 @@ import TasksPage from './pages/TasksPage.tsx'
 import TeamPage from './pages/TeamPage.tsx'
 
 // 앱 전체 라우트 목록. 탭 아래 화면은 AppShell(하단 탭) 안에, 처음 화면과 시연 화면은 밖에 둔다.
-// ComingSoonPage 자리는 해당 이슈에서 실제 화면으로 바꾼다.
 export default function App() {
   return (
     <Routes>
@@ -43,7 +42,7 @@ export default function App() {
       {/* 처음 화면: 하단 탭 없이 휴대폰 폭 틀만 */}
       <Route element={<AppShell tabs={false} />}>
         <Route path={PATHS.start} element={<StartPage />} />
-        <Route path={PATHS.onboarding} element={<ComingSoonPage title="온보딩" backTo={PATHS.home} />} />
+        <Route path={PATHS.onboarding} element={<OnboardingPage />} />
       </Route>
       <Route path={PATHS.demo} element={<DemoPage />} />
       <Route path="*" element={<Navigate to={PATHS.home} replace />} />
