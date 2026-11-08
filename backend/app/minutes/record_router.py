@@ -1,4 +1,4 @@
-"""Record — 회의록 목록·보기, 기록 시작, 직접 쓰기, 요약·할 일 뽑기. 레인 B.
+"""Record — 회의록 목록·보기, 기록 시작, 직접 쓰기, 받아적기, 요약·할 일 뽑기. 레인 B.
 
 Swagger 그룹과 파일 이름은 노션 API 명세의 도메인(Record)과 맞춘다. 그룹 이름은 다른 레인처럼 소문자.
 """
@@ -11,9 +11,9 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlmodel import Session, select
 
 from app.meeting.models import Meeting
-from app.minutes import summarize, transcript
+from app.minutes import recording, summarize, transcript
 from app.minutes import tasks as task_calc
-from app.minutes.models import Minutes
+from app.minutes.models import Minutes, TranscriptSegment
 from app.minutes.record import (
     RECORDABLE,
     meeting_detail,
@@ -180,6 +180,62 @@ def write_transcript(
     transcript.replace(db, meeting_id, lines)
     meeting.transcript_mode = TranscriptMode.MANUAL
     db.add(meeting)
+    db.commit()
+    db.refresh(meeting)
+    return meeting_detail(db, meeting, user_id)
+
+
+# ── 받아적기 ─────────────────────────────────────────────────────────
+
+
+def _locked_recordable(db: Session, room_id: int, meeting_id: int) -> Meeting:
+    """기록을 붙일 수 있는 회의를 잠가서. 두 폰이 동시에 눌러도 한 번만 바뀐다."""
+    meeting = _recordable_meeting(db, room_id, meeting_id)
+    db.refresh(meeting, with_for_update=True)
+    return meeting
+
+
+@router.post(
+    "/meetings/{meeting_id}/recording/start",
+    response_model=MeetingDetailOut,
+    responses={
+        409: {
+            "description": "`NOT_CONFIRMED` 확정 전·취소된 회의 / "
+            "`TRANSCRIPT_EXISTS` 직접 쓴 원문이 있음 / `RECORDING_STOPPED` 이미 멈춤"
+        }
+    },
+    summary="받아적기 시작",
+)
+def start_recording(
+    room_id: int,
+    meeting_id: int,
+    user_id: int = Depends(current_user_id),
+    db: Session = Depends(session_dep),
+) -> MeetingDetailOut:
+    """이 회의를 받아적기로 기록하기 시작합니다. 시작 시각은 시연 시계의 지금입니다.
+
+    - 받아적는 중에 다시 눌러도 그대로 진행합니다(200, 시작 시각 안 바뀜).
+    - 직접 쓴 원문이 이미 있으면 409 `TRANSCRIPT_EXISTS` — 두 원문이 섞이지 않게.
+    - 이미 멈춘 받아적기는 다시 시작할 수 없습니다. 409 `RECORDING_STOPPED`.
+    - 확정 전 회의안이나 취소된 회의면 409 `NOT_CONFIRMED`.
+    - 음성은 서버에 저장하지 않습니다. 받아적은 글은 조각 올리기로 보냅니다.
+    """
+    require_member(db, room_id, user_id)
+    meeting = _locked_recordable(db, room_id, meeting_id)
+
+    current = recording.state(meeting)
+    if current == "stopped":
+        raise recording.stopped_error()
+    if current == "none":
+        has_text = db.exec(
+            select(TranscriptSegment.id).where(TranscriptSegment.meeting_id == meeting_id)
+        ).first()
+        if has_text is not None:
+            raise recording.conflict("TRANSCRIPT_EXISTS", "이미 직접 쓴 원문이 있어요.")
+        meeting.transcript_mode = TranscriptMode.STT
+        meeting.recording_started_at = demo_clock.now(db)
+        meeting.recording_stopped_at = None
+        db.add(meeting)
     db.commit()
     db.refresh(meeting)
     return meeting_detail(db, meeting, user_id)

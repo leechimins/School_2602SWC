@@ -70,6 +70,9 @@ class PersonOut(SQLModel):
 
 class TranscriptLineOut(SQLModel):
     seq: int = Field(description="줄 번호 (0부터)")
+    speaker_label: str | None = Field(
+        description='받아적기 엔진이 붙인 목소리 라벨("A" 등). 말한 사람 고르기 화면용. 직접 쓰기면 null'
+    )
     speaker_user_id: int | None = Field(description="말한 사람. 모르면 null")
     speaker_name: str | None = Field(description="말한 사람 이름. 모르면 null")
     text: str = Field(description="발언")
@@ -131,6 +134,9 @@ class MeetingDetailOut(SQLModel):
     status: MeetingStatus = Field(description="회의 상태")
     transcript_mode: TranscriptMode | None = Field(
         description="기록 방식 (stt 받아적기 / manual 직접 쓰기). 기록 전이면 null"
+    )
+    recording_state: Literal["none", "recording", "stopped"] = Field(
+        description="받아적기 상태. none 시작 전(또는 직접 쓰기) / recording 받아적는 중 / stopped 멈춤"
     )
     attendees: list[PersonOut] = Field(description="참석자 (수락한 사람)")
     transcript: list[TranscriptLineOut] = Field(description="원문. 줄 번호 순")

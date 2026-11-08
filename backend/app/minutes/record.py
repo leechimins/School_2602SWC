@@ -9,6 +9,7 @@ from __future__ import annotations
 from sqlmodel import Session, col, func, select
 
 from app.meeting.models import Meeting, MeetingResponse
+from app.minutes import recording
 from app.minutes.models import Minutes, MinutesItem, Task, TranscriptSegment
 from app.minutes.schemas import (
     MeetingDetailOut,
@@ -104,10 +105,12 @@ def meeting_detail(db: Session, meeting: Meeting, viewer_id: int) -> MeetingDeta
         mode=meeting.mode,
         status=meeting.status,
         transcript_mode=meeting.transcript_mode,
+        recording_state=recording.state(meeting),
         attendees=_attendees(db, meeting.id),
         transcript=[
             TranscriptLineOut(
                 seq=segment.seq,
+                speaker_label=segment.speaker_label,
                 speaker_user_id=segment.speaker_user_id,
                 speaker_name=names.get(segment.speaker_user_id),
                 text=segment.text,
