@@ -19,7 +19,7 @@ from app.minutes.schemas import (
     TranscriptLineOut,
 )
 from app.minutes.tasks import members, task_outs, user_names
-from app.shared.enums import MeetingStatus, MinutesItemKind, ResponseState
+from app.shared.enums import MeetingStatus, MinutesItemKind, ResponseState, TaskState
 from app.shared.models import User
 
 # 회의록 목록에 나오는 회의. 회의안(proposed)과 취소된 회의는 기록할 대상이 아니다.
@@ -80,6 +80,16 @@ def meeting_detail(db: Session, meeting: Meeting, viewer_id: int) -> MeetingDeta
         .where(Task.meeting_id == meeting.id, col(Task.dropped).is_(False))
         .order_by(Task.id)
     ).all()
+    done_tasks = db.exec(
+        select(Task)
+        .where(
+            Task.done_meeting_id == meeting.id,
+            Task.state == TaskState.DONE,
+            col(Task.confirmed).is_(True),
+            col(Task.dropped).is_(False),
+        )
+        .order_by(Task.id)
+    ).all()
     suggestions = [t for t in tasks if not t.confirmed]
     names = user_names(
         db,
@@ -106,6 +116,7 @@ def meeting_detail(db: Session, meeting: Meeting, viewer_id: int) -> MeetingDeta
         ],
         minutes=_minutes(db, meeting.id),
         tasks=task_outs(db, [t for t in tasks if t.confirmed], viewer_id),
+        done_tasks=task_outs(db, list(done_tasks), viewer_id),
         suggestions=[suggestion_out(t, names) for t in suggestions],
     )
 

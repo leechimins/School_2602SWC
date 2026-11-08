@@ -1,4 +1,5 @@
-.hero {
+/* 전역 .sec(흰 바탕)보다 나중에 읽혀도 이기도록 .sec와 함께 건다 */
+:global(.sec).hero {
   display: grid;
   grid-template-columns: auto 1fr;
   align-items: center;

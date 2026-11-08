@@ -420,3 +420,53 @@ def test_직접_추가하면_바로_확정된_할_일이_된다(
     assert created.confirmed_by == _user(seeded, "서연").id
     titles = [t["title"] for t in client.get(_url(room)).json()["tasks"]]
     assert "시연 리허설 장비 확인" in titles
+
+
+def test_회의록에서_추가하면_그_회의가_출처다(
+    client: TestClient, seeded: Session, room: Room, login
+) -> None:
+    meeting_id = _task(seeded, "사용자 인터뷰 정리").meeting_id
+    login("서연")
+
+    res = client.post(_url(room), json={"title": "회의 후속 메일", "meeting_id": meeting_id})
+
+    assert res.status_code == 201, res.text
+    body = res.json()
+    assert body["source"]["meeting_id"] == meeting_id
+    assert body["source"]["topic"] == "중간 발표 자료 나누기"
+    assert seeded.get(Task, body["id"]).origin == "manual"
+    detail = client.get(f"{API}/rooms/{room.id}/meetings/{meeting_id}").json()
+    assert "회의 후속 메일" in [t["title"] for t in detail["tasks"]]
+
+
+def test_없는_회의를_출처로_주면_404이고_안_만든다(
+    client: TestClient, seeded: Session, room: Room, login
+) -> None:
+    login("서연")
+    before = len(seeded.exec(select(Task)).all())
+
+    res = client.post(_url(room), json={"title": "엉뚱한 출처", "meeting_id": 999999})
+
+    assert res.status_code == 404
+    assert res.json()["code"] == "NOT_FOUND"
+    seeded.expire_all()
+    assert len(seeded.exec(select(Task)).all()) == before
+
+
+def test_완료를_되돌리면_회의에서_끝난_일에서_빠진다(
+    client: TestClient, seeded: Session, room: Room, login
+) -> None:
+    task = _task(seeded, "참고 사례 조사")
+    meeting_id = task.done_meeting_id
+    assert meeting_id is not None
+    login("지수")  # 담당자
+    meeting_url = f"{API}/rooms/{room.id}/meetings/{meeting_id}"
+    assert [t["title"] for t in client.get(meeting_url).json()["done_tasks"]] == ["참고 사례 조사"]
+
+    res = client.patch(_url(room, f"/{task.id}/status"), json={"state": "doing"})
+    assert res.status_code == 200, res.text
+    assert client.get(meeting_url).json()["done_tasks"] == []
+
+    # 다시 완료로 바꿔도 "회의에서 끝난 일"로 돌아오지 않는다(회의 밖에서 끝냈으므로)
+    client.patch(_url(room, f"/{task.id}/status"), json={"state": "done"})
+    assert client.get(meeting_url).json()["done_tasks"] == []

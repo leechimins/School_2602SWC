@@ -22,7 +22,7 @@ cd frontend
 npm install
 npm run dev
 ```
-- 백엔드 없이도 목 데이터로 모든 화면이 열립니다. (전환 방법은 프로젝트 생성 시 기입)
+- 백엔드 없이도 목 데이터로 모든 화면이 열립니다. 시연 화면은 `http://localhost:5173/demo`, 실서버 전환(`VITE_API_URL`)은 [`frontend/README.md`](frontend/README.md)를 봅니다.
 - 시연 당일에는 개발 서버 대신 빌드본으로 띄웁니다: `npm run build` 후 `npm run preview`
 
 ### 백엔드

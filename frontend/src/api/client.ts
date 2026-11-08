@@ -1,4 +1,5 @@
 import { getDebug } from '../lib/debug.ts'
+import { wait } from '../lib/timers.ts'
 import { markChanged } from '../mock/store.ts'
 
 // 서버 호출은 이 파일을 거친다. 목·실서버 전환과 서버 실패 시 목 데이터로 이어 가기를 여기 한 곳에서 한다.
@@ -86,15 +87,27 @@ export async function withMock<T>(real: () => Promise<T>, mock: () => T): Promis
 /** /demo 점검 스위치: 켜져 있으면 느리게 답하거나 AI 멈춤처럼 실패한다. 목 이어 가기보다 앞에 둬서 실패 화면이 보이게 한다 */
 async function debugGate() {
   const { slowMs, fail } = getDebug()
-  if (slowMs > 0) await new Promise((resolve) => setTimeout(resolve, slowMs))
+  if (slowMs > 0) await wait(slowMs)
   if (fail) throw new ApiError(503, 'DEBUG_FAIL', '잠시 후 다시 해 주세요.')
 }
 
-/** 쓰기 요청: withMock과 같고, 끝나면 다른 화면(다른 iframe 포함)이 다시 불러오게 알린다 */
+/**
+ * 쓰기 요청. 목 모드는 목 데이터에 쓰고(dispatch가 화면들에 알린다), 실서버 모드는 실패해도 목으로 이어 가지 않는다.
+ * 읽기는 서버에서 오는데 쓰기만 목에 들어가면 "된 것처럼" 보이고 서버에는 없다(AI 실패 "정리 못 함"도 안 나온다).
+ * 성공하면 다른 화면(다른 iframe 포함)이 다시 불러오게 알린다.
+ */
 export async function withMockWrite<T>(real: () => Promise<T>, mock: () => T): Promise<T> {
-  const result = await withMock(real, mock)
-  if (isRealServer()) markChanged() // 목 모드는 dispatch가 이미 알렸다
-  return result
+  await debugGate()
+  if (!isRealServer()) return mock()
+  try {
+    const result = await real()
+    markChanged()
+    return result
+  } catch (e) {
+    if (e instanceof ApiError) throw e
+    console.warn('[api] 쓰기 실패', e) // 네트워크 오류·시간 초과
+    throw new ApiError(503, 'NETWORK', '잠시 후 다시 해 주세요.')
+  }
 }
 
 /** 화면에 띄울 한 줄. 알 수 없는 오류는 AI 멈춤과 같은 문구로 */

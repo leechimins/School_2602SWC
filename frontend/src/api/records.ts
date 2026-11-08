@@ -1,29 +1,18 @@
+import { wait } from '../lib/timers.ts'
 import { mockContext } from '../mock/context.ts'
 import { DEMO_RECORDING } from '../mock/seed.ts'
 import { dispatch, getState } from '../mock/store.ts'
-import { buildMeetingDetail, buildMeetingList } from '../mock/views.ts'
+import { buildMeetingDetail } from '../mock/views.ts'
 import type { Id } from '../types/common.ts'
-import type { MeetingDetail, MeetingSummary, RecordInput, SuggestionPatch } from '../types/meeting.ts'
+import type { MeetingDetail, RecordInput, SuggestionPatch } from '../types/meeting.ts'
 import { USE_MOCK, isRealServer, request, withMock, withMockWrite } from './client.ts'
 import {
   toServerMode,
   toMeetingDetail,
-  toMeetingSummary,
   type ServerMeetingDetail,
-  type ServerMeetingSummary,
 } from './convert.ts'
 
 // 회의 기록·회의록·할 일 제안. 장면 2의 앞부분(회의에서 할 일로)이 여기서 나온다.
-
-export function getMeetings(roomId: Id): Promise<MeetingSummary[]> {
-  return withMock(
-    async () => {
-      const r = await request<{ meetings: ServerMeetingSummary[] }>(`/rooms/${roomId}/meetings`)
-      return r.meetings.map(toMeetingSummary)
-    },
-    () => buildMeetingList(mockContext().s),
-  )
-}
 
 /** 회의록: 원문 + 요약 + 그 회의에서 확정된 할 일 + 확정 전 제안 */
 export function getMeeting(roomId: Id, meetingId: Id): Promise<MeetingDetail> {
@@ -87,7 +76,7 @@ const MOCK_SUMMARIZE_MS = 1_800 // 목 모드에서도 정리 중 화면이 잠�
 
 /** 회의록 정리 + 할 일 뽑기(AI). 실패하면 "잠시 후 다시 해 주세요." 한 줄과 다시 하기로 이어 간다 */
 export async function summarizeMeeting(roomId: Id, meetingId: Id): Promise<void> {
-  if (USE_MOCK) await new Promise((resolve) => setTimeout(resolve, MOCK_SUMMARIZE_MS))
+  if (USE_MOCK) await wait(MOCK_SUMMARIZE_MS)
   return withMockWrite(
     () =>
       request<void>(`/rooms/${roomId}/meetings/${meetingId}/summarize`, {

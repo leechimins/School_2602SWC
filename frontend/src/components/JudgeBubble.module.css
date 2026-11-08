@@ -32,6 +32,16 @@
   font-size: var(--fs-meta);
 }
 
+/* 고른 시간 줄: 46px 이름 칸에 안 맞으니 칸 없이 "고른 시간"(한 줄) + 시간 */
+.pick {
+  display: flex;
+}
+
+.pick > :first-child {
+  flex: none;
+  white-space: nowrap;
+}
+
 .wide {
   grid-column: span 2;
   font-size: 13.5px;

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Outlet } from 'react-router-dom'
 import { justBooted } from '../lib/boot.ts'
 import TabBar from './TabBar.tsx'
+import WriteFailNotice from './WriteFailNotice.tsx'
 import styles from './AppShell.module.css'
 
 type Props = {
@@ -16,6 +17,7 @@ export default function AppShell({ tabs = true }: Props) {
     <div className={`${styles.app} ${entering ? styles.enter : ''}`}>
       <div className={styles.screen}>
         <Outlet />
+        <WriteFailNotice />
       </div>
       {tabs && <TabBar />}
     </div>

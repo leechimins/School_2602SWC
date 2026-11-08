@@ -232,6 +232,7 @@ erDiagram
     minutes ||--o{ minutes_item : ""
     room ||--o{ task : ""
     meeting |o--o{ task : "출처 회의"
+    meeting |o--o{ task : "끝난 회의"
     user |o--o{ task : "담당자"
     user |o--o{ task : "확정한 사람"
     task |o--o{ notification : ""
@@ -280,6 +281,7 @@ erDiagram
         int confirmed_by FK "nullable"
         datetime confirmed_at "nullable"
         bool dropped "필요 없음"
+        int done_meeting_id FK "nullable, 회의에서 끝난 일"
         datetime created_at
     }
 
@@ -325,5 +327,5 @@ erDiagram
 - 아래만 NULL로 비웁니다 (SET NULL).
   - `meeting.scheduling_id` · `meeting.candidate_slot_id`
   - `preference_change.meeting_id`
-  - `task.meeting_id` · `task.assignee_user_id` · `task.confirmed_by`
+  - `task.meeting_id` · `task.done_meeting_id` · `task.assignee_user_id` · `task.confirmed_by`
   - `transcript_segment.speaker_user_id`

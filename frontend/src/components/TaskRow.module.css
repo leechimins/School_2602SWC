@@ -120,6 +120,12 @@
   background: none;
 }
 
+/* 메뉴 안의 상태 글자는 바탕 없이 색 글자만 (고른 줄은 줄 바탕으로 표시) */
+.menu [role='menuitemradio'] > span {
+  padding: 0;
+  background: none;
+}
+
 .menu button[aria-checked='true'] {
   background: var(--soft);
 }

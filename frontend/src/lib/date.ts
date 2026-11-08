@@ -30,11 +30,6 @@ export function formatDayLabel(value: DateInput) {
   return `${formatMonthDay(value)} ${weekday(value)}`
 }
 
-/** 회의 날짜처럼 길게: 11월 18일 수요일 */
-export function formatLongDate(value: DateInput) {
-  return `${formatMonthDay(value)} ${weekday(value)}요일`
-}
-
 /** 16:00 */
 export function formatTime(value: DateInput) {
   return d(value).format('HH:mm')
@@ -74,6 +69,15 @@ export function toIsoDate(value: DateInput): IsoDate {
 /** 달력 날짜로 센 남은 날. 지났으면 음수 (마감 디데이, 늦은 날 수) */
 export function daysUntil(target: DateInput, now: Dayjs) {
   return d(target).startOf('day').diff(now.startOf('day'), 'day')
+}
+
+/** 시작까지 남은 시간: 8일 06:59:12 · 00:30:00 (지났으면 00:00:00) */
+export function formatCountdown(target: DateInput, now: Dayjs) {
+  const s = Math.max(0, d(target).diff(now, 'second'))
+  const days = Math.floor(s / 86400)
+  const p = (n: number) => String(n).padStart(2, '0')
+  const hms = `${p(Math.floor((s % 86400) / 3600))}:${p(Math.floor((s % 3600) / 60))}:${p(s % 60)}`
+  return days ? `${days}일 ${hms}` : hms
 }
 
 /** 디데이 표기: D-31 · D-day · D+2 */

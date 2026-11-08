@@ -73,7 +73,8 @@ def test_제안을_한꺼번에_확정하면_할_일이_된다(
     meeting = seeded.exec(select(Meeting).where(Meeting.topic == "중간 발표 자료 나누기")).one()
     detail = client.get(f"{API}/rooms/{room.id}/meetings/{meeting.id}").json()
     assert detail["suggestions"] == []
-    assert len(detail["tasks"]) == 5 + 3
+    # 시드의 이 회의 할 일 4개 + 방금 확정한 3개 ("참고 사례 조사"는 10/27 회의 출처)
+    assert len(detail["tasks"]) == 4 + 3
 
 
 def test_이미_확정된_것이_섞이면_409이고_아무것도_확정되지_않는다(

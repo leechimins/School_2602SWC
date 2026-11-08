@@ -85,19 +85,6 @@ export type MeetingDetail = {
   unneededTasks: UnneededTask[] // "필요 없어 보이는 일"
 }
 
-/** 회의록 목록의 한 줄 */
-export type MeetingSummary = {
-  id: Id
-  topic: string
-  headline: string | null
-  startAt: IsoDateTime
-  mode: MeetingMode
-  status: MeetingStatus
-  attendees: string[]
-  hasTranscript: boolean
-  suggestionCount: number
-}
-
 export type RecordInput = {
   meetingId: Id | null // 확정된 회의 없이도 기록할 수 있다
   topic: string | null

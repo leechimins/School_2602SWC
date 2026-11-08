@@ -8,6 +8,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlmodel import Session, col, func, select
 
+from app.meeting.models import Meeting
 from app.minutes import tasks as task_calc
 from app.minutes.common import apply_patch, require_room_member_id
 from app.minutes.models import Task
@@ -128,16 +129,26 @@ def create_task(
 ) -> TaskOut:
     """AI 없이 할 일을 바로 만듭니다. 만든 사람이 확정한 사람으로 바로 확정됩니다.
 
-    - 출처 회의가 없어 `source`가 null입니다.
+    - 회의록에서 추가하면 `meeting_id`에 그 회의를 보냅니다. `source`에 그 회의가 나오고 회의록의 할 일에도 보입니다.
+    - `meeting_id`를 비우면 직접 추가라 `source`가 null입니다.
+    - 이 방의 회의가 아니면 404 `NOT_FOUND`.
     - 담당자는 이 방 팀원만, 비워도 됩니다.
     """
     require_member(db, room_id, user_id)
     if body.assignee_user_id is not None:
         require_room_member_id(db, room_id, body.assignee_user_id)
+    if body.meeting_id is not None:
+        meeting = db.get(Meeting, body.meeting_id)
+        if meeting is None or meeting.room_id != room_id:
+            raise HTTPException(
+                status.HTTP_404_NOT_FOUND,
+                detail={"code": "NOT_FOUND", "message": "그 회의가 없습니다."},
+            )
 
     now = demo_clock.now(db)
     task = Task(
         room_id=room_id,
+        meeting_id=body.meeting_id,
         title=body.title,
         due_date=body.due_date,
         assignee_user_id=body.assignee_user_id,
@@ -194,6 +205,9 @@ def change_status(
 
     if task.state != body.state:
         task.state = body.state
+        if body.state != TaskState.DONE:
+            # 되돌리면 "회의에서 끝난 일"에서도 빠진다
+            task.done_meeting_id = None
         db.add(task)
         actor = db.get(User, user_id)
         assert actor is not None

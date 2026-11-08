@@ -1,0 +1,21 @@
+.quote {
+  margin: 8px 12px 0;
+  padding: 10px 12px;
+  border-radius: var(--r-l);
+  background: var(--sub-soft);
+}
+
+.quote > :global(.meta) {
+  color: var(--sub-ink);
+  font-weight: 600;
+}
+
+.quote > p:last-child {
+  margin-top: 2px;
+  font-weight: 500;
+}
+
+.quote em {
+  font-style: normal;
+  font-weight: 700;
+}

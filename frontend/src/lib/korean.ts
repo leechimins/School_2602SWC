@@ -26,3 +26,8 @@ export function withJosa(word: string, pair: Pair): string {
   const useFinal = pair === '으로/로' ? has && !isRieul : has
   return word + (useFinal ? withFinal : withoutFinal)
 }
+
+/** 조사만: josa('오후·저녁', '은/는') → '은' (단어를 강조 표시와 따로 그릴 때) */
+export function josa(word: string, pair: Pair): string {
+  return withJosa(word, pair).slice(word.length)
+}

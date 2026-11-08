@@ -1,11 +1,12 @@
+import dayjs from 'dayjs'
 import type { Id, MeetingMode } from '../types/common.ts'
 import type { Home } from '../types/home.ts'
+import { DAYPARTS, type MyWeek, type Preferences, type ScheduleSource, type WeekBlock } from '../types/me.ts'
 import type {
   CoordinatingBrief,
   MeetingBrief,
   MeetingDetail,
   MeetingStatus,
-  MeetingSummary,
   Minutes,
   Schedule,
   Suggestion,
@@ -62,7 +63,6 @@ export type ServerRoom = {
   start_date: string
   due_date: string
   d_day: number
-  eval_method: string
   member_count: number
   joined_count: number
   invite_code: string
@@ -263,6 +263,12 @@ type ServerUtterance = {
   speaker_name: string | null
   text: string
   created_at: string
+  // 말풍선 뱃지. 어필 발언은 모두 null이다
+  answer: 'accept' | 'reject' | null
+  burden: ServerBurden | null
+  my_score: number | null // 보는 사람 본인의 반응 발언일 때만
+  slot_start_at: string | null // 판단 에이전트가 낸 시간
+  slot_end_at: string | null
 }
 
 export type ServerScheduling = {
@@ -279,22 +285,23 @@ export type ServerScheduling = {
   utterances: ServerUtterance[]
 }
 
-// 서버 발언에는 아직 text만 있다. 불편 단계·제안 시간은 백엔드 요청 거리라 비워 둔다.
 // 어필/응답은 순서로 가른다: 한 라운드에서 판단 에이전트보다 먼저 나온 팀원 발언이 어필, 뒤에 나온 것이 수락·거절이다
 const judgeSeqByRound = (us: ServerUtterance[]) =>
   new Map(us.filter((u) => u.speaker_kind === 'judge').map((u) => [u.round_no, u.seq]))
 
-const toUtterance = (u: ServerUtterance, judgeSeq: Map<number, number>): Utterance => ({
+const ANSWER = { accept: '수락', reject: '거절' } as const
+
+const toUtterance = (u: ServerUtterance, judgeSeq: Map<number, number>, mode: ServerMode): Utterance => ({
   seq: u.seq,
   round: u.round_no,
   kind: u.speaker_kind === 'judge' ? 'judge' : u.seq < (judgeSeq.get(u.round_no) ?? Infinity) ? 'appeal' : 'answer',
   speakerId: optId(u.speaker_user_id),
   speakerName: u.speaker_name,
   text: u.text,
-  answer: null,
-  burden: null,
-  myScore: null,
-  slot: null,
+  answer: u.answer ? ANSWER[u.answer] : null,
+  burden: u.burden ? BURDEN[u.burden] : null,
+  myScore: u.my_score,
+  slot: u.slot_start_at && u.slot_end_at ? { startAt: u.slot_start_at, endAt: u.slot_end_at, mode: meetingMode(mode) } : null,
   yieldChanges: [],
 })
 
@@ -309,7 +316,7 @@ export const toScheduling = (r: ServerScheduling): Scheduling => {
     mode: MODE[r.mode],
     status: r.status,
     roundsUsed: r.rounds_used,
-    utterances: r.utterances.map((u) => toUtterance(u, judgeSeq)),
+    utterances: r.utterances.map((u) => toUtterance(u, judgeSeq, r.mode)),
     proposalId: optId(r.meeting_id), // 합의·조정이 끝나야 생긴다
   }
 }
@@ -323,6 +330,7 @@ export type ServerProposal = {
   status: MeetingStatus
   rationale: string
   scheduling_status: SchedulingStatus | null
+  scheduling_id: number | null // 이 회의를 낸 조율. 거절로 취소돼도 남고, 조율 없이 만든 회의는 null
   my_score: number | null
   my_reason: string
   my_yield_points: number
@@ -342,8 +350,8 @@ export type ServerProposal = {
 
 export const toProposal = (r: ServerProposal): Proposal => ({
   id: id(r.id),
-  schedulingId: null, // 회의 → 조율 ID (백엔드 요청 거리)
-  roundsUsed: null,
+  schedulingId: optId(r.scheduling_id),
+  roundsUsed: null, // 회의안 응답에 없다. 화면은 숫자 없이 "판단 에이전트가 정함"만 쓴다
   topic: r.topic,
   startAt: r.start_at,
   endAt: r.end_at,
@@ -406,18 +414,6 @@ export type ServerMeetingDetail = {
   suggestions: ServerSuggestion[]
 }
 
-export type ServerMeetingSummary = {
-  id: number
-  topic: string
-  headline: string | null
-  start_at: string
-  mode: ServerMode
-  status: MeetingStatus
-  attendees: string[]
-  has_transcript: boolean
-  suggestion_count: number
-}
-
 export const toSuggestion = (g: ServerSuggestion): Suggestion => ({
   id: id(g.id),
   title: g.title,
@@ -437,21 +433,9 @@ export const toMeetingDetail = (r: ServerMeetingDetail): MeetingDetail => ({
   transcript: r.transcript.map((l) => ({ seq: l.seq, speakerId: optId(l.speaker_user_id), speakerName: l.speaker_name, text: l.text })),
   minutes: r.minutes,
   tasks: r.tasks.map(toTask),
-  doneTasks: (r.done_tasks ?? []).map(toTask), // 서버에 아직 없는 묶음. 없으면 비워 둔다
+  doneTasks: (r.done_tasks ?? []).map(toTask), // "회의에서 끝난 일". 진행 중으로 되돌리면 서버가 목록에서 뺀다
   suggestions: r.suggestions.map(toSuggestion),
   unneededTasks: [], // 서버에 없는 목록(AI가 고르지 않는다). 실서버에서는 이 칸이 안 보인다
-})
-
-export const toMeetingSummary = (m: ServerMeetingSummary): MeetingSummary => ({
-  id: id(m.id),
-  topic: m.topic,
-  headline: m.headline,
-  startAt: m.start_at,
-  mode: meetingMode(m.mode),
-  status: m.status,
-  attendees: m.attendees,
-  hasTranscript: m.has_transcript,
-  suggestionCount: m.suggestion_count,
 })
 
 // ── 에이전트가 한 일 · 양보 기록 ─────────────────────────────
@@ -515,4 +499,74 @@ export const toNoticeList = (r: ServerNoticeList): NoticeList => ({
     }),
   ),
   unreadCount: r.unread_count,
+})
+
+// ── 내 조건(선호·주간 시간표) ─────────────────────────────
+
+type ServerDaypart = 'morning' | 'forenoon' | 'lunch' | 'afternoon' | 'evening' | 'night'
+const SERVER_DAYPARTS: ServerDaypart[] = ['morning', 'forenoon', 'lunch', 'afternoon', 'evening', 'night'] // DAYPARTS와 같은 순서
+
+/** 서버 시각 피커 한 칸: 숫자 + 오전·오후 (backend/app/me/schemas.py Hour12) */
+type ServerHour12 = { hour12: number; ampm: 'am' | 'pm'; minute: 0 | 30 }
+
+export type ServerPreference = {
+  day_start_min: number | null
+  day_end_min: number | null
+  mode_pref: ServerMode | null
+  dayparts: ServerDaypart[] | null
+  avoid_raw: string | null
+}
+
+export const toPreferences = (r: ServerPreference): Preferences => ({
+  fromHour: r.day_start_min === null ? null : Math.floor(r.day_start_min / 60),
+  toHour: r.day_end_min === null ? null : Math.floor(r.day_end_min / 60),
+  mode: r.mode_pref === null ? null : (MODE[r.mode_pref] as Preferences['mode']),
+  dayparts: (r.dayparts ?? []).map((d) => DAYPARTS[SERVER_DAYPARTS.indexOf(d)]),
+  avoid: r.avoid_raw ?? '',
+})
+
+const toHour12 = (hour: number): ServerHour12 => ({ hour12: hour % 12 || 12, ampm: hour < 12 ? 'am' : 'pm', minute: 0 })
+
+/** 온보딩·내 조건 저장 body. 비운 칸은 null(지운다) */
+export const toServerPreferences = (p: Preferences) => ({
+  day_start: p.fromHour === null ? null : toHour12(p.fromHour),
+  day_end: p.toHour === null ? null : toHour12(p.toHour),
+  mode_pref: p.mode === null ? null : toServerMode(p.mode),
+  dayparts: p.dayparts.map((d) => SERVER_DAYPARTS[DAYPARTS.indexOf(d)]),
+  avoid_raw: p.avoid.trim() || null,
+})
+
+export type ServerMySchedule = {
+  week_start: string
+  week_end: string
+  items: {
+    kind: 'class' | 'event' | 'meeting'
+    title: string | null
+    start_at: string
+    end_at: string
+    source: ScheduleSource | null
+    meeting_status: MeetingStatus | null
+  }[]
+}
+
+const hourOf = (iso: string) => {
+  const t = dayjs(iso)
+  return t.hour() + t.minute() / 60
+}
+
+export const toMyWeek = (r: ServerMySchedule): MyWeek => ({
+  weekStart: r.week_start,
+  weekEnd: r.week_end,
+  blocks: r.items.map((i): WeekBlock => {
+    const waiting = i.kind === 'meeting' && i.meeting_status === 'proposed'
+    return {
+      kind: waiting ? 'waiting' : i.kind,
+      title: i.kind === 'meeting' ? (waiting ? '회의 대기' : '팀 회의') : (i.title ?? '일정'),
+      weekday: (dayjs(i.start_at).day() + 6) % 7,
+      startHour: hourOf(i.start_at),
+      // 자정을 넘기는 칸은 그날 끝(24시)까지만 그린다
+      endHour: dayjs(i.end_at).isSame(dayjs(i.start_at), 'day') ? hourOf(i.end_at) : 24,
+      source: i.source,
+    }
+  }),
 })
