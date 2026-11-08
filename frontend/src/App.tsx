@@ -9,7 +9,6 @@ import { PATHS } from './lib/paths.ts'
 import HomePage from './pages/HomePage.tsx'
 import MeetingPage from './pages/MeetingPage.tsx'
 import MePage from './pages/MePage.tsx'
-import MyTasksPage from './pages/MyTasksPage.tsx'
 import NotificationsPage from './pages/NotificationsPage.tsx'
 import OnboardingPage from './pages/OnboardingPage.tsx'
 import ProposalPage from './pages/ProposalPage.tsx'
@@ -20,7 +19,6 @@ import SchedulingPage from './pages/SchedulingPage.tsx'
 import SplashPage from './pages/SplashPage.tsx'
 import StartPage from './pages/StartPage.tsx'
 import TasksPage from './pages/TasksPage.tsx'
-import TeamPage from './pages/TeamPage.tsx'
 
 // 처음 열었으면 스플래시부터, 실서버인데 로그인 안 했으면 로그인부터. 가려던 주소는 state.from에 담아 돌아온다.
 function RequireLogin({ children }: { children: ReactNode }) {
@@ -55,10 +53,8 @@ export default function App() {
         <Route path={PATHS.record} element={<RecordPage />} />
         {/* 할 일 탭 */}
         <Route path={PATHS.tasks} element={<TasksPage />} />
-        <Route path={PATHS.myTasks} element={<MyTasksPage />} />
         {/* 나 탭 */}
         <Route path={PATHS.me} element={<MePage />} />
-        <Route path={PATHS.team} element={<TeamPage />} />
       </Route>
       {/* 처음 화면: 하단 탭 없이 휴대폰 폭 틀만 */}
       <Route

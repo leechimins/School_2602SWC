@@ -15,10 +15,8 @@ export const PATHS = {
   record: '/schedule/meetings/:meetingId/record',
   // 할 일 탭
   tasks: '/tasks',
-  myTasks: '/tasks/mine',
   // 나 탭
   me: '/me',
-  team: '/me/team',
   // 탭 밖 (처음 한 번)
   login: '/login', // 스플래시 + 구글 로그인
   start: '/start',

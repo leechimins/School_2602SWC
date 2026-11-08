@@ -47,7 +47,6 @@ export default function DemoPage() {
     { label: '회의 잡기', path: PATHS.schedulingNew },
     ...(lastScheduling ? [{ label: '시간 정하는 과정', path: pathTo.scheduling(lastScheduling.id) }] : []),
     ...(lastProposalId ? [{ label: '조율 확인', path: pathTo.proposal(lastProposalId) }] : []),
-    { label: '팀', path: PATHS.team },
     { label: '할 일', path: PATHS.tasks },
     { label: '일정', path: PATHS.schedule },
     { label: '알림', path: PATHS.notifications },

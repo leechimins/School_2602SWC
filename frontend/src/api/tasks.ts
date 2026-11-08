@@ -1,12 +1,12 @@
 import { mockContext } from '../mock/context.ts'
 import { dispatch } from '../mock/store.ts'
-import { buildMyTasks, buildTeamTasks } from '../mock/views.ts'
+import { buildTeamTasks } from '../mock/views.ts'
 import type { Id } from '../types/common.ts'
-import type { Task, TaskInput, TaskStatus, TeamTasks } from '../types/task.ts'
+import type { TaskInput, TaskStatus, TeamTasks } from '../types/task.ts'
 import { request, withMock, withMockWrite } from './client.ts'
-import { toServerState, toTask, toTeamTasks, type ServerTask, type ServerTaskList } from './convert.ts'
+import { toServerState, toTeamTasks, type ServerTaskList } from './convert.ts'
 
-// 할 일. 팀 할 일·내 할 일·홈이 같은 Task 모양을 쓴다.
+// 할 일. 팀 할 일·홈이 같은 Task 모양을 쓴다.
 
 const toServerInput = (input: Partial<TaskInput>) => ({
   title: input.title,
@@ -21,17 +21,6 @@ export function getTeamTasks(roomId: Id): Promise<TeamTasks> {
     () => {
       const { s, viewer, now } = mockContext()
       return buildTeamTasks(s, viewer, now)
-    },
-  )
-}
-
-/** 내 할 일: 기한 순 */
-export function getMyTasks(roomId: Id): Promise<Task[]> {
-  return withMock(
-    async () => (await request<{ tasks: ServerTask[] }>(`/rooms/${roomId}/tasks/mine`)).tasks.map(toTask),
-    () => {
-      const { s, viewer, now } = mockContext()
-      return buildMyTasks(s, viewer, now)
     },
   )
 }
