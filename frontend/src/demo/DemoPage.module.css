@@ -21,16 +21,10 @@
 
 .phone iframe {
   width: 390px;
-  height: min(844px, calc(100vh - 70px));
+  height: min(844px, calc(100vh - 32px));
   border: 1px solid #aaa;
   border-radius: 12px;
   background: #fff;
-}
-
-.who {
-  align-self: flex-start;
-  margin: 0;
-  font-weight: 600;
 }
 
 .panel {

@@ -77,9 +77,8 @@ export default function DemoPage() {
     <main className={styles.page}>
       {[0, 1].map((i) => (
         <div key={i} className={styles.phone}>
-          <p className={styles.who}>{i === 0 ? `${nameOf(USERS[0])} (팀장)` : nameOf(USERS[1])}</p>
           {/* src는 처음 한 번만. 이후 이동은 go()로 */}
-          <iframe ref={frames[i]} src={`/?user=${USERS[i]}`} title={`휴대폰 화면 ${i + 1}`} />
+          <iframe ref={frames[i]} src={`/?user=${USERS[i]}`} title={i === 0 ? '휴대폰 화면 1 (팀장 지수)' : '휴대폰 화면 2 (팀원 민지)'} />
         </div>
       ))}
 
