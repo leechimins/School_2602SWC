@@ -43,7 +43,7 @@ export default function ScheduleEditSheet({ block, onClose }: Props) {
           <button type="button" className="btn quiet" onClick={onClose}>
             취소
           </button>
-          <button type="button" className={`btn quiet ${styles.delete}`} disabled={saving} onClick={() => run(() => deleteScheduleItem(itemId))}>
+          <button type="button" className={`btn danger ${styles.delete}`} disabled={saving} onClick={() => run(() => deleteScheduleItem(itemId))}>
             삭제
           </button>
           <button type="button" className="btn primary" disabled={saving} onClick={save}>
