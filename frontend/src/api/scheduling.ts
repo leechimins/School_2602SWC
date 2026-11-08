@@ -5,7 +5,7 @@ import { buildProposal, buildSchedule, buildScheduling } from '../mock/views.ts'
 import type { Id } from '../types/common.ts'
 import type { Schedule } from '../types/meeting.ts'
 import type { Proposal, RespondInput, Scheduling, SchedulingInput } from '../types/scheduling.ts'
-import { request, withMock, withMockWrite } from './client.ts'
+import { ApiError, request, withMock, withMockWrite } from './client.ts'
 import {
   toProposal,
   toSchedule,
@@ -39,6 +39,13 @@ export function startScheduling(roomId: Id, input: SchedulingInput): Promise<Sch
         }),
       ),
     () => {
+      // 서버와 같은 거절 (meeting/router.py start)
+      const before = mockContext()
+      if (before.viewer !== before.s.room.leaderId) throw new ApiError(403, 'FORBIDDEN', '조율은 팀장만 시작할 수 있습니다.')
+      if (before.s.meetings.some((m) => m.status === 'proposed')) {
+        throw new ApiError(409, 'AWAITING_RESPONSE', '수락을 기다리는 회의가 있어요. 모두 답한 뒤에 다시 시작해 주세요.')
+      }
+      if (before.s.schedulings.some((c) => c.status === 'running')) throw new ApiError(409, 'ALREADY_RUNNING', '이미 진행 중인 조율이 있습니다.')
       dispatch({ type: 'scheduling/start', input })
       const { s, viewer } = mockContext()
       const started = s.schedulings[s.schedulings.length - 1]
@@ -79,7 +86,13 @@ export function respondProposal(roomId: Id, proposalId: Id, input: RespondInput)
   return withMockWrite(
     () => request<void>(`/rooms/${roomId}/proposals/${proposalId}/respond`, { method: 'POST', body: input }),
     () => {
-      dispatch({ type: 'proposal/respond', meetingId: proposalId, userId: mockContext().viewer, ...input })
+      // 서버와 같은 거절 (meeting/router.py respond)
+      const before = mockContext()
+      const proposal = before.s.proposals.find((p) => p.meetingId === proposalId)
+      const meeting = before.s.meetings.find((m) => m.id === proposalId)
+      if (proposal?.responses[before.viewer] === undefined) throw new ApiError(403, 'FORBIDDEN', '이 회의에 답할 사람이 아닙니다.')
+      if (meeting?.status !== 'proposed' && meeting?.status !== 'confirmed') throw new ApiError(409, 'CLOSED', '끝난 회의입니다.')
+      dispatch({ type: 'proposal/respond', meetingId: proposalId, userId: before.viewer, ...input })
       const { s } = mockContext()
       const schedulingId = s.proposals.find((p) => p.meetingId === proposalId)?.schedulingId
       const rerun = s.schedulings.find((c) => c.id === schedulingId && c.status === 'running')

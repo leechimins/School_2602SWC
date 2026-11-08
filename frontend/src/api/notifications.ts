@@ -12,8 +12,8 @@ export function getNotices(roomId: Id): Promise<NoticeList> {
   return withMock(
     async () => toNoticeList(await request<ServerNoticeList>(`/rooms/${roomId}/notifications`)),
     () => {
-      const { s, viewer, now } = mockContext()
-      return buildNotices(s, viewer, now)
+      const { s, viewer } = mockContext()
+      return buildNotices(s, viewer)
     },
   )
 }

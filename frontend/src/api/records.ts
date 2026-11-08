@@ -5,7 +5,7 @@ import { dispatch, getState } from '../mock/store.ts'
 import { buildMeetingDetail } from '../mock/views.ts'
 import type { Id } from '../types/common.ts'
 import type { MeetingDetail, RecordInput, SuggestionPatch } from '../types/meeting.ts'
-import { USE_MOCK, isRealServer, request, withMock, withMockWrite } from './client.ts'
+import { ApiError, USE_MOCK, isRealServer, request, withMock, withMockWrite } from './client.ts'
 import {
   toServerMode,
   toMeetingDetail,
@@ -83,7 +83,11 @@ export async function summarizeMeeting(roomId: Id, meetingId: Id): Promise<void>
         method: 'POST',
         timeoutMs: SUMMARIZE_TIMEOUT_MS,
       }),
-    () => dispatch({ type: 'meeting/summarize', meetingId }),
+    () => {
+      const meeting = getState().meetings.find((m) => m.id === meetingId)
+      if (!meeting?.transcript.length) throw new ApiError(409, 'NO_TRANSCRIPT', '원문이 없어 정리할 수 없습니다.')
+      dispatch({ type: 'meeting/summarize', meetingId })
+    },
   )
 }
 
