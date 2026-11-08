@@ -81,7 +81,7 @@ export default function MePage() {
       <section className="sec">
         <div className={styles.secHead}>
           <h2>내 일정 가져오기</h2>
-          <span>팀원에게는 바쁨 / 비어 있음만 보여요. 약속 이름은 아무도 못 봐요.</span>
+          <span>팀원에겐 바쁜지만 보여요</span>
         </div>
         {thisWeek.status === 'error' && <RetryBox message={thisWeek.message} onRetry={thisWeek.reload} />}
         {thisWeek.status === 'ready' && <ScheduleLinks blocks={thisWeek.data.blocks} showLock={false} />}
@@ -89,7 +89,10 @@ export default function MePage() {
 
       <section className="sec">
         <div className="row-between">
-          <h2>내 시간</h2>
+          <div className={styles.secHead}>
+            <h2>내 시간</h2>
+            <span>직접 넣은 일정은 길게 눌러 수정</span>
+          </div>
           {shown.status === 'ready' && <span className="meta num">{formatRange(shown.data.weekStart, shown.data.weekEnd)}</span>}
         </div>
         <Segmented label="주" options={WEEKS} value={week} onChange={setWeek} />

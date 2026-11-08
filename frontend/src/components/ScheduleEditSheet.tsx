@@ -9,7 +9,7 @@ import Sheet from './Sheet.tsx'
 
 type Props = { block: WeekBlock; onClose: () => void }
 
-// 직접 넣은 일정 한 칸(요일 하나) 고치기·지우기. 나 탭 시간표에서 길게 눌러 연다
+// 직접 넣은 일정 한 칸(요일 하나) 고치기·지우기. My 탭 시간표에서 길게 눌러 연다. 아래 버튼: 취소 | 삭제 | 저장
 export default function ScheduleEditSheet({ block, onClose }: Props) {
   const [title, setTitle] = useState(block.title)
   const [from, setFrom] = useState(Math.floor(block.startHour))
@@ -43,18 +43,18 @@ export default function ScheduleEditSheet({ block, onClose }: Props) {
           <button type="button" className="btn quiet" onClick={onClose}>
             취소
           </button>
+          <button type="button" className={`btn quiet ${styles.delete}`} disabled={saving} onClick={() => run(() => deleteScheduleItem(itemId))}>
+            삭제
+          </button>
           <button type="button" className="btn primary" disabled={saving} onClick={save}>
             저장
           </button>
         </>
       }
     >
-      <label className={form.label}>
-        이름 (나만 보여요)
-        <input className="field" value={title} maxLength={20} onChange={(e) => setTitle(e.target.value)} />
-      </label>
-      <span className={form.label}>시간</span>
-      <div className={form.range}>
+      {/* 이름 한 줄 + 시간 한 줄 */}
+      <input className={`field ${styles.name}`} value={title} maxLength={20} aria-label="일정 이름 (나만 보여요)" onChange={(e) => setTitle(e.target.value)} />
+      <div className={`${form.range} ${styles.time}`}>
         <HourSelect label="시작" value={from} onChange={setFrom} />
         <span>–</span>
         <HourSelect label="끝" value={to} onChange={setTo} />
@@ -64,9 +64,6 @@ export default function ScheduleEditSheet({ block, onClose }: Props) {
           {error}
         </p>
       )}
-      <button type="button" className={`link ${styles.delete}`} disabled={saving} onClick={() => run(() => deleteScheduleItem(itemId))}>
-        이 일정 지우기
-      </button>
     </Sheet>
   )
 }
