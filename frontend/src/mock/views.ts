@@ -350,6 +350,7 @@ export function buildMyWeek(s: DemoState, viewer: Id, anyDay: string): MyWeek {
       startHour: i.startMin / 60,
       endHour: i.endMin / 60,
       source: i.source,
+      itemId: i.id,
     }))
   const meetings: WeekBlock[] = s.meetings
     .filter((m) => m.status !== 'cancelled')
@@ -365,6 +366,7 @@ export function buildMyWeek(s: DemoState, viewer: Id, anyDay: string): MyWeek {
         startHour: start.hour() + start.minute() / 60,
         endHour: end.hour() + end.minute() / 60,
         source: null,
+        itemId: null,
       }
     })
   return { weekStart: toIsoDate(monday), weekEnd: toIsoDate(sunday), blocks: [...mine, ...meetings] }

@@ -1,7 +1,7 @@
 import dayjs from 'dayjs'
 import type { Id, IsoDateTime } from '../types/common.ts'
 import { formatMD, formatMonthDay } from '../lib/date.ts'
-import type { Preferences, ScheduleItemInput } from '../types/me.ts'
+import type { Preferences, ScheduleItemInput, ScheduleItemPatch } from '../types/me.ts'
 import type { RecordInput, SuggestionPatch } from '../types/meeting.ts'
 import { YIELD_LEVELS, type RoomInput, type YieldLevel } from '../types/room.ts'
 import type { SchedulingInput } from '../types/scheduling.ts'
@@ -47,6 +47,8 @@ export type Action =
   | { type: 'meeting/summarize'; meetingId: Id }
   | { type: 'me/prefs'; userId: Id; prefs: Preferences }
   | { type: 'me/schedule-add'; userId: Id; input: ScheduleItemInput }
+  | { type: 'me/schedule-edit'; itemId: Id; patch: ScheduleItemPatch }
+  | { type: 'me/schedule-delete'; itemId: Id }
   | { type: 'me/everytime'; userId: Id }
   | { type: 'me/google'; userId: Id }
 
@@ -139,6 +141,15 @@ export function reduce(s: DemoState, action: Action): DemoState {
       }))
       return { ...s, scheduleItems: [...s.scheduleItems, ...rows], nextSeq: s.nextSeq + rows.length }
     }
+
+    case 'me/schedule-edit': {
+      const { title, startHour, endHour } = action.patch
+      const edit = (i: SeedScheduleItem) => (i.id === action.itemId ? { ...i, title, startMin: startHour * 60, endMin: endHour * 60 } : i)
+      return { ...s, scheduleItems: s.scheduleItems.map(edit) }
+    }
+
+    case 'me/schedule-delete':
+      return { ...s, scheduleItems: s.scheduleItems.filter((i) => i.id !== action.itemId) }
 
     case 'me/everytime':
       // 다시 불러오기: 이전 에브리타임 수업을 지우고 새로 넣는다(직접 넣은 일정은 그대로)

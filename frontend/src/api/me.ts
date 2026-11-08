@@ -3,7 +3,7 @@ import { DEMO_EVERYTIME_CLASSES, DEMO_GOOGLE_EVENTS } from '../mock/seed.ts'
 import { dispatch } from '../mock/store.ts'
 import { buildMyWeek } from '../mock/views.ts'
 import type { Id, IsoDate } from '../types/common.ts'
-import type { LinkResult, MyWeek, Preferences, ScheduleItemInput } from '../types/me.ts'
+import type { LinkResult, MyWeek, Preferences, ScheduleItemInput, ScheduleItemPatch } from '../types/me.ts'
 import { ApiError, request, withMock, withMockWrite } from './client.ts'
 import { toMyWeek, toPreferences, toServerPreferences, type ServerMySchedule, type ServerPreference } from './convert.ts'
 
@@ -76,6 +76,32 @@ export function addScheduleItem(input: ScheduleItemInput): Promise<void> {
       if (overlaps) throw CLASS_CONFLICT
       dispatch({ type: 'me/schedule-add', userId: viewer, input })
     },
+  )
+}
+
+/**
+ * 직접 넣은 일정 한 칸(요일 하나) 고치기. 나 탭 시간표에서 길게 눌러 연다.
+ * 실서버 PATCH /me/schedule/items/{id}는 백엔드 요청 중이다(GET 응답의 item_id가 이 용도). 없으면 서버 안내 문구가 그대로 보인다
+ */
+export function editScheduleItem(itemId: Id, patch: ScheduleItemPatch): Promise<void> {
+  return withMockWrite(
+    async () => {
+      await request(`/me/schedule/items/${itemId}`, {
+        method: 'PATCH',
+        body: { title: patch.title, start_min: patch.startHour * 60, end_min: patch.endHour * 60 },
+      })
+    },
+    () => dispatch({ type: 'me/schedule-edit', itemId, patch }),
+  )
+}
+
+/** 직접 넣은 일정 한 칸 지우기. 실서버 DELETE /me/schedule/items/{id}도 백엔드 요청 중 */
+export function deleteScheduleItem(itemId: Id): Promise<void> {
+  return withMockWrite(
+    async () => {
+      await request(`/me/schedule/items/${itemId}`, { method: 'DELETE' })
+    },
+    () => dispatch({ type: 'me/schedule-delete', itemId }),
   )
 }
 

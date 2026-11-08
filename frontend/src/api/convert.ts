@@ -545,6 +545,7 @@ export type ServerMySchedule = {
     start_at: string
     end_at: string
     source: ScheduleSource | null
+    item_id: number | null
     meeting_status: MeetingStatus | null
   }[]
 }
@@ -567,6 +568,7 @@ export const toMyWeek = (r: ServerMySchedule): MyWeek => ({
       // 자정을 넘기는 칸은 그날 끝(24시)까지만 그린다
       endHour: dayjs(i.end_at).isSame(dayjs(i.start_at), 'day') ? hourOf(i.end_at) : 24,
       source: i.source,
+      itemId: i.item_id === null ? null : id(i.item_id),
     }
   }),
 })

@@ -1,0 +1,5 @@
+.delete {
+  display: block;
+  margin-top: var(--gap-3);
+  color: var(--danger);
+}
