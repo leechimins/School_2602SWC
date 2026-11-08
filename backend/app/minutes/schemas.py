@@ -8,6 +8,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Literal
 
+from pydantic import field_validator
 from sqlmodel import Field, SQLModel
 
 from app.shared.enums import (
@@ -58,7 +59,17 @@ class SegmentIn(SQLModel):
     speaker_label: str | None = Field(
         default=None, max_length=8, description='엔진이 붙인 목소리 라벨("A" 등). 없으면 null'
     )
-    text: str = Field(min_length=1, max_length=1000, description="받아적은 글")
+    text: str = Field(min_length=1, max_length=1000, description="받아적은 글. 공백만 있으면 400")
+
+    @field_validator("text")
+    @classmethod
+    def _not_blank(cls, value: str) -> str:
+        # 공백만 있는 줄을 조용히 버리면 그 번호가 영영 missing에 남아
+        # 프론트가 끝없이 다시 보낸다. 받기 전에 분명히 거절한다.
+        value = value.strip()
+        if not value:
+            raise ValueError("빈 줄은 보낼 수 없습니다.")
+        return value
 
 
 class SegmentsIn(SQLModel):

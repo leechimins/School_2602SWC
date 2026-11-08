@@ -56,9 +56,17 @@ def _meeting(db: Session, room_id: int, meeting_id: int) -> Meeting:
     return meeting
 
 
-def _recordable_meeting(db: Session, room_id: int, meeting_id: int) -> Meeting:
-    """기록을 붙일 수 있는 회의. 회의안·취소된 회의면 409 `NOT_CONFIRMED`."""
+def _recordable_meeting(
+    db: Session, room_id: int, meeting_id: int, *, lock: bool = False
+) -> Meeting:
+    """기록을 붙일 수 있는 회의. 회의안·취소된 회의면 409 `NOT_CONFIRMED`.
+
+    lock이면 행을 잠근 **뒤에** 상태를 본다. 먼저 보고 잠그면 그 사이 취소된
+    회의에 받아적기가 붙을 수 있다.
+    """
     meeting = _meeting(db, room_id, meeting_id)
+    if lock:
+        db.refresh(meeting, with_for_update=True)
     if meeting.status not in RECORDABLE:
         raise HTTPException(
             status.HTTP_409_CONFLICT,
@@ -195,9 +203,7 @@ def write_transcript(
 
 def _locked_recordable(db: Session, room_id: int, meeting_id: int) -> Meeting:
     """기록을 붙일 수 있는 회의를 잠가서. 두 폰이 동시에 눌러도 한 번만 바뀐다."""
-    meeting = _recordable_meeting(db, room_id, meeting_id)
-    db.refresh(meeting, with_for_update=True)
-    return meeting
+    return _recordable_meeting(db, room_id, meeting_id, lock=True)
 
 
 @router.post(

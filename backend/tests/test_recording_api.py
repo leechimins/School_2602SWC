@@ -211,6 +211,7 @@ def test_시작_전에는_조각을_못_올린다(client, seeded, room, blank):
     [
         {"seq": -1, "text": "음수 번호"},
         {"seq": 0, "text": ""},
+        {"seq": 0, "text": "   "},  # 버리면 그 번호가 영영 missing에 남는다
         {"seq": 0, "text": "라벨이 김", "speaker_label": "가나다라마바사아자"},
     ],
 )
@@ -220,6 +221,27 @@ def test_잘못된_조각은_400이다(client, seeded, room, blank, seg):
     res = _send(client, room, blank, seg)
 
     assert res.status_code == 400
+
+
+def test_묶음에_빈_줄이_섞이면_묶음_전체를_안_받는다(client, seeded, room, blank):
+    _start(client, room, blank)
+
+    res = _send(client, room, blank, _seg(0, "정상"), _seg(1, "  "))
+
+    assert res.status_code == 400
+    assert _lines(client, room, blank) == []
+
+
+def test_취소된_회의에는_조각이_안_붙는다(client, seeded, room, blank):
+    _start(client, room, blank)
+    blank.status = MeetingStatus.CANCELLED
+    seeded.add(blank)
+    seeded.commit()
+
+    res = _send(client, room, blank, _seg(0))
+
+    assert res.status_code == 409
+    assert res.json()["code"] == "NOT_CONFIRMED"
 
 
 # ── 멈추기 ───────────────────────────────────────────────────────────
