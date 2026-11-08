@@ -59,10 +59,7 @@ export default function NotificationsPage() {
             ) : (
               activity.data.agentLog.map((a) => (
                 <div key={a.id} className={`${styles.record} ${styles.log}`}>
-                  <div>
-                    <p className="strong">{a.what}</p>
-                    <p className="meta">{a.why}</p>
-                  </div>
+                  <p className="strong">{a.what}</p>
                   <span className="meta num">{formatStamp(a.at)}</span>
                 </div>
               ))
@@ -71,7 +68,7 @@ export default function NotificationsPage() {
           <section className="sec">
             <h2>양보 기록</h2>
             {activity.data.yieldRecords.length === 0 ? (
-              <p className="meta">아직 잡은 회의가 없어요. 회의가 잡히면 누가 맞춰 줬는지 여기에 남겨요.</p>
+              <p className="meta">회의가 잡히면 누가 맞춰 줬는지 남겨요.</p>
             ) : (
               activity.data.yieldRecords.map((y) => (
                 <div key={y.id} className={styles.record}>

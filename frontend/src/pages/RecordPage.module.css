@@ -108,7 +108,7 @@
 
 .paste {
   width: 100%;
-  min-height: min(52vh, 420px);
+  height: min(64vh, 540px);
   margin: 8px 0;
   padding: 10px;
   line-height: 1.6;

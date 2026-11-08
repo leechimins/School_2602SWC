@@ -7,10 +7,17 @@
   letter-spacing: -0.03em;
 }
 
-/* 방식(대면·비대면): 장소가 갈리는 정보라 메타 줄 안에서 진하게 */
+/* 방식(대면·비대면): 장소가 갈리는 정보라 시간 앞에 같은 크기로 */
 .mode {
-  color: var(--text);
-  font-weight: 700;
+  margin-right: 4px;
+  color: var(--point);
+}
+
+/* 주제 줄 오른쪽: 조정 · 확정 대기 */
+.badges {
+  display: flex;
+  flex: none;
+  gap: 4px;
 }
 
 /* 부담 묶음 맨 위의 내 줄: 나만 보이는 줄이라 포인트 바탕 */

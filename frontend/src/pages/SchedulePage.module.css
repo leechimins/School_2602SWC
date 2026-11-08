@@ -39,11 +39,6 @@
   margin: 6px 18px 0;
 }
 
-.secLink {
-  min-height: 0;
-  font-size: var(--fs-meta);
-}
-
 /* 회의 한 줄: 날짜 칸 | 주제·시간 | 뱃지 또는 버튼 */
 .row {
   display: flex;

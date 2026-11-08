@@ -11,7 +11,7 @@ import Screen from '../components/Screen.tsx'
 import YieldSteps from '../components/YieldSteps.tsx'
 import { useApi } from '../hooks/useApi.ts'
 import { useCurrentUser } from '../hooks/useCurrentUser.ts'
-import { formatDuration, formatSlot, minutesBetween } from '../lib/date.ts'
+import { formatSlot } from '../lib/date.ts'
 import { withJosa } from '../lib/korean.ts'
 import { PATHS, pathTo } from '../lib/paths.ts'
 import { BURDEN_LABEL, BURDEN_TONE } from '../lib/tones.ts'
@@ -72,20 +72,16 @@ function ResultSummary({ proposal: p }: { proposal: Proposal }) {
   return (
     <section className="sec">
       <div className="row-between">
-        <span>
-          {p.settled && (
-            <>
-              <Badge tone="warn">조정</Badge>{' '}
-              <span className="meta num">{p.roundsUsed ? `${p.roundsUsed}라운드 뒤 ` : ''}판단 에이전트가 정함</span>
-            </>
-          )}
+        <span className="strong">{p.topic}</span>
+        <span className={styles.badges}>
+          {p.settled && <Badge tone="warn">조정</Badge>}
+          <Badge tone={p.confirmed ? 'ok' : p.cancelled ? 'danger' : 'warn'}>{p.confirmed ? '확정' : p.cancelled ? '취소' : '확정 대기'}</Badge>
         </span>
-        <Badge tone={p.confirmed ? 'ok' : p.cancelled ? 'danger' : 'warn'}>{p.confirmed ? '확정' : p.cancelled ? '취소' : '확정 대기'}</Badge>
       </div>
-      <b className={`${styles.big} num`}>{formatSlot(p.startAt, p.endAt)}</b>
-      <p className="meta">
-        <span className={styles.mode}>{p.mode}</span> · {formatDuration(minutesBetween(p.startAt, p.endAt))} · {p.topic}
-      </p>
+      <b className={`${styles.big} num`}>
+        <span className={styles.mode}>{p.mode}</span> {formatSlot(p.startAt, p.endAt)}
+      </b>
+      {p.settled && <p className="meta num">{p.roundsUsed ? `${p.roundsUsed}라운드 뒤 ` : ''}판단 에이전트가 정했어요</p>}
       {p.absentName && <p className="meta">{p.absentName} 빠짐 · 회의록 요약을 따로 보내요</p>}
       {p.confirmed && !p.settled && <p className="meta">{p.absentName ? '빠진 사람 말고 모두' : '모두'} 수락해서 회의가 확정됐어요</p>}
       {p.cancelled && <p className="meta">누군가 거절해서 이 시간은 취소됐어요. 남은 라운드로 다시 조율해요</p>}
@@ -99,7 +95,6 @@ function Burdens({ proposal: p, viewerId }: { proposal: Proposal; viewerId: Id }
   const others = p.responders.filter((r) => r.userId !== viewerId)
   return (
     <section className="sec">
-      <h2>부담</h2>
       <div className={styles.mine}>
         {p.myScore === null ? (
           <p className="strong">이번 회의에서 빠져요 · 회의록 요약을 따로 보내 드려요</p>
@@ -249,6 +244,7 @@ function RespondDock({ proposal: p, roomId }: { proposal: Proposal; roomId: Id }
   const [error, setError] = useState<string | null>(null)
 
   if (p.feedbackOnly || p.confirmed || p.myState === null) return null
+  if (p.myState === '수락' && !error) return null // 수락한 뒤에는 사람별 응답 줄로 충분하다
 
   const respond = async (accept: boolean, { ok, value }: ConfirmResult) => {
     setAsking(null)
@@ -304,23 +300,16 @@ function DockBody({ proposal: p, state, onAsk }: DockBodyProps) {
     )
   }
   // 거절: 라운드가 남았으면 서버가 바로 다시 조율하고(회의 취소), 3라운드를 다 썼으면 나를 불참으로 두고 나머지 응답을 기다린다
-  if (state === '거절' && p.cancelled) {
+  // 응답한 뒤의 상태는 위 사람별 응답 줄이 보여 주므로 따로 문구를 두지 않는다
+  if (state === '거절' && p.cancelled && p.schedulingId) {
     return (
-      <>
-        <p className="meta">거절을 전달했어요. 남은 라운드로 다시 조율하고 있어요.</p>
-        {p.schedulingId && (
-          <div className="btn-row">
-            <Link to={pathTo.scheduling(p.schedulingId)} className="btn primary">
-              다시 조율하는 과정 보기
-            </Link>
-          </div>
-        )}
-      </>
+      <div className="btn-row">
+        <Link to={pathTo.scheduling(p.schedulingId)} className="btn primary">
+          다시 조율하는 과정 보기
+        </Link>
+      </div>
     )
   }
-  if (state === '거절') {
-    return <p className="meta">거절을 전달했어요. 3라운드를 다 써서 다시 조율하지 않고, 이번 회의는 불참으로 둬요.</p>
-  }
-  const waiting = p.responders.filter((r) => r.state === '대기').map((r) => r.name)
-  return <p className="meta">수락했어요. {waiting.join(', ')}의 응답을 기다리는 중이에요.</p>
+  if (state === '거절') return <p className="meta">이번 회의는 불참으로 둬요.</p>
+  return null
 }

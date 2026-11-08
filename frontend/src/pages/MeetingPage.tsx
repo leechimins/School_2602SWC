@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { confirmSuggestions, dismissSuggestion, editSuggestion, getMeeting } from '../api/records.ts'
 import { getRoom } from '../api/rooms.ts'
 import { addTask, changeTaskStatus, dismissTask, keepTask } from '../api/tasks.ts'
@@ -17,7 +17,6 @@ import { useApi } from '../hooks/useApi.ts'
 import { useCurrentUser } from '../hooks/useCurrentUser.ts'
 import { useSummarize } from '../hooks/useSummarize.ts'
 import { formatDayLabel, formatMD, formatTimeRange } from '../lib/date.ts'
-import { withJosa } from '../lib/korean.ts'
 import { PATHS, pathTo } from '../lib/paths.ts'
 import type { MeetingDetail, Minutes } from '../types/meeting.ts'
 import type { Member } from '../types/room.ts'
@@ -243,14 +242,14 @@ function Review({ meeting: m, members }: { meeting: MeetingDetail; members: Memb
       )}
       {pending > 0 && (
         <p className={`meta ${styles.foot}`}>
-          확정 전 제안은 할 일 탭에 보이지 않아요. <Link to={PATHS.tasks}>할 일 탭</Link>
+          확정 전 제안은 할 일 탭에 보이지 않아요.
         </p>
       )}
 
       {askingAll && (
         <ConfirmSheet
           title={`할 일 ${pending}개를 모두 확정할까요?`}
-          body={`확정하면 할 일 탭에 들어가요. 담당자가 비어 있는 것은 담당자 없음으로 확정돼요. 확정한 사람은 ${withJosa(user.name, '으로/로')} 남아요.`}
+          body="할 일 탭에 들어가요. 담당자가 없는 일은 '담당자 없음'으로 들어가요."
           okLabel="모두 확정"
           irreversible={false}
           onClose={({ ok }) => {
