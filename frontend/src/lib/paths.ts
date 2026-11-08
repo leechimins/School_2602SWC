@@ -20,6 +20,7 @@ export const PATHS = {
   me: '/me',
   team: '/me/team',
   // 탭 밖 (처음 한 번)
+  login: '/login', // 스플래시 + 구글 로그인
   start: '/start',
   onboarding: '/onboarding',
   // 시연 화면

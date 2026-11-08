@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
-import { messageOf } from '../api/client.ts'
+import { Link, useNavigate } from 'react-router-dom'
+import { isRealServer, messageOf } from '../api/client.ts'
 import { getMyWeek, getPreferences, savePreferences } from '../api/me.ts'
 import { getRoom } from '../api/rooms.ts'
+import { signOut } from '../api/session.ts'
 import AgentQuote from '../components/AgentQuote.tsx'
 import Avatar from '../components/Avatar.tsx'
 import Badge from '../components/Badge.tsx'
@@ -24,10 +25,11 @@ import styles from './MePage.module.css'
 
 const WEEKS = ['이번 주', '다음 주'] as const
 
-// 나 탭: 내 에이전트가 할 말 · 내 일정 가져오기 · 내 시간(주간 시간표) · 내가 좋아하는 방식(조건 네 가지) · 팀
+// 나 탭: 내 에이전트가 할 말 · 내 일정 가져오기 · 내 시간(주간 시간표) · 내가 좋아하는 방식(조건 네 가지) · 팀 · 로그아웃
 export default function MePage() {
   const user = useCurrentUser()
   const now = useClock()
+  const navigate = useNavigate()
   const [week, setWeek] = useState<(typeof WEEKS)[number]>('이번 주')
   const [adding, setAdding] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
@@ -41,6 +43,11 @@ export default function MePage() {
   const openAdd = () => {
     setAdding(true)
     setNotice(null)
+  }
+
+  const logout = async () => {
+    await signOut()
+    navigate(PATHS.login, { replace: true })
   }
 
   return (
@@ -101,6 +108,12 @@ export default function MePage() {
           팀 보기
         </Link>
       </section>
+      {/* 목 모드에는 로그인이 없어서 숨긴다 */}
+      {isRealServer() && (
+        <button type="button" className="btn quiet block" onClick={logout}>
+          로그아웃
+        </button>
+      )}
     </Screen>
   )
 }

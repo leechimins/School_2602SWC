@@ -1,7 +1,9 @@
+import dayjs from 'dayjs'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { messageOf } from '../api/client.ts'
 import { createRoom, getRoom } from '../api/rooms.ts'
+import { signIn } from '../api/session.ts'
 import RetryBox from '../components/RetryBox.tsx'
 import Screen from '../components/Screen.tsx'
 import Segmented from '../components/Segmented.tsx'
@@ -14,10 +16,10 @@ import form from './Form.module.css'
 const TEAM_SIZES = [2, 3, 4, 5, 6] as const // 팀은 2~6명
 
 // 방 생성하기(팀장 1회): 과제 제목·설명·기간·팀원 수 → 초대 코드 → 온보딩.
-// 시연에서 바로 넘어가도록 지금 방의 값을 미리 채워 둔다.
+// 시연에서 바로 넘어가도록 지금 방의 값을 미리 채워 둔다. 구글로 처음 온 사람(방 없음)은 빈 칸에서 시작한다.
 export default function StartPage() {
   const user = useCurrentUser()
-  const room = useApi(() => getRoom(user.roomId), [user.roomId])
+  const room = useApi<RoomInput>(() => (user.roomId ? getRoom(user.roomId) : Promise.resolve(blankRoom())), [user.roomId])
   const [created, setCreated] = useState<Room | null>(null)
 
   if (created) return <Created room={created} />
@@ -29,7 +31,12 @@ export default function StartPage() {
   )
 }
 
-function RoomForm({ initial, onCreated }: { initial: Room; onCreated: (room: Room) => void }) {
+function blankRoom(): RoomInput {
+  const today = dayjs()
+  return { name: '', description: '', startDate: today.format('YYYY-MM-DD'), dueDate: today.add(6, 'week').format('YYYY-MM-DD'), memberCount: 4 }
+}
+
+function RoomForm({ initial, onCreated }: { initial: RoomInput; onCreated: (room: Room) => void }) {
   const [input, setInput] = useState<RoomInput>({
     name: initial.name,
     description: initial.description,
@@ -51,7 +58,9 @@ function RoomForm({ initial, onCreated }: { initial: Room; onCreated: (room: Roo
     if (problem) return setError(problem)
     setSaving(true)
     try {
-      onCreated(await createRoom({ ...input, name: input.name.trim(), description: input.description.trim() }))
+      const room = await createRoom({ ...input, name: input.name.trim(), description: input.description.trim() })
+      await signIn(null) // 실서버: 내 방 번호를 다시 받는다. 처음 온 사람은 이제야 방이 생겼다
+      onCreated(room)
     } catch (e) {
       setError(messageOf(e))
       setSaving(false)

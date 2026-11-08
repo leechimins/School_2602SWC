@@ -4,6 +4,13 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#7580e6" />
+    <link rel="preload" as="image" href="/splash/bg.webp" />
+    <link rel="preload" as="image" href="/splash/ttak.webp" />
+    <!-- 구글 로그인 버튼(SplashPage). 늦게 와도 화면이 기다린다 -->
+    <script src="https://accounts.google.com/gsi/client" async></script>
+    <!-- 번들이 오기 전 잠깐도 흰 화면 대신 스플래시와 같은 보라 (tokens.css --brand) -->
+    <style>html { background: #7580e6; }</style>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" />
     <title>팀플 에이전트</title>
   </head>
