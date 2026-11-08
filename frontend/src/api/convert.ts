@@ -63,7 +63,6 @@ export type ServerRoom = {
   start_date: string
   due_date: string
   d_day: number
-  eval_method: string
   member_count: number
   joined_count: number
   invite_code: string
@@ -331,6 +330,7 @@ export type ServerProposal = {
   status: MeetingStatus
   rationale: string
   scheduling_status: SchedulingStatus | null
+  scheduling_id: number | null // 이 회의를 낸 조율. 거절로 취소돼도 남고, 조율 없이 만든 회의는 null
   my_score: number | null
   my_reason: string
   my_yield_points: number
@@ -350,8 +350,8 @@ export type ServerProposal = {
 
 export const toProposal = (r: ServerProposal): Proposal => ({
   id: id(r.id),
-  schedulingId: null, // 회의 → 조율 ID (백엔드 요청 거리)
-  roundsUsed: null,
+  schedulingId: optId(r.scheduling_id),
+  roundsUsed: null, // 회의안 응답에 없다. 화면은 숫자 없이 "판단 에이전트가 정함"만 쓴다
   topic: r.topic,
   startAt: r.start_at,
   endAt: r.end_at,

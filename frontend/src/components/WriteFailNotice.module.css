@@ -1,0 +1,14 @@
+/* 화면 맨 아래(하단 탭 바로 위)에 잠깐 뜨는 한 줄. 몇 초 뒤 사라진다 */
+.notice {
+  position: absolute;
+  left: var(--sp);
+  right: var(--sp);
+  bottom: var(--gap-2);
+  z-index: 10;
+  margin: 0;
+  padding: var(--gap-3) var(--sp);
+  border-radius: var(--r);
+  background: var(--text);
+  color: var(--white);
+  font-size: var(--fs-body);
+}
