@@ -9,6 +9,7 @@ import Avatar from '../components/Avatar.tsx'
 import Badge from '../components/Badge.tsx'
 import PrefForm from '../components/PrefForm.tsx'
 import RetryBox from '../components/RetryBox.tsx'
+import ScheduleEditSheet from '../components/ScheduleEditSheet.tsx'
 import ScheduleForm from '../components/ScheduleForm.tsx'
 import ScheduleLinks from '../components/ScheduleLinks.tsx'
 import Screen from '../components/Screen.tsx'
@@ -21,13 +22,13 @@ import { useClock } from '../hooks/useClock.ts'
 import { useCurrentUser } from '../hooks/useCurrentUser.ts'
 import { formatRange, toIsoDate } from '../lib/date.ts'
 import { PATHS } from '../lib/paths.ts'
-import type { Preferences } from '../types/me.ts'
+import type { Preferences, WeekBlock } from '../types/me.ts'
 import form from './Form.module.css'
 import styles from './MePage.module.css'
 
 const WEEKS = ['이번 주', '다음 주'] as const
 
-// 나 탭: 내 에이전트가 할 말(+ 좋아하는 방식 바꾸기 시트) · 내 일정 가져오기 · 내 시간(주간 시간표) · 팀 · 로그아웃
+// My 탭: 내 에이전트가 할 말(+ 좋아하는 방식 바꾸기 시트) · 내 일정 가져오기 · 내 시간(주간 시간표) · 팀 · 로그아웃
 export default function MePage() {
   const user = useCurrentUser()
   const now = useClock()
@@ -36,6 +37,7 @@ export default function MePage() {
   const [adding, setAdding] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
   const [editingPrefs, setEditingPrefs] = useState(false)
+  const [editingBlock, setEditingBlock] = useState<WeekBlock | null>(null)
 
   const anyDay = toIsoDate(week === '이번 주' ? now : now.add(7, 'day'))
   const room = useApi(() => getRoom(user.roomId), [user.roomId, user.id])
@@ -54,7 +56,7 @@ export default function MePage() {
   }
 
   return (
-    <Screen title="나">
+    <Screen title="My">
       <div className={styles.profile}>
         <Avatar name={user.name} size="large" />
         <div>
@@ -77,9 +79,12 @@ export default function MePage() {
       )}
 
       <section className="sec">
-        <h2>내 일정 가져오기</h2>
+        <div className={styles.secHead}>
+          <h2>내 일정 가져오기</h2>
+          <span>팀원에게는 바쁨 / 비어 있음만 보여요. 약속 이름은 아무도 못 봐요.</span>
+        </div>
         {thisWeek.status === 'error' && <RetryBox message={thisWeek.message} onRetry={thisWeek.reload} />}
-        {thisWeek.status === 'ready' && <ScheduleLinks blocks={thisWeek.data.blocks} />}
+        {thisWeek.status === 'ready' && <ScheduleLinks blocks={thisWeek.data.blocks} showLock={false} />}
       </section>
 
       <section className="sec">
@@ -89,7 +94,8 @@ export default function MePage() {
         </div>
         <Segmented label="주" options={WEEKS} value={week} onChange={setWeek} />
         {shown.status === 'error' && <RetryBox message={shown.message} onRetry={shown.reload} />}
-        {shown.status === 'ready' && <WeekGrid blocks={shown.data.blocks} />}
+        {shown.status === 'ready' && <WeekGrid blocks={shown.data.blocks} onEdit={setEditingBlock} />}
+        {editingBlock && <ScheduleEditSheet block={editingBlock} onClose={() => setEditingBlock(null)} />}
         {notice && (
           <p className={`meta ${styles.notice}`} role="status">
             {notice}

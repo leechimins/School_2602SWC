@@ -73,7 +73,7 @@ function PrefStep({ initial, onNext }: { initial: Preferences; onNext: () => voi
         </div>
       }
     >
-      <Question title="회의 잡을 때 쓸 조건 네 가지" hint="고르지 않은 건 비워 둬도 돼요. 시작한 뒤에도 나 탭에서 언제든 고칠 수 있어요." />
+      <Question title="회의 잡을 때 쓸 조건 네 가지" hint="고르지 않은 건 비워 둬도 돼요. 시작한 뒤에도 My 탭에서 언제든 고칠 수 있어요." />
       <section className="sec">
         <PrefForm value={draft} onChange={setDraft} />
         {error && (
@@ -158,7 +158,7 @@ function ReadyStep({ prefs, onPrev }: { prefs: Preferences; onPrev: () => void }
         </div>
       }
     >
-      <Question title="내 에이전트가 준비됐어요" hint="고른 조건으로 이렇게 말해요. 시작한 뒤에도 나 탭에서 언제든 고칠 수 있어요." />
+      <Question title="내 에이전트가 준비됐어요" hint="고른 조건으로 이렇게 말해요. 시작한 뒤에도 My 탭에서 언제든 고칠 수 있어요." />
       <AgentQuote name={user.name} prefs={prefs} />
     </Screen>
   )

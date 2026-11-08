@@ -9,6 +9,19 @@
   font-size: 18px;
 }
 
+/* 묶음 제목 + 오른쪽 연한 안내 */
+.secHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+}
+
+.secHead > span {
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
 .notice {
   margin-top: 8px;
 }
