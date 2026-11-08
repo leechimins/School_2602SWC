@@ -120,7 +120,8 @@ function Burdens({ proposal: p, viewerId }: { proposal: Proposal; viewerId: Id }
 // 이번에 양보 점수를 받는 사람: 누적은 단계로만, 내가 받을 때만 숫자와 근거 한 줄
 function YieldGetterBox({ proposal: p }: { proposal: Proposal }) {
   const g = p.yieldGetter
-  if (!g) return null
+  // 취소된 회의는 열리지 않으니 양보 점수도 생기지 않는다(점수는 확정 때 준다)
+  if (!g || p.cancelled) return null
   const name = g.isMe ? '나' : g.name
   return (
     <div className={styles.box}>

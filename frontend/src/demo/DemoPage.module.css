@@ -19,9 +19,16 @@
   gap: 6px;
 }
 
+.label {
+  margin: 0;
+  font-weight: 700;
+  color: #444;
+  text-align: center;
+}
+
 .phone iframe {
   width: 390px;
-  height: min(844px, calc(100vh - 32px));
+  height: min(844px, calc(100vh - 60px)); /* 위 이름표 한 줄만큼 뺀다 */
   border: 1px solid #aaa;
   border-radius: 12px;
   background: #fff;
@@ -88,6 +95,17 @@
   margin: 6px 0 0;
   color: #666;
   font-size: 12px;
+}
+
+.tools summary {
+  font-size: 12px;
+  font-weight: 700;
+  color: #555;
+  cursor: pointer;
+}
+
+.tools[open] summary {
+  margin-bottom: 8px;
 }
 
 .check {
