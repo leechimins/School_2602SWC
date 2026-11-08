@@ -29,8 +29,8 @@
 
 .who {
   align-self: flex-start;
-  padding: 4px 6px;
-  font: inherit;
+  margin: 0;
+  font-weight: 600;
 }
 
 .panel {

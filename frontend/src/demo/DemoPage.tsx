@@ -19,7 +19,8 @@ import styles from './DemoPage.module.css'
 type Frame = RefObject<HTMLIFrameElement | null>
 
 const SLOW_OPTIONS = [0, 1_000, 3_000]
-const DEFAULT_USERS: [Id, Id] = [USER.jisu, USER.minji] // 왼쪽 팀장, 오른쪽 팀원
+// 보는 사람은 고정: 왼쪽은 팀장 지수, 오른쪽은 팀원 민지(시연 대본이 이 두 사람 기준이다)
+const USERS: [Id, Id] = [USER.jisu, USER.minji]
 
 /** 휴대폰 화면 하나를 path로 옮기고, 보는 사람(?user)도 함께 정한다 */
 function go(frame: Frame, path: string, userId: Id) {
@@ -32,7 +33,6 @@ function go(frame: Frame, path: string, userId: Id) {
 export default function DemoPage() {
   const left = useRef<HTMLIFrameElement>(null)
   const right = useRef<HTMLIFrameElement>(null)
-  const [users, setUsers] = useState<[Id, Id]>(DEFAULT_USERS)
   const [debug, setDebugState] = useState<DebugFlags>(getDebug)
   const s = useSyncExternalStore(subscribe, getState)
   const now = useClock()
@@ -52,23 +52,16 @@ export default function DemoPage() {
   ]
 
   const frames: [Frame, Frame] = [left, right]
-  const goBoth = (path: string) => frames.forEach((f, i) => go(f, path, users[i]))
+  const goBoth = (path: string) => frames.forEach((f, i) => go(f, path, USERS[i]))
 
-  const changeUser = (i: 0 | 1, id: Id) => {
-    const next: [Id, Id] = [...users]
-    next[i] = id
-    setUsers(next)
-    go(frames[i], PATHS.home, id)
-  }
 
   // 새로고침 없이 몇 번을 눌러도 같은 처음 화면이 되게(목업 버그 ④):
-  // 데이터·시연 시계·걸어 둔 타이머, 보는 사람, 점검 스위치까지 모두 처음으로
+  // 데이터·시연 시계·걸어 둔 타이머, 점검 스위치까지 모두 처음으로
   const reset = () => {
     resetState()
     setDebug(DEBUG_OFF)
     setDebugState(DEBUG_OFF)
-    setUsers(DEFAULT_USERS)
-    frames.forEach((f, i) => go(f, PATHS.home, DEFAULT_USERS[i]))
+    goBoth(PATHS.home)
   }
 
   const changeDebug = (patch: Partial<DebugFlags>) => {
@@ -84,21 +77,9 @@ export default function DemoPage() {
     <main className={styles.page}>
       {[0, 1].map((i) => (
         <div key={i} className={styles.phone}>
-          <select
-            className={styles.who}
-            aria-label={`${i === 0 ? '왼쪽' : '오른쪽'} 화면을 보는 사람`}
-            value={users[i]}
-            onChange={(e) => changeUser(i as 0 | 1, e.target.value)}
-          >
-            {s.members.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.name}
-                {m.id === s.room.leaderId ? ' (팀장)' : ''}
-              </option>
-            ))}
-          </select>
+          <p className={styles.who}>{i === 0 ? `${nameOf(USERS[0])} (팀장)` : nameOf(USERS[1])}</p>
           {/* src는 처음 한 번만. 이후 이동은 go()로 */}
-          <iframe ref={frames[i]} src={`/?user=${users[i]}`} title={`휴대폰 화면 ${i + 1}`} />
+          <iframe ref={frames[i]} src={`/?user=${USERS[i]}`} title={`휴대폰 화면 ${i + 1}`} />
         </div>
       ))}
 
@@ -134,7 +115,7 @@ export default function DemoPage() {
           <button type="button" className={styles.reset} onClick={reset}>
             기본
           </button>
-          <p className={styles.hint}>데이터·시연 시계·타이머·보는 사람·점검 스위치를 모두 처음으로 돌려요</p>
+          <p className={styles.hint}>데이터·시연 시계·타이머·점검 스위치를 모두 처음으로 돌려요</p>
         </section>
 
         <section>
