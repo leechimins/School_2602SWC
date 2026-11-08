@@ -12,6 +12,7 @@ import {
   DEMO_GOOGLE_EVENTS,
   DEMO_RECORDING,
   DEMO_SCENARIO,
+  OFFSTAGE,
   SEED,
   USER,
   rerunScenario,
@@ -268,7 +269,10 @@ export function reduce(s: DemoState, action: Action): DemoState {
             schedulingId: c.id,
             settled: false,
             getsFrom: getter ? yieldLevelOf(getter.yieldTotal) : result.getsFrom,
-            responses: Object.fromEntries(result.burdens.map((b) => [b.userId, '대기' as const])),
+            // 화면에 없는 팀원은 바로 수락해 둔다. 지수·민지가 답하면 그 자리에서 확정되는 장면이 나온다
+            responses: Object.fromEntries(
+              result.burdens.map((b) => [b.userId, OFFSTAGE.includes(b.userId) ? ('수락' as const) : ('대기' as const)]),
+            ),
             feedback: {},
           },
         ],

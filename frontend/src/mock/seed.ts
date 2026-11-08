@@ -21,6 +21,9 @@ export const USER = {
   seoyeon: 'u-seoyeon',
 } as const
 
+/** 시연 화면(/demo)에 휴대폰이 없는 팀원. 답할 사람이 없으니 회의안이 나오면 바로 수락한다(목 모드만) */
+export const OFFSTAGE: readonly Id[] = [USER.hyunwoo, USER.seoyeon]
+
 export const ROOM_ID: Id = 'room-1'
 
 export type SeedMember = {
