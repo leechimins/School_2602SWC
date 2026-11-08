@@ -180,7 +180,7 @@ def write_transcript(
 ) -> MeetingDetailOut:
     """원문을 통째로 바꿉니다. 받아적기가 안 될 때 쓰는 길이라 AI를 쓰지 않습니다.
 
-    - 줄마다 한 발언입니다. 빈 줄은 버립니다.
+    - 줄마다 한 발언입니다. 빈 줄은 버립니다. 남는 줄이 없으면 400 `INVALID_INPUT`이고 원문은 그대로입니다.
     - `이름: 내용` 꼴이고 이름이 이 방 팀원이면 말한 사람으로 나눕니다. 아니면 말한 사람 없음.
     - 확정 전 회의안이나 취소된 회의면 409 `NOT_CONFIRMED`.
     - 받아적는 중이어도 받아적은 글이 아직 없으면 직접 쓰기로 바뀝니다(녹음을 잃었거나 마이크가 안 될 때 빠져나가는 길).
@@ -197,6 +197,16 @@ def write_transcript(
         recording.reject_while_recording(meeting)
 
     lines = transcript.parse(body.text, member_names(db, room_id))
+    if not lines:
+        # 통째로 바꾸는 길이라 빈 글을 받으면 받아적은 원문까지 지워지고 되돌릴 수 없다
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail={
+                "code": "INVALID_INPUT",
+                "field": "text",
+                "message": "회의 내용을 적어 주세요.",
+            },
+        )
     transcript.replace(db, meeting_id, lines)
     meeting.transcript_mode = TranscriptMode.MANUAL
     db.add(meeting)
