@@ -28,14 +28,8 @@ export default function TasksPage() {
   const room = useApi(() => getRoom(user.roomId), [user.roomId, user.id])
   const members = room.status === 'ready' ? room.data.members : []
 
-  const mine = (
-    <Link to={PATHS.myTasks} className={`link ${styles.aux}`}>
-      내 할 일
-    </Link>
-  )
-
   return (
-    <Screen title="할 일" aux={mine}>
+    <Screen title="할 일">
       {res.status === 'error' && <RetryBox message={res.message} onRetry={res.reload} />}
       {res.status === 'ready' && <TeamTaskList data={res.data} members={members} />}
     </Screen>

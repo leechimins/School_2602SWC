@@ -1,0 +1,47 @@
+/* ConfirmSheet와 같은 모양. 폼이 길면 본문만 스크롤된다 */
+.sheet {
+  width: 100%;
+  max-width: var(--app-width);
+  max-height: 88dvh;
+  margin: auto auto 0;
+  padding: 20px 18px calc(18px + env(safe-area-inset-bottom));
+  border: 0;
+  border-radius: 18px 18px 0 0;
+  background: var(--card);
+  color: var(--text);
+}
+
+.sheet[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.sheet::backdrop {
+  background: rgb(0 0 0 / 0.45);
+}
+
+.title {
+  margin: 0 0 10px;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.body {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* 왼쪽 취소(글자) | 오른쪽 하는 일(버튼) */
+.actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.actions > :first-child {
+  flex: 1;
+}
+
+.actions > :last-child {
+  flex: 2;
+}

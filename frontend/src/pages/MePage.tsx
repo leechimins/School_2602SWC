@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { isRealServer, messageOf } from '../api/client.ts'
 import { getMyWeek, getPreferences, savePreferences } from '../api/me.ts'
 import { getRoom } from '../api/rooms.ts'
@@ -13,6 +13,8 @@ import ScheduleForm from '../components/ScheduleForm.tsx'
 import ScheduleLinks from '../components/ScheduleLinks.tsx'
 import Screen from '../components/Screen.tsx'
 import Segmented from '../components/Segmented.tsx'
+import Sheet from '../components/Sheet.tsx'
+import TeamSection from '../components/TeamSection.tsx'
 import WeekGrid from '../components/WeekGrid.tsx'
 import { useApi } from '../hooks/useApi.ts'
 import { useClock } from '../hooks/useClock.ts'
@@ -25,7 +27,7 @@ import styles from './MePage.module.css'
 
 const WEEKS = ['이번 주', '다음 주'] as const
 
-// 나 탭: 내 에이전트가 할 말 · 내 일정 가져오기 · 내 시간(주간 시간표) · 내가 좋아하는 방식(조건 네 가지) · 팀 · 로그아웃
+// 나 탭: 내 에이전트가 할 말(+ 좋아하는 방식 바꾸기 시트) · 내 일정 가져오기 · 내 시간(주간 시간표) · 팀 · 로그아웃
 export default function MePage() {
   const user = useCurrentUser()
   const now = useClock()
@@ -33,6 +35,7 @@ export default function MePage() {
   const [week, setWeek] = useState<(typeof WEEKS)[number]>('이번 주')
   const [adding, setAdding] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
+  const [editingPrefs, setEditingPrefs] = useState(false)
 
   const anyDay = toIsoDate(week === '이번 주' ? now : now.add(7, 'day'))
   const room = useApi(() => getRoom(user.roomId), [user.roomId, user.id])
@@ -58,15 +61,25 @@ export default function MePage() {
           <b className={styles.name}>{user.name}</b> {user.isLeader && <Badge tone="here">팀장</Badge>}
           {room.status === 'ready' && <p className="meta">{room.data.name}</p>}
         </div>
+        {prefs.status === 'ready' && (
+          <button type="button" className={`btn small ${styles.prefBtn}`} onClick={() => setEditingPrefs(true)}>
+            좋아하는 방식 바꾸기
+          </button>
+        )}
       </div>
 
       {prefs.status === 'error' && <RetryBox message={prefs.message} onRetry={prefs.reload} />}
-      {prefs.status === 'ready' && <AgentQuote name={user.name} prefs={prefs.data} />}
+      {prefs.status === 'ready' && (
+        <>
+          <AgentQuote name={user.name} prefs={prefs.data} />
+          {editingPrefs && <PrefSheet initial={prefs.data} onClose={() => setEditingPrefs(false)} />}
+        </>
+      )}
 
       <section className="sec">
         <h2>내 일정 가져오기</h2>
         {thisWeek.status === 'error' && <RetryBox message={thisWeek.message} onRetry={thisWeek.reload} />}
-        {thisWeek.status === 'ready' && <ScheduleLinks blocks={thisWeek.data.blocks} onAddManual={openAdd} />}
+        {thisWeek.status === 'ready' && <ScheduleLinks blocks={thisWeek.data.blocks} />}
       </section>
 
       <section className="sec">
@@ -97,17 +110,8 @@ export default function MePage() {
         )}
       </section>
 
-      <section className="sec">
-        <h2>내가 좋아하는 방식</h2>
-        {prefs.status === 'ready' && <PrefEditor key={JSON.stringify(prefs.data)} initial={prefs.data} />}
-      </section>
-
-      <section className="sec">
-        <p className="meta">팀원 목록과 양보 점수, 초대 코드는 팀 화면에서 봐요.</p>
-        <Link to={PATHS.team} className="link">
-          팀 보기
-        </Link>
-      </section>
+      {room.status === 'error' && <RetryBox message={room.message} onRetry={room.reload} />}
+      {room.status === 'ready' && <TeamSection room={room.data} />}
       {/* 목 모드에는 로그인이 없어서 숨긴다 */}
       {isRealServer() && (
         <button type="button" className="btn quiet block" onClick={logout}>
@@ -118,8 +122,8 @@ export default function MePage() {
   )
 }
 
-// 조건 고치기. 바꾸면 저장 버튼이 생기고, 저장하면 다음 조율부터 이 조건으로 말한다
-function PrefEditor({ initial }: { initial: Preferences }) {
+// 좋아하는 방식(조건 네 가지) 고치기 시트. 저장하면 다음 조율부터 이 조건으로 말한다
+function PrefSheet({ initial, onClose }: { initial: Preferences; onClose: () => void }) {
   const [draft, setDraft] = useState(initial)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -132,7 +136,8 @@ function PrefEditor({ initial }: { initial: Preferences }) {
     setSaving(true)
     setError(null)
     try {
-      await savePreferences(draft, 'me') // 저장되면 새 값으로 다시 불러와 이 칸이 새로 그려진다
+      await savePreferences(draft, 'me') // 저장되면 새 값으로 다시 불러와 위 에이전트 말이 바뀐다
+      onClose()
     } catch (e) {
       setError(messageOf(e))
       setSaving(false)
@@ -140,23 +145,26 @@ function PrefEditor({ initial }: { initial: Preferences }) {
   }
 
   return (
-    <>
+    <Sheet
+      title="내가 좋아하는 방식"
+      onClose={onClose}
+      actions={
+        <>
+          <button type="button" className="btn quiet" onClick={onClose}>
+            취소
+          </button>
+          <button type="button" className="btn primary" disabled={!changed || saving} onClick={save}>
+            {saving ? '저장하는 중…' : '저장'}
+          </button>
+        </>
+      }
+    >
       <PrefForm value={draft} onChange={setDraft} />
       {error && (
         <p className={form.error} role="alert">
           {error}
         </p>
       )}
-      {changed && (
-        <div className={styles.act}>
-          <button type="button" className="btn small quiet" onClick={() => setDraft(initial)}>
-            취소
-          </button>
-          <button type="button" className="btn small primary" disabled={saving} onClick={save}>
-            {saving ? '저장하는 중…' : '저장'}
-          </button>
-        </div>
-      )}
-    </>
+    </Sheet>
   )
 }

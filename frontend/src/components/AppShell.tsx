@@ -1,6 +1,7 @@
-import { useState } from 'react'
-import { Outlet } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Outlet, useLocation, useNavigationType } from 'react-router-dom'
 import { justBooted } from '../lib/boot.ts'
+import { visit } from '../lib/trail.ts'
 import TabBar from './TabBar.tsx'
 import WriteFailNotice from './WriteFailNotice.tsx'
 import styles from './AppShell.module.css'
@@ -13,6 +14,7 @@ type Props = {
 // 스플래시에서 막 넘어왔을 때만 부드럽게 나타난다.
 export default function AppShell({ tabs = true }: Props) {
   const [entering] = useState(justBooted)
+  useTrail()
   return (
     <div className={`${styles.app} ${entering ? styles.enter : ''}`}>
       <div className={styles.screen}>
@@ -22,4 +24,15 @@ export default function AppShell({ tabs = true }: Props) {
       {tabs && <TabBar />}
     </div>
   )
+}
+
+// 거쳐 온 주소를 쌓는다. 뒤로 버튼(Screen)이 이 목록으로 왔던 화면에 돌아간다
+function useTrail() {
+  const location = useLocation()
+  const type = useNavigationType()
+  useEffect(() => {
+    const isBack = (location.state as { back?: boolean } | null)?.back === true
+    const move = isBack ? 'back' : type === 'POP' ? 'pop' : type === 'REPLACE' ? 'replace' : 'push'
+    visit(location.pathname + location.search, move)
+  }, [location, type])
 }

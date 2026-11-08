@@ -3,13 +3,6 @@
   padding: 0;
 }
 
-.aux {
-  display: inline-flex;
-  align-items: center;
-  padding: 0 6px;
-  font-size: var(--fs-meta);
-}
-
 /* 사람별 남은 할 일: 이름 | 막대 | 개수. 모두 같은 색(많고 적음만 보인다) */
 .load {
   display: grid;

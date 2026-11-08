@@ -13,9 +13,8 @@
   margin-top: 8px;
 }
 
-.act {
-  display: flex;
-  justify-content: flex-end;
-  gap: 6px;
-  margin-top: 10px;
+/* 프로필 줄 오른쪽 끝 */
+.prefBtn {
+  margin-left: auto;
+  flex-shrink: 0;
 }
