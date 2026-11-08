@@ -13,7 +13,8 @@ type Props = {
 // 팀원 에이전트 말풍선. 응답이면 이름 옆 뱃지 하나에 응답과 불편 정도(내 것만 숫자)를 함께 둔다
 export default function AgentBubble({ utterance: u, isMine, isNew }: Props) {
   const name = u.speakerName ?? ''
-  const burden = isMine && u.myScore !== null ? `내 불편 ${u.myScore}/5` : u.burden && BURDEN_LABEL[u.burden]
+  // 불편 정도가 안 오면(서버에 칸이 비면) 응답만 보인다. "수락 · null"이 되지 않게
+  const burden = isMine && u.myScore != null ? `내 불편 ${u.myScore}/5` : u.burden ? BURDEN_LABEL[u.burden] : null
   const tone = u.answer === '거절' ? 'danger' : u.burden ? BURDEN_TONE[u.burden] : 'ok'
 
   return (
@@ -21,8 +22,8 @@ export default function AgentBubble({ utterance: u, isMine, isNew }: Props) {
       {!isMine && <Avatar name={name} size="small" />}
       <div className={styles.body}>
         <div className={styles.who}>
-          <span className={styles.name}>{isMine ? '내 에이전트' : `${name}의 에이전트`}</span>
-          {u.answer && <Badge tone={tone}>{`${u.answer} · ${burden}`}</Badge>}
+          <span className={styles.name}>{isMine ? '내 에이전트' : `${name || '팀원'}의 에이전트`}</span>
+          {u.answer && <Badge tone={tone}>{burden ? `${u.answer} · ${burden}` : u.answer}</Badge>}
         </div>
         <p className={styles.text}>{u.text}</p>
       </div>
