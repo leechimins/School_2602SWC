@@ -1,19 +1,20 @@
 import dayjs, { type Dayjs } from 'dayjs'
-import { daysUntil, formatMD, formatTime, toIsoDate } from '../lib/date.ts'
+import { daysUntil, toIsoDate } from '../lib/date.ts'
 import { withJosa } from '../lib/korean.ts'
 import type { Id } from '../types/common.ts'
 import type { Home } from '../types/home.ts'
 import type { MyWeek, WeekBlock } from '../types/me.ts'
 import type { CoordinatingBrief, MeetingBrief, MeetingDetail, Schedule } from '../types/meeting.ts'
-import { NOTICE_KINDS, type ActivityLog, type Notice, type NoticeList } from '../types/notification.ts'
+import type { ActivityLog, NoticeList } from '../types/notification.ts'
 import type { Room } from '../types/room.ts'
 import type { Burden, Proposal, Scheduling, Utterance } from '../types/scheduling.ts'
 import type { Task, TeamTasks } from '../types/task.ts'
-import { nextYieldLevel, roundsUsed } from './actions.ts'
+import { isLate, nextYieldLevel, roundsUsed, yieldLevelOf, yieldPointsOf } from './actions.ts'
 import type { DemoState, SeedMeeting, SeedTask } from './seed.ts'
 
 // 목 데이터(원본) → 화면이 받는 모양. 서버가 할 일을 대신한다:
-// 보는 사람(viewer)마다 다른 값(내 점수, can_*), 시연 시계(now) 기준 판정(늦음, 알림)을 여기서 만든다.
+// 보는 사람(viewer)마다 다른 값(내 점수, can_*), 시연 시계(now) 기준 판정(늦음)을 여기서 만든다.
+// 규칙(정렬·권한·빈 칸)은 서버 라우터와 api/convert.ts를 거친 결과와 같게 맞춘다. 근거가 되는 서버 파일을 함수마다 적어 둔다.
 // 남의 불편 점수는 숫자로 내보내지 않는다(브리프 "내부 숫자는 보이지 않습니다").
 
 const NOT_FOUND = (what: string) => new Error(`${withJosa(what, '을/를')} 찾을 수 없어요`)
@@ -24,12 +25,8 @@ export function burdenOf(score: number): Burden {
   return score <= 3 ? '조금' : '많이'
 }
 
-/** 이번에 받을 양보 점수: 조금 불편 +1, 많이 불편 +2 */
-const yieldPointsOf = (score: number) => (score >= 4 ? 2 : score >= 2 ? 1 : 0)
-
 const nameOf = (s: DemoState, id: Id | null) => s.members.find((m) => m.id === id)?.name ?? null
 const liveTasks = (s: DemoState) => s.tasks.filter((t) => !t.dismissed)
-const isLate = (t: SeedTask, now: Dayjs) => t.status !== '완료' && t.dueDate !== null && daysUntil(t.dueDate, now) < 0
 
 export function toTask(s: DemoState, t: SeedTask, viewer: Id, now: Dayjs): Task {
   const meeting = s.meetings.find((m) => m.id === t.meetingId)
@@ -43,14 +40,22 @@ export function toTask(s: DemoState, t: SeedTask, viewer: Id, now: Dayjs): Task 
     blockedReason: t.blockedReason,
     source: meeting ? { meetingId: meeting.id, heldOn: toIsoDate(meeting.startAt), topic: meeting.topic } : null,
     confirmedByName: nameOf(s, t.confirmedBy),
-    confirmedAt: null,
+    confirmedAt: t.confirmedAt,
     isLate: isLate(t, now),
-    canChangeStatus: t.assigneeId === viewer,
+    canChangeStatus: t.assigneeId === null || t.assigneeId === viewer, // 담당자만, 담당자가 없으면 전원 (minutes/tasks.py)
     canEdit: true,
   }
 }
 
+/** 기한 순, 기한 없는 것은 맨 뒤 (minutes/tasks.py _due_key) */
 const byDue = (a: Task, b: Task) => (a.dueDate ?? '9999').localeCompare(b.dueDate ?? '9999')
+
+/** 팀 할 일 순서: 담당자 없음 → 나 → 다른 사람(사람별로 모아서). 묶음 안은 기한 순 (minutes/tasks.py team_order) */
+function teamOrder(s: DemoState, viewer: Id) {
+  const rank = (t: Task) =>
+    t.assigneeId === null ? -2 : t.assigneeId === viewer ? -1 : s.members.findIndex((m) => m.id === t.assigneeId)
+  return (a: Task, b: Task) => rank(a) - rank(b) || byDue(a, b)
+}
 
 export function buildRoom(s: DemoState, viewer: Id): Room {
   const { room } = s
@@ -63,14 +68,14 @@ export function buildRoom(s: DemoState, viewer: Id): Room {
       name: m.name,
       isLeader: m.id === room.leaderId,
       isMe: m.id === viewer,
-      yieldLevel: m.yieldLevel,
+      yieldLevel: yieldLevelOf(m.yieldTotal),
     })),
     canStartScheduling: viewer === room.leaderId,
   }
 }
 
 export function buildTeamTasks(s: DemoState, viewer: Id, now: Dayjs): TeamTasks {
-  const tasks = liveTasks(s).map((t) => toTask(s, t, viewer, now)).sort(byDue)
+  const tasks = liveTasks(s).map((t) => toTask(s, t, viewer, now)).sort(teamOrder(s, viewer))
   return {
     tasks,
     counts: s.members.map((m) => ({
@@ -82,11 +87,21 @@ export function buildTeamTasks(s: DemoState, viewer: Id, now: Dayjs): TeamTasks 
   }
 }
 
-export function buildMyTasks(s: DemoState, viewer: Id, now: Dayjs): Task[] {
+/**
+ * 홈의 내 할 일 (home/router.py _my_tasks): 늦음 → 오늘 → 내일 → 그 뒤 → 완료 순, 묶음 안은 기한 순.
+ * 서버 홈은 짧은 모양으로 와서 출처·확정한 사람·막힌 이유가 비어 있다(api/convert.ts toHome)
+ */
+function buildHomeTasks(s: DemoState, viewer: Id, now: Dayjs): Task[] {
+  const bucket = (t: Task) => {
+    if (t.status === '완료') return 4
+    if (t.dueDate === null) return 3
+    const days = daysUntil(t.dueDate, now)
+    return days < 0 ? 0 : days === 0 ? 1 : days === 1 ? 2 : 3
+  }
   return liveTasks(s)
     .filter((t) => t.assigneeId === viewer)
-    .map((t) => toTask(s, t, viewer, now))
-    .sort(byDue)
+    .map((t): Task => ({ ...toTask(s, t, viewer, now), blockedReason: null, source: null, confirmedByName: null, confirmedAt: null }))
+    .sort((a, b) => bucket(a) - bucket(b) || byDue(a, b))
 }
 
 function toMeetingBrief(s: DemoState, m: SeedMeeting, viewer: Id): MeetingBrief {
@@ -101,12 +116,13 @@ function toMeetingBrief(s: DemoState, m: SeedMeeting, viewer: Id): MeetingBrief 
     settled: proposal?.settled ?? false,
     myState: proposal?.responses[viewer] ?? null,
     pendingCount: proposal ? Object.values(proposal.responses).filter((r) => r === '대기').length : 0,
-    suggestionCount: s.suggestions.filter((g) => g.meetingId === m.id).length,
+    suggestionCount: 0, // 서버 일정 응답에 아직 없다(api/convert.ts). 실서버와 같게 "제안 N개"를 띄우지 않는다
   }
 }
 
+/** 끝난 시각으로 가른다. 회의 중인 것은 아직 다가오는 것이다 (meeting/router.py schedule) */
 const isUpcoming = (m: SeedMeeting, now: Dayjs) =>
-  (m.status === 'proposed' || m.status === 'confirmed') && dayjs(m.endAt).isAfter(now)
+  (m.status === 'proposed' || m.status === 'confirmed') && !dayjs(m.endAt).isBefore(now)
 
 export function buildSchedule(s: DemoState, viewer: Id, now: Dayjs): Schedule {
   const coordinating: CoordinatingBrief[] = s.schedulings
@@ -125,16 +141,19 @@ export function buildSchedule(s: DemoState, viewer: Id, now: Dayjs): Schedule {
 
 export function buildHome(s: DemoState, viewer: Id, now: Dayjs): Home {
   const schedule = buildSchedule(s, viewer, now)
+  const next = schedule.upcoming[0]
+  const responses = Object.values(s.proposals.find((p) => p.meetingId === next?.id)?.responses ?? {})
   return {
     roomName: s.room.name,
     today: toIsoDate(now),
     startDate: s.room.startDate,
     dueDate: s.room.dueDate,
     dDay: daysUntil(s.room.dueDate, now),
-    nextMeeting: schedule.upcoming[0] ?? null,
+    // 홈의 다음 회의는 "응답할 사람 − 수락한 사람"을 남은 수로 쓴다(api/convert.ts toHome). 거절한 사람도 남은 수에 든다
+    nextMeeting: next ? { ...next, pendingCount: responses.length - responses.filter((r) => r === '수락').length } : null,
     coordinating: schedule.coordinating[0] ?? null,
-    myTasks: buildMyTasks(s, viewer, now),
-    unreadCount: buildNotices(s, viewer, now).unreadCount,
+    myTasks: buildHomeTasks(s, viewer, now),
+    unreadCount: buildNotices(s, viewer).unreadCount,
     canStartScheduling: viewer === s.room.leaderId,
     inviteCode: s.room.inviteCode,
     joinedCount: s.members.length,
@@ -181,8 +200,8 @@ export function buildProposal(s: DemoState, meetingId: Id, viewer: Id): Proposal
   const p = s.proposals.find((x) => x.meetingId === meetingId)
   if (!m || !p) throw NOT_FOUND('회의')
   const c = s.schedulings.find((x) => x.id === p.schedulingId)
-  const mine = p.burdens.find((b) => b.userId === viewer) // 불참안에서 빠진 사람이면 없다(목업 버그 ③)
-  const myState = p.responses[viewer] ?? null
+  const mine = p.burdens.find((b) => b.userId === viewer) // 조율 없이 잡힌 회의면 점수가 없다
+  const myState = p.responses[viewer] ?? null // 응답할 사람이 아니면(불참안에서 빠진 사람) null
   const getter = p.burdens.find((b) => b.userId === p.gets)
   return {
     id: m.id,
@@ -192,26 +211,31 @@ export function buildProposal(s: DemoState, meetingId: Id, viewer: Id): Proposal
     startAt: m.startAt,
     endAt: m.endAt,
     mode: m.mode,
-    confirmed: m.status === 'confirmed' || p.settled,
+    // 회의안 화면 규칙은 meeting/router.py read_proposal
+    confirmed: m.status === 'confirmed',
     cancelled: m.status === 'cancelled',
     settled: p.settled,
     rationale: p.rationale,
     myScore: mine?.score ?? null,
     myReason: mine?.reason ?? '',
-    myYieldPoints: mine && p.gets === viewer ? yieldPointsOf(mine.score) : 0,
+    myYieldPoints: mine ? yieldPointsOf(mine.score) : 0, // 받는 사람이 누구든 내 불편만큼 (scorer.yield_points)
     myState,
-    canRespond: myState !== null && m.status === 'proposed',
-    feedbackOnly: p.settled,
+    canRespond: myState === '대기' && m.status === 'proposed',
+    feedbackOnly: myState !== null && m.status === 'confirmed', // 조정안이든 전원 수락이든 확정된 회의에는 한 줄만 남긴다
     absentName: nameOf(s, p.absent),
-    responders: p.burdens.map((b) => ({
-      userId: b.userId,
-      name: nameOf(s, b.userId) ?? '',
-      state: p.responses[b.userId] ?? '대기',
-      burden: burdenOf(b.score),
-      reason: b.reason,
-      yieldLevel: s.members.find((x) => x.id === b.userId)?.yieldLevel ?? '아직 없음',
-      feedback: p.feedback[b.userId]?.text ?? null,
-    })),
+    // 응답할 사람 전원. 점수가 없으면(조율 없이 잡힌 회의) 괜찮음, 이유는 빈 칸
+    responders: Object.entries(p.responses).map(([userId, state]) => {
+      const cost = p.burdens.find((b) => b.userId === userId)
+      return {
+        userId,
+        name: nameOf(s, userId) ?? '',
+        state,
+        burden: burdenOf(cost?.score ?? 1),
+        reason: cost?.reason ?? '',
+        yieldLevel: yieldLevelOf(s.members.find((x) => x.id === userId)?.yieldTotal ?? 0),
+        feedback: p.feedback[userId]?.text ?? null,
+      }
+    }),
     yieldGetter: getter
       ? {
           userId: getter.userId,
@@ -229,8 +253,9 @@ export function buildProposal(s: DemoState, meetingId: Id, viewer: Id): Proposal
 export function buildMeetingDetail(s: DemoState, meetingId: Id, viewer: Id, now: Dayjs): MeetingDetail {
   const m = s.meetings.find((x) => x.id === meetingId)
   if (!m) throw NOT_FOUND('회의')
+  // 참석자 = 수락한 사람(minutes/record.py _attendees). 응답 없이 바로 기록한 회의는 비어 있다
   const p = s.proposals.find((x) => x.meetingId === m.id)
-  const attendeeIds = p ? Object.keys(p.responses).filter((id) => p.responses[id] === '수락') : s.members.map((x) => x.id)
+  const attendeeIds = p ? Object.keys(p.responses).filter((id) => p.responses[id] === '수락') : []
   return {
     id: m.id,
     topic: m.topic,
@@ -252,78 +277,13 @@ export function buildMeetingDetail(s: DemoState, meetingId: Id, viewer: Id, now:
   }
 }
 
-/**
- * 알림은 저장하지 않고 할 일·회의 상태에서 바로 만든다(시안10의 risks()).
- * 할 일만 바꾸면 알림·홈 종 숫자·뱃지가 함께 맞는다. ID는 상황마다 같게 만들어 읽음 처리가 유지된다.
- */
-export function buildNotices(s: DemoState, viewer: Id, now: Dayjs): NoticeList {
-  const read = new Set(s.readNotices[viewer] ?? [])
-  const notices: Omit<Notice, 'read'>[] = []
-
-  for (const t of liveTasks(s)) {
-    const title = `'${t.title}'`
-    const who = nameOf(s, t.assigneeId)
-    const about = { taskId: t.id, taskTitle: t.title, meetingId: null }
-    if (isLate(t, now) && t.dueDate) {
-      const days = -daysUntil(t.dueDate, now)
-      notices.push({
-        id: `late-${t.id}-${t.dueDate}`, kind: '늦음', ...about,
-        reason: `${title} 기한 ${withJosa(formatMD(t.dueDate), '이/가')} ${days}일 지났어요`,
-        createdAt: dayjs(t.dueDate).add(1, 'day').hour(9).format(),
-      })
-    }
-    if (t.status === '막힘') {
-      const why = t.blockedReason ? ` "${t.blockedReason}"` : ''
-      notices.push({
-        id: `blocked-${t.id}`, kind: '막힘', ...about,
-        reason: `${withJosa(who ?? '담당자', '이/가')} ${withJosa(title, '이/가')} 막혔다고 표시했어요.${why}`,
-        createdAt: s.clockNow,
-      })
-    }
-    if (t.status === '완료' && t.doneAt) {
-      notices.push({
-        id: `done-${t.id}-${t.doneAt}`, kind: '완료', ...about,
-        reason: `${withJosa(who ?? '담당자', '이/가')} ${withJosa(title, '을/를')} 끝냈어요`,
-        createdAt: t.doneAt,
-      })
-    }
-  }
-
-  for (const m of s.meetings) {
-    const about = { taskId: null, taskTitle: null, meetingId: m.id }
-    const minutesToStart = dayjs(m.startAt).diff(now, 'minute')
-    if (m.status === 'confirmed' && minutesToStart > 0 && minutesToStart <= 30) {
-      const lastHeld = s.meetings.filter((x) => x.status === 'done').sort((a, b) => b.startAt.localeCompare(a.startAt))[0]
-      const pendings = lastHeld?.minutes?.pendings.length ?? 0
-      const left = liveTasks(s).filter((t) => t.status !== '완료').length
-      notices.push({
-        id: `soon-${m.id}`, kind: '회의 30분 전', ...about,
-        reason: `'${m.topic}' ${formatTime(m.startAt)} 시작 · ${m.mode}. 지난 회의 보류 ${pendings}개, 남은 할 일 ${left}개를 다뤄요`,
-        createdAt: dayjs(m.startAt).subtract(30, 'minute').format(),
-      })
-    }
-    const p = s.proposals.find((x) => x.meetingId === m.id)
-    if (p && m.status === 'proposed' && p.responses[viewer] === '대기') {
-      notices.push({
-        id: `proposed-${m.id}`, kind: '회의 제안', ...about,
-        reason: `${m.topic} 일정이 나왔어요. 수락/거절해 주세요.`,
-        createdAt: s.agentLog.find((a) => a.what.startsWith(`${m.topic} 제안`))?.at ?? s.clockNow,
-      })
-    }
-    if (p && m.status === 'confirmed') {
-      notices.push({
-        id: `confirmed-${m.id}`, kind: '회의 확정', ...about,
-        reason: `${m.topic} 일정이 확정됐어요.`,
-        createdAt: s.clockNow,
-      })
-    }
-  }
-
-  const order = (n: Omit<Notice, 'read'>) => NOTICE_KINDS.indexOf(n.kind)
-  const sorted = notices
-    .sort((a, b) => order(a) - order(b) || b.createdAt.localeCompare(a.createdAt))
-    .map((n) => ({ ...n, read: read.has(n.id) }))
-  return { notices: sorted, unreadCount: sorted.filter((n) => !n.read).length }
+/** 내 알림만, 최신순. 읽은 것도 같이 준다 (notice/router.py list_notifications). 할 일 제목은 reason 안에 있다 */
+export function buildNotices(s: DemoState, viewer: Id): NoticeList {
+  const notices = s.notices
+    .filter((n) => n.userId === viewer)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.seq - a.seq)
+    .map(({ id, kind, reason, taskId, meetingId, createdAt, read }) => ({ id, kind, reason, taskId, taskTitle: null, meetingId, createdAt, read }))
+  return { notices, unreadCount: notices.filter((n) => !n.read).length }
 }
 
 export function buildActivity(s: DemoState): ActivityLog {
@@ -334,8 +294,8 @@ export function buildActivity(s: DemoState): ActivityLog {
 }
 
 /**
- * 내 한 주(월~일) 시간표: 내 일정(매주 반복) + 내가 거절하지 않은 팀 회의.
- * 서버 GET /rooms/{id}/me/schedule과 같은 규칙이다. 팀 회의는 확정 대기면 waiting.
+ * 내 한 주(월~일) 시간표: 내 일정(매주 반복) + 내가 응답할 사람이고 거절하지 않은 팀 회의.
+ * 서버 GET /rooms/{id}/me/schedule과 같은 규칙이다(응답 없이 바로 기록한 회의는 안 나온다). 팀 회의는 확정 대기면 waiting.
  */
 export function buildMyWeek(s: DemoState, viewer: Id, anyDay: string): MyWeek {
   const monday = dayjs(anyDay).startOf('day').subtract((dayjs(anyDay).day() + 6) % 7, 'day')
@@ -354,7 +314,10 @@ export function buildMyWeek(s: DemoState, viewer: Id, anyDay: string): MyWeek {
   const meetings: WeekBlock[] = s.meetings
     .filter((m) => m.status !== 'cancelled')
     .filter((m) => !dayjs(m.startAt).isBefore(monday) && dayjs(m.startAt).isBefore(sunday.add(1, 'day')))
-    .filter((m) => s.proposals.find((p) => p.meetingId === m.id)?.responses[viewer] !== '거절')
+    .filter((m) => {
+      const mine = s.proposals.find((p) => p.meetingId === m.id)?.responses[viewer]
+      return mine !== undefined && mine !== '거절'
+    })
     .map((m) => {
       const start = dayjs(m.startAt)
       const end = dayjs(m.endAt)

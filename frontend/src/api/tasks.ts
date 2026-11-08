@@ -1,9 +1,10 @@
+import { emitLate } from '../mock/actions.ts'
 import { mockContext } from '../mock/context.ts'
 import { dispatch } from '../mock/store.ts'
 import { buildTeamTasks } from '../mock/views.ts'
 import type { Id } from '../types/common.ts'
 import type { TaskInput, TaskStatus, TeamTasks } from '../types/task.ts'
-import { request, withMock, withMockWrite } from './client.ts'
+import { ApiError, request, withMock, withMockWrite } from './client.ts'
 import { toServerState, toTeamTasks, type ServerTaskList } from './convert.ts'
 
 // 할 일. 팀 할 일·홈이 같은 Task 모양을 쓴다.
@@ -19,6 +20,8 @@ export function getTeamTasks(roomId: Id): Promise<TeamTasks> {
   return withMock(
     async () => toTeamTasks(await request<ServerTaskList>(`/rooms/${roomId}/tasks`)),
     () => {
+      // 서버처럼 목록을 부를 때 늦음 알림을 낸다. 새로 생긴 게 있을 때만 바꿔 다시 불러오기가 돌지 않게 한다
+      if (emitLate(mockContext().s) !== mockContext().s) dispatch({ type: 'notice/late' })
       const { s, viewer, now } = mockContext()
       return buildTeamTasks(s, viewer, now)
     },
@@ -33,7 +36,14 @@ export function changeTaskStatus(roomId: Id, taskId: Id, status: TaskStatus, rea
         method: 'PATCH',
         body: { state: toServerState(status), reason },
       }),
-    () => dispatch({ type: 'task/status', taskId, status, reason }),
+    () => {
+      const { s, viewer } = mockContext()
+      const task = s.tasks.find((t) => t.id === taskId)
+      if (task && task.assigneeId !== null && task.assigneeId !== viewer) {
+        throw new ApiError(403, 'NOT_ASSIGNEE', '담당자만 상태를 바꿀 수 있습니다.')
+      }
+      dispatch({ type: 'task/status', taskId, status, reason, by: viewer })
+    },
   )
 }
 

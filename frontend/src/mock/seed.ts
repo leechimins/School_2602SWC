@@ -2,7 +2,7 @@ import { withJosa } from '../lib/korean.ts'
 import type { Id, IsoDate, IsoDateTime, MeetingMode } from '../types/common.ts'
 import type { Minutes, MeetingStatus } from '../types/meeting.ts'
 import type { Preferences, ScheduleSource } from '../types/me.ts'
-import type { AgentLogEntry } from '../types/notification.ts'
+import type { AgentLogEntry, NoticeKind } from '../types/notification.ts'
 import type { YieldLevel } from '../types/room.ts'
 import type { ResponseState, SchedulingStatus } from '../types/scheduling.ts'
 import type { TaskStatus } from '../types/task.ts'
@@ -11,7 +11,7 @@ import type { TaskStatus } from '../types/task.ts'
 // 이 값은 서버의 DB 역할이라 보는 사람과 상관없는 원본만 담는다. 화면에 줄 모양(내 점수, can_*)은 mock/views.ts가 만든다.
 // SEED는 직접 바꾸지 않는다. 저장소는 항상 structuredClone(SEED)로 시작한다(목업 버그 ④).
 
-export const SEED_VERSION = 8 // 내 조건(prefs)·주간 일정(scheduleItems)을 붙였다. 7은 할 일에 "필요 없어 보이는 일"(unneeded)을 붙였다. 6은 doneMeetingId. 3은 사람 수락·거절을 뺐던 판이라 건너뛴다
+export const SEED_VERSION = 9 // 서버 시드(backend/tools/seed.py)로 바꾸고 알림을 저장하는 모양으로 바꿨다. 8은 내 조건(prefs)·주간 일정(scheduleItems)을 붙였다. 7은 할 일에 "필요 없어 보이는 일"(unneeded)을 붙였다. 6은 doneMeetingId. 3은 사람 수락·거절을 뺐던 판이라 건너뛴다
 
 /** 사람 ID는 여기서 한 번만 정한다. 화면 코드에 'minji' 같은 값을 쓰지 않는다 */
 export const USER = {
@@ -26,7 +26,7 @@ export const ROOM_ID: Id = 'room-1'
 export type SeedMember = {
   id: Id
   name: string
-  yieldLevel: YieldLevel
+  yieldTotal: number // 누적 양보 점수. 화면에는 단계로만 나간다(views.ts yieldLevelOf, 서버 membership.yield_total)
   note: string // 시연 설정 메모 (화면에 나오지 않음)
 }
 
@@ -39,7 +39,7 @@ export type SeedTask = {
   blockedReason: string | null
   meetingId: Id | null // 출처 회의. null = 직접 추가
   confirmedBy: Id | null
-  doneAt: IsoDateTime | null // 완료로 바뀐 때. 완료 알림을 만든다
+  confirmedAt: IsoDateTime | null
   doneMeetingId: Id | null // 회의에서 끝났다고 말해 완료로 바뀐 회의. 회의록의 "회의에서 끝난 일"에 보인다
   dismissed: boolean // "삭제"한 할 일. 목록에서 빠진다
   /** 회의에서 안 해도 된다고 한 일(회의록 "필요 없어 보이는 일"). kept = 그래도 두기로 함. 서버에는 없는 목록이라 목에서만 쓴다 */
@@ -96,16 +96,29 @@ export type SeedFeedback = { text: string; change: string | null; undone: boolea
 /** 조율이 낸 회의의 사람별 부담과 응답 */
 export type SeedProposal = {
   meetingId: Id
-  schedulingId: Id // 이 회의안을 낸 조율. 거절로 회의가 취소돼도 과정 화면으로 돌아갈 수 있게
+  schedulingId: Id | null // 이 회의안을 낸 조율. 거절로 회의가 취소돼도 과정 화면으로 돌아갈 수 있게. 조율 없이 잡힌 회의는 null
   settled: boolean
   rationale: string
   gets: Id | null // 이번에 양보 점수를 받는 사람
   getsFrom: YieldLevel // 그 사람의 조율 당시 누적 단계. 확정되면 한 단계 오른다
-  yieldWhy: string // 확정되면 양보 기록에 남길 한 줄
   absent: Id | null // 불참안에서 빠진 사람
   burdens: { userId: Id; score: number; reason: string }[]
-  responses: Record<Id, ResponseState>
+  responses: Record<Id, ResponseState> // 응답할 사람(서버 meeting_response). 여기 없는 사람은 이 회의에서 빠진다
   feedback: Record<Id, SeedFeedback>
+}
+
+/** 알림 한 장(서버 notification). 서버처럼 일이 생길 때 사람마다 한 장씩 쌓는다(actions.ts emit) */
+export type SeedNotice = {
+  id: Id
+  seq: number // 같은 시각이면 나중에 생긴 것이 위
+  userId: Id // 받는 사람
+  kind: NoticeKind
+  reason: string
+  taskId: Id | null
+  meetingId: Id | null
+  dedupe: string // 같은 사람에게 같은 키는 한 번만(서버 dedupe_key)
+  createdAt: IsoDateTime
+  read: boolean
 }
 
 /** 내 일정 한 줄(매주 반복). 요일마다 한 줄이고 같은 묶음(groupId)은 한 일정이다(백엔드 schedule_item) */
@@ -140,7 +153,7 @@ export type DemoState = {
   meetings: SeedMeeting[]
   schedulings: SeedScheduling[]
   proposals: SeedProposal[]
-  readNotices: Record<Id, Id[]> // 사람별로 읽은 알림 ID
+  notices: SeedNotice[]
   agentLog: AgentLogEntry[]
   yieldRecords: { id: Id; meetingLabel: string; userId: Id; why: string }[]
   prefs: Record<Id, Preferences> // 없으면 아직 온보딩 전(전부 빈 값)
@@ -149,10 +162,12 @@ export type DemoState = {
 }
 
 const hour = (h: number) => h * 60
+/** 자정부터 분. 13:30 → hm(13, 30) */
+const hm = (h: number, m = 0) => h * 60 + m
 const item = (
   id: Id, userId: Id, groupId: number, title: string | null, kind: SeedScheduleItem['kind'],
-  source: ScheduleSource, weekday: number, from: number, to: number,
-): SeedScheduleItem => ({ id, userId, groupId, title, kind, source, weekday, startMin: hour(from), endMin: hour(to) })
+  source: ScheduleSource, weekday: number, startMin: number, endMin: number,
+): SeedScheduleItem => ({ id, userId, groupId, title, kind, source, weekday, startMin, endMin })
 
 /** 에브리타임 공유 링크로 들어오는 수업(시연용). 누가 불러와도 이 네 과목이 들어온다 */
 export const DEMO_EVERYTIME_CLASSES: Omit<SeedScheduleItem, 'id' | 'userId' | 'groupId'>[] = [
@@ -175,7 +190,7 @@ const task = (t: Partial<SeedTask> & Pick<SeedTask, 'id' | 'title' | 'dueDate' |
   blockedReason: null,
   meetingId: null,
   confirmedBy: null,
-  doneAt: null,
+  confirmedAt: null,
   doneMeetingId: null,
   dismissed: false,
   unneeded: null,
@@ -187,7 +202,7 @@ export type ScenarioResult = Omit<SeedProposal, 'meetingId' | 'schedulingId' | '
 
 /**
  * 시연 조율 대본: 팀장이 "조율 시작"을 누르면 목 서버가 이 대본을 그대로 다시 돌린다(실서버에서는 AI가 만든다).
- * 시드의 c1·m4는 이 대본을 한 번 돌린 결과다.
+ * 팀장이 처음 조율을 시작하면 이 대본이 돈다.
  */
 export const DEMO_SCENARIO: { script: SeedUtterance[]; result: ScenarioResult } = {
   // 11/7 흐름: 개인 에이전트가 원하는 시간을 어필 → 판단 에이전트가 그중 하나를 고름 → 개인 에이전트가 수락·거절(거절은 이유만).
@@ -226,7 +241,6 @@ export const DEMO_SCENARIO: { script: SeedUtterance[]; result: ScenarioResult } 
     rationale: '현우가 지난 두 번 많이 맞춰 줘서 이번엔 현우 쪽을 먼저 챙겼어요. 대신 민지가 조금 맞춰 주게 됩니다.',
     gets: minji,
     getsFrom: '아직 없음',
-    yieldWhy: '수업 바로 뒤지만 현우를 먼저 챙기려고 맞춰 줬어요.',
     absent: null,
     burdens: [
       { userId: minji, score: 3, reason: '수업 바로 뒤예요' },
@@ -264,7 +278,6 @@ export function rerunScenario(
       rationale: `${who} 수요일 오후를 거절해서, 그 시간을 냈던 현우·민지의 새 시간으로 다시 잡았어요. 대신 지수가 조금 맞춰 주게 됩니다.`,
       gets: jisu,
       getsFrom: jisuYield.from,
-      yieldWhy: '금요일 수업이 끝나고 바로 들어와 맞춰 줬어요.',
       absent: null,
       burdens: [
         { userId: jisu, score: 2, reason: '수업 끝나고 바로예요' },
@@ -308,143 +321,120 @@ export const DEMO_RECORDING: {
   ],
 }
 
+// ── 시연 시작 데이터 ─────────────────────────────────────────
+// 서버 시드(backend/tools/seed.py)와 같은 사람·회의·할 일·제안·선호·시간표다. 목과 실서버가 같은 화면에서 시작한다.
+// 서버 시드에 없는 것(조율, 확정 대기 회의, 알림, 에이전트가 한 일)은 넣지 않는다 — 시연 중에 생긴다.
+
+const HELD = '2026-10-31T12:00:00+09:00' // 10/31 회의가 끝난 시각. 회의록·할 일 확정은 이 시각으로 찍혀 있다
+const [MON, TUE, WED, THU, FRI] = [0, 1, 2, 3, 4]
+
+/** 서버 시드의 지난 회의는 조율 없이 잡혔고 네 사람 모두 수락했다. 응답(누가 왔나)만 담는다 */
+const allAccepted = (meetingId: Id, rationale: string): SeedProposal => ({
+  meetingId,
+  schedulingId: null,
+  settled: false,
+  rationale,
+  gets: null,
+  getsFrom: '아직 없음',
+  absent: null,
+  burdens: [],
+  responses: { [jisu]: '수락', [minji]: '수락', [hyunwoo]: '수락', [seoyeon]: '수락' },
+  feedback: {},
+})
+
 export const SEED: DemoState = {
   version: SEED_VERSION,
-  clockNow: '2026-11-10T19:00:00+09:00', // 11/10(화) 회의가 끝나고 회의록이 정리된 저녁
+  clockNow: '2026-11-10T19:00:00+09:00', // 서버 시드의 "오늘" 11/10. 사용자 인터뷰 정리(11/8)가 늦음으로 보인다
   room: {
     id: ROOM_ID,
     name: '서비스디자인 팀 프로젝트',
-    description: '대학생 생활 속 불편을 하나 골라 서비스로 풀고, 화면 시안과 발표로 보여 주는 과제',
-    startDate: '2026-10-13',
+    description: '학기 과제. 최종 발표와 시연까지 간다.',
+    startDate: '2026-10-20',
     dueDate: '2026-12-11',
-    inviteCode: 'TEAM-4821',
+    inviteCode: 'T9K2QM',
     memberCount: 4,
     leaderId: jisu,
   },
   members: [
-    { id: jisu, name: '지수', yieldLevel: '조금 맞춰 줌', note: '팀장' },
-    { id: minji, name: '민지', yieldLevel: '아직 없음', note: '수업이 많음' },
-    { id: hyunwoo, name: '현우', yieldLevel: '많이 맞춰 줌', note: '평일 저녁 알바, 지난 회의에서 두 번 맞춰 줌' },
-    { id: seoyeon, name: '서연', yieldLevel: '아직 없음', note: '비대면 선호' },
+    { id: jisu, name: '지수', yieldTotal: 0, note: '팀장 · 자료조사' },
+    { id: minji, name: '민지', yieldTotal: 0, note: '발표 · 수업이 많음' },
+    { id: hyunwoo, name: '현우', yieldTotal: 3, note: '개발 · 평일 저녁 알바, 지난 두 회의에서 +2·+1' },
+    { id: seoyeon, name: '서연', yieldTotal: 0, note: '디자인 · 비대면 선호' },
   ],
   tasks: [
-    task({ id: 't1', title: '경쟁 서비스 사례 조사', dueDate: '2026-11-07', assigneeId: jisu, status: '진행 중' }),
-    task({
-      id: 't2', title: '경쟁 서비스 사례 조사 2차', dueDate: '2026-11-20', assigneeId: jisu,
-      unneeded: { meetingId: 'm3', why: '회의에서 안 해도 된다고 했어요', kept: false },
-    }),
-    task({ id: 't3', title: '중간 점검 자료', dueDate: '2026-11-15', assigneeId: null }),
-    task({ id: 't4', title: '발표 대본 초안', dueDate: '2026-11-11', assigneeId: minji, meetingId: 'm2', confirmedBy: minji }),
-    task({ id: 't5', title: '인터뷰 대상자 연락', dueDate: '2026-11-12', assigneeId: minji }),
-    task({ id: 't6', title: '발표 슬라이드 틀 잡기', dueDate: '2026-11-14', assigneeId: minji, status: '진행 중' }),
-    task({ id: 't7', title: '중간 점검 예상 질문 정리', dueDate: '2026-11-18', assigneeId: minji }),
-    task({ id: 't8', title: '최종 발표 리허설 일정 잡기', dueDate: '2026-11-27', assigneeId: minji }),
-    task({ id: 't9', title: '페르소나 정리', dueDate: '2026-11-05', assigneeId: minji, status: '완료' }),
-    task({ id: 't10', title: '사용자 흐름 초안', dueDate: '2026-11-14', assigneeId: hyunwoo, meetingId: 'm2', confirmedBy: hyunwoo }),
-    task({ id: 't11', title: '시연 시나리오 작성', dueDate: '2026-11-20', assigneeId: hyunwoo, meetingId: 'm2', confirmedBy: hyunwoo }),
-    task({ id: 't12', title: '프로토타입 화면 연결', dueDate: '2026-11-20', assigneeId: hyunwoo, meetingId: 'm3', confirmedBy: hyunwoo }),
-    task({ id: 't13', title: '프로토타입 기본 화면', dueDate: '2026-11-21', assigneeId: hyunwoo, status: '진행 중' }),
-    task({
-      id: 't14', title: '인터뷰 결과 정리', dueDate: '2026-11-13', assigneeId: seoyeon,
-      status: '막힘', blockedReason: '인터뷰 녹취 2건이 아직 안 왔어요',
-    }),
-    // 회의에서 끝났다고 말해 완료로 바뀐 일 → 완료 알림
-    task({ id: 't15', title: '화면 시안 3종', dueDate: '2026-11-19', assigneeId: seoyeon, status: '완료', doneAt: '2026-11-10T18:42:00+09:00', doneMeetingId: 'm3' }),
+    // 기한(11/8)이 오늘(11/10)보다 앞서고 끝나지 않았다 → 늦음
+    task({ id: 't1', title: '사용자 인터뷰 정리', dueDate: '2026-11-08', assigneeId: jisu, status: '진행 중', meetingId: 'm2', confirmedBy: jisu, confirmedAt: HELD }),
+    task({ id: 't2', title: '발표 슬라이드 초안', dueDate: '2026-11-13', assigneeId: minji, meetingId: 'm2', confirmedBy: jisu, confirmedAt: HELD }),
+    task({ id: 't3', title: '프로토타입 화면 구현', dueDate: '2026-11-15', assigneeId: hyunwoo, status: '막힘', meetingId: 'm2', confirmedBy: jisu, confirmedAt: HELD }),
+    // 10/27 회의에서 나와 10/31 회의에서 "끝났다"고 한 일 → 회의에서 끝난 일
+    task({ id: 't4', title: '참고 사례 조사', dueDate: '2026-11-05', assigneeId: jisu, status: '완료', meetingId: 'm1', doneMeetingId: 'm2', confirmedBy: jisu, confirmedAt: HELD }),
+    // 담당자 없음은 오류가 아니라 정상 시작 상태다
+    task({ id: 't5', title: '발표 대본 작성', dueDate: '2026-11-17', assigneeId: null, meetingId: 'm2', confirmedBy: jisu, confirmedAt: HELD }),
+    // 직접 추가한 할 일. 출처 회의가 없다
+    task({ id: 't6', title: '대면 회의 장소 예약', dueDate: '2026-11-12', assigneeId: jisu, confirmedBy: jisu, confirmedAt: HELD }),
   ],
   suggestions: [
-    { id: 's1', meetingId: 'm3', title: '중간 점검 발표 구성안', dueDate: '2026-11-13', assigneeId: minji },
-    { id: 's2', meetingId: 'm3', title: '인터뷰 질문지 보완', dueDate: '2026-11-13', assigneeId: null },
-    { id: 's3', meetingId: 'm3', title: '사용성 테스트 참가자 모집', dueDate: '2026-11-13', assigneeId: null },
+    { id: 's1', meetingId: 'm2', title: '디자인 시안 정리', dueDate: '2026-11-14', assigneeId: seoyeon },
+    { id: 's2', meetingId: 'm2', title: '최종 발표 리허설 일정 잡기', dueDate: '2026-11-18', assigneeId: null },
+    { id: 's3', meetingId: 'm2', title: '시연 영상 촬영 계획', dueDate: null, assigneeId: null },
   ],
   meetings: [
     {
-      id: 'm1', topic: '주제 정하고 역할 나누기', mode: '대면', status: 'done',
-      startAt: '2026-10-28T16:00:00+09:00', endAt: '2026-10-28T17:00:00+09:00',
-      transcript: [
-        { speakerId: jisu, text: '주제는 대학생 팀플 도우미로 가요.' },
-        { speakerId: jisu, text: '역할은 자료조사 저, 발표 민지, 개발 현우, 디자인 서연이요.' },
-      ],
-      minutes: { headline: '주제 정하고 역할 나누기', status: 'done', decisions: ['주제: 대학생 팀플 도우미', '역할 나누기'], discussions: [], pendings: [] },
-    },
-    {
-      id: 'm2', topic: '발표 흐름과 화면 정하기', mode: '대면', status: 'done',
-      startAt: '2026-11-04T16:00:00+09:00', endAt: '2026-11-04T16:55:00+09:00',
-      transcript: [
-        { speakerId: hyunwoo, text: '사용자 흐름은 제가 먼저 그려 볼게요. 다음 주 토요일까지요.' },
-        { speakerId: minji, text: '발표 대본 초안은 제가 맡을게요.' },
-        { speakerId: seoyeon, text: '시연 시나리오도 누군가 써야 해요.' },
-        { speakerId: hyunwoo, text: '시연은 화면 만드는 제가 쓰는 게 낫겠어요.' },
-      ],
-      minutes: {
-        headline: '발표 흐름과 화면 정하기', status: 'done',
-        decisions: ['사용자 흐름 초안은 현우', '발표 대본 초안은 민지', '시연 시나리오는 현우'], discussions: [], pendings: [],
-      },
-    },
-    {
-      id: 'm3', topic: '중간 점검 자료 나누기', mode: '대면', status: 'done',
-      startAt: '2026-11-10T16:00:00+09:00', endAt: '2026-11-10T16:40:00+09:00',
-      transcript: [
-        { speakerId: jisu, text: '16일 중간 점검 전에 자료를 어떻게 나눌지 정해요.' },
-        { speakerId: seoyeon, text: '화면 시안 세 개는 어제 다 끝냈어요. 폴더에 올려 뒀어요.' },
-        { speakerId: minji, text: '발표 구성안은 제가 금요일까지 만들어 올게요.' },
-        { speakerId: jisu, text: '중간 점검 자료 취합은 제가 맡을게요.' },
-        { speakerId: seoyeon, text: '인터뷰 질문지는 조금 더 다듬어야 할 것 같아요.' },
-        { speakerId: hyunwoo, text: '질문지는 누가 할지 다음에 정해요.' },
-        { speakerId: hyunwoo, text: '프로토타입 화면 연결은 제가 할게요. 다음 주 금요일까지요.' },
-        { speakerId: minji, text: '사용성 테스트 참가자도 주말 전까지 모아야 해요.' },
-        { speakerId: jisu, text: '경쟁 서비스 2차 조사는 안 해도 될 것 같아요. 1차로 충분해요.' },
-        { speakerId: seoyeon, text: '발표 순서는 구성안 보고 다시 얘기해요.' },
-      ],
-      minutes: {
-        headline: '중간 점검 자료 나누기', status: 'done',
-        decisions: ['발표 구성안은 민지가 금요일까지', '중간 점검 자료 취합은 지수', '프로토타입 화면 연결은 현우', '경쟁 서비스 2차 조사는 하지 않음'],
-        discussions: ['인터뷰 질문지를 더 다듬기', '사용성 테스트 참가자 미리 모으기'],
-        pendings: ['발표 순서: 구성안 보고 다시', '질문지 담당자: 다음 회의에서'],
-      },
-    },
-    // 조율이 낸 다음 회의. 지수·현우는 수락, 민지·서연은 아직 대기
-    {
-      id: 'm4', topic: '중간 점검 전 회의', mode: '비대면', status: 'proposed',
-      startAt: '2026-11-18T16:00:00+09:00', endAt: '2026-11-18T18:00:00+09:00',
+      id: 'm1', topic: '역할 나누기', mode: '대면', status: 'done',
+      startAt: '2026-10-27T16:00:00+09:00', endAt: '2026-10-27T18:00:00+09:00',
       transcript: [], minutes: null,
     },
-  ],
-  schedulings: [
     {
-      id: 'c1', topic: '중간 점검 전 회의', durationMin: 120, mode: '상관없음', status: 'agreed', meetingId: 'm4',
-      windowStart: '2026-11-16T00:00:00+09:00', windowEnd: '2026-11-20T23:59:00+09:00',
-      script: DEMO_SCENARIO.script,
-      result: DEMO_SCENARIO.result,
+      id: 'm2', topic: '중간 발표 자료 나누기', mode: '비대면', status: 'done',
+      startAt: '2026-10-31T10:00:00+09:00', endAt: '2026-10-31T12:00:00+09:00',
+      transcript: [
+        { speakerId: jisu, text: '오늘은 중간 발표 자료를 누가 어디까지 맡을지 정하죠.' },
+        { speakerId: minji, text: '발표는 제가 할게요. 슬라이드 초안은 다음 주 목요일까지 가능해요.' },
+        { speakerId: hyunwoo, text: '저는 프로토타입 화면을 구현할게요. 알바 때문에 평일 저녁은 어려워요.' },
+        { speakerId: seoyeon, text: '디자인 시안은 제가 볼게요. 발표 대본은 아직 맡을 사람이 없어요.' },
+        { speakerId: jisu, text: '사용자 인터뷰 정리는 제가 이번 주말까지 끝낼게요.' },
+        { speakerId: null, text: '리허설 일정은 다음 회의에서 다시 이야기해요.' },
+      ],
+      minutes: {
+        headline: '중간 발표 자료를 역할별로 나눔', status: 'done',
+        decisions: ['발표는 민지, 프로토타입 구현은 현우가 맡는다.', '사용자 인터뷰 정리는 지수가 이번 주말까지 끝낸다.'],
+        discussions: ['현우는 평일 저녁 알바가 있어 회의는 낮이 낫다.'],
+        pendings: ['발표 대본을 누가 쓸지 정하지 못했다.', '최종 발표 리허설 일정.'],
+      },
     },
   ],
+  schedulings: [],
   proposals: [
-    {
-      ...DEMO_SCENARIO.result,
-      meetingId: 'm4', schedulingId: 'c1', settled: false,
-      responses: { [jisu]: '수락', [minji]: '대기', [hyunwoo]: '수락', [seoyeon]: '대기' },
-      feedback: {},
-    },
+    allAccepted('m1', '현우의 알바 시작 직전이지만, 네 사람이 다 비는 시간이 이 두 시간뿐이었습니다.'),
+    allAccepted('m2', '금요일 오전은 민지의 수업이 끝난 뒤라 가장 덜 불편했습니다.'),
   ],
-  readNotices: {},
-  agentLog: [
-    { id: 'a1', at: '2026-11-10T18:42:00+09:00', what: "11/10 회의록 · '화면 시안 3종' 완료 처리", why: '서연이 회의에서 다 끝냈다고 말했어요.' },
-    { id: 'a2', at: '2026-11-10T18:42:00+09:00', what: '11/10 회의록 · 할 일 제안 3개', why: '확정 전까지는 회의록에만 보여요.' },
-    { id: 'a3', at: '2026-11-10T09:12:00+09:00', what: '중간 점검 전 회의 제안 · 11/18(수) 16:00–18:00', why: '현우가 지난 두 번 많이 맞춰 줘서 이번엔 현우 쪽을 먼저 챙겼어요.' },
-  ],
+  notices: [],
+  agentLog: [],
+  // 최신순. 서버는 숫자 없이 조금/많이로만 내보낸다(notice/router.py _양보말)
   yieldRecords: [
-    { id: 'y1', meetingLabel: '11월 4일 회의', userId: hyunwoo, why: '알바 시작을 한 시간 늦춰 대면 회의에 맞춰 줬어요.' },
-    { id: 'y2', meetingLabel: '10월 28일 회의', userId: hyunwoo, why: '수업 끝나자마자 이동해 회의에 왔어요. 지수도 조금 맞춰 줬어요.' },
+    { id: 'y2', meetingLabel: '10월 31일 회의', userId: hyunwoo, why: '조금 불편한 시간을 맞춰 줬어요' },
+    { id: 'y1', meetingLabel: '10월 27일 회의', userId: hyunwoo, why: '많이 불편한 시간을 맞춰 줬어요' },
   ],
-  // 지수는 시안10의 "나" 화면 그대로. 민지는 조건만 있고 일정은 온보딩에서 연결해 보이는 사람
   prefs: {
-    [jisu]: { fromHour: 10, toHour: 21, mode: '비대면', dayparts: ['오후', '저녁'], avoid: '금요일 저녁은 알바 끝나고 너무 지쳐요' },
-    [minji]: { fromHour: 9, toHour: 18, mode: '대면', dayparts: ['오전', '오후'], avoid: '' },
+    [jisu]: { fromHour: 9, toHour: 22, mode: '상관없음', dayparts: ['오후'], avoid: '' },
+    [minji]: { fromHour: 10, toHour: 21, mode: '대면', dayparts: ['오후', '저녁'], avoid: '오전은 수업이 많아서 힘들어요' },
+    [hyunwoo]: { fromHour: 9, toHour: 18, mode: '상관없음', dayparts: ['오전', '오후'], avoid: '평일 저녁은 알바가 있어요' },
+    [seoyeon]: { fromHour: 10, toHour: 23, mode: '비대면', dayparts: ['저녁', '밤'], avoid: '' },
   },
   scheduleItems: [
-    ...DEMO_EVERYTIME_CLASSES.map((c, i) => ({ ...c, id: `s${i + 1}`, userId: jisu, groupId: i + 1 })),
-    item('s5', jisu, 5, '카페 알바', 'event', 'manual', 1, 18, 21),
-    item('s6', jisu, 5, '카페 알바', 'event', 'manual', 5, 11, 15),
-    ...DEMO_GOOGLE_EVENTS.map((e, i) => ({ ...e, id: `s${i + 7}`, userId: jisu, groupId: 6 + i })),
+    item('s1', jisu, 101, '서비스디자인', 'class', 'everytime', TUE, hm(13), hm(14, 30)),
+    item('s2', jisu, 102, '사용자조사', 'class', 'everytime', THU, hm(10, 30), hm(12)),
+    item('s3', minji, 201, '인터랙션', 'class', 'everytime', MON, hm(10, 30), hm(12)),
+    item('s4', minji, 202, '시각디자인', 'class', 'everytime', MON, hm(13), hm(14, 30)),
+    item('s5', minji, 203, '디자인사', 'class', 'everytime', TUE, hm(9), hm(12)),
+    item('s6', minji, 204, '타이포그래피', 'class', 'everytime', WED, hm(10, 30), hm(12)),
+    item('s7', minji, 205, '프로젝트스튜디오', 'class', 'everytime', THU, hm(13), hm(16)),
+    item('s8', minji, 206, '색채학', 'class', 'everytime', FRI, hm(9), hm(10, 30)),
+    item('s9', hyunwoo, 301, '자료구조', 'class', 'everytime', WED, hm(9), hm(12)),
+    // 현우의 알바: 묶음 하나(302)에 요일 다섯 줄. 서버 종류는 알바지만 시간표에는 "일정"으로 나간다
+    ...[MON, TUE, WED, THU, FRI].map((d, i) => item(`s${10 + i}`, hyunwoo, 302, '편의점 알바', 'event', 'manual', d, hm(18), hm(22))),
+    item('s15', seoyeon, 401, 'UX기초', 'class', 'everytime', WED, hm(13), hm(16)),
+    item('s16', seoyeon, 402, '모션그래픽', 'class', 'everytime', FRI, hm(13), hm(14, 30)),
   ],
   nextSeq: 100,
 }
