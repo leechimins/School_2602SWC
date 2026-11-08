@@ -344,3 +344,109 @@ def test_멈춘_뒤에는_요약이_되고_직접_쓰기로_고칠_수_있다(cl
     body = fixed.json()
     assert body["transcript_mode"] == "manual"
     assert [line["speaker_name"] for line in body["transcript"]] == ["지수", "민지"]
+
+
+# ── 말한 사람 정하기 (#41) ───────────────────────────────────────────
+
+
+def _map(client: TestClient, room: Room, meeting: Meeting, labels=None, lines=None):
+    return client.put(
+        _url(room, meeting, "/speaker-mapping"),
+        json={"labels": labels or {}, "lines": lines or {}},
+    )
+
+
+@pytest.fixture
+def heard(client, seeded, room, blank) -> Meeting:
+    """목소리 A·B로 받아적고 멈춘 회의. 2번 줄은 라벨 없음."""
+    _start(client, room, blank)
+    _send(
+        client, room, blank,
+        _seg(0, "오늘은 발표 순서를 정해요", "A"),
+        _seg(1, "발표는 제가 할게요", "B"),
+        _seg(2, "누가 말했는지 모름", None),
+        _seg(3, "슬라이드는 금요일까지 할게요", "B"),
+    )
+    _stop(client, room, blank)
+    return blank
+
+
+def _speakers(client: TestClient, room: Room, meeting: Meeting) -> list[str | None]:
+    body = client.get(f"{API}/rooms/{room.id}/meetings/{meeting.id}").json()
+    return [line["speaker_name"] for line in body["transcript"]]
+
+
+def test_라벨을_고르면_그_라벨의_모든_줄에_반영된다(client, seeded, room, heard):
+    jisu, minji = _user(seeded, "지수"), _user(seeded, "민지")
+
+    res = _map(client, room, heard, labels={"A": jisu.id, "B": minji.id})
+
+    assert res.status_code == 200, res.text
+    assert [line["speaker_name"] for line in res.json()["transcript"]] == ["지수", "민지", None, "민지"]
+
+
+def test_줄마다_고친_것이_라벨보다_우선한다(client, seeded, room, heard):
+    minji, hyunwoo, seoyeon = _user(seeded, "민지"), _user(seeded, "현우"), _user(seeded, "서연")
+
+    _map(client, room, heard, labels={"B": minji.id}, lines={"3": hyunwoo.id, "2": seoyeon.id})
+
+    assert _speakers(client, room, heard) == [None, "민지", "서연", "현우"]
+
+
+def test_null은_모름이고_안_보낸_라벨은_그대로다(client, seeded, room, heard):
+    jisu, minji = _user(seeded, "지수"), _user(seeded, "민지")
+    _map(client, room, heard, labels={"A": jisu.id, "B": minji.id})
+
+    _map(client, room, heard, labels={"B": None})
+
+    assert _speakers(client, room, heard) == ["지수", None, None, None]
+
+
+def test_팀원이_아니면_400이고_아무것도_안_바뀐다(client, seeded, room, heard):
+    outsider = User(name="외부인")
+    seeded.add(outsider)
+    seeded.commit()
+    jisu = _user(seeded, "지수")
+
+    res = _map(client, room, heard, labels={"A": jisu.id, "B": outsider.id})
+
+    assert res.status_code == 400
+    assert res.json()["code"] == "INVALID_INPUT"
+    assert _speakers(client, room, heard) == [None, None, None, None]
+
+
+def test_없는_줄_번호면_400이다(client, seeded, room, heard):
+    res = _map(client, room, heard, lines={"99": _user(seeded, "지수").id})
+
+    assert res.status_code == 400
+    assert res.json()["field"] == "lines"
+
+
+def test_받아적는_중에는_말한_사람을_못_정한다(client, seeded, room, blank):
+    _start(client, room, blank)
+    _send(client, room, blank, _seg(0))
+
+    res = _map(client, room, blank, labels={"A": _user(seeded, "지수").id})
+
+    assert res.status_code == 409
+    assert res.json()["code"] == "RECORDING"
+
+
+def test_정한_뒤_요약하면_바뀐_이름으로_담당자를_추정한다(client, seeded, room, heard, model):
+    minji = _user(seeded, "민지")
+    _map(client, room, heard, labels={"B": minji.id})
+
+    res = client.post(_url(room, heard, "/summarize"))
+
+    assert res.status_code == 200, res.text
+    assert "[1] 민지: 발표는 제가 할게요" in model[0]
+    # 가짜 모델은 1번 줄을 근거로 민지를 담당자로 낸다 → 말한 사람이 민지라 통과
+    suggestion = res.json()["suggestions"][0]
+    assert suggestion["assignee_name"] == "민지"
+
+
+def test_정하기_전에는_담당자가_비어_있다(client, seeded, room, heard, model):
+    res = client.post(_url(room, heard, "/summarize"))
+
+    # 근거 줄에 이름도 없고 말한 사람도 모르니 담당자 없음 — 정상 시작 상태
+    assert res.json()["suggestions"][0]["assignee_name"] is None

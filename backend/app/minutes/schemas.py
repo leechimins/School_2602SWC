@@ -76,6 +76,19 @@ class SegmentsOut(SQLModel):
     )
 
 
+class SpeakerMappingIn(SQLModel):
+    """말한 사람 정하기. 둘 다 비워도 되고, 같이 보내면 줄마다 고친 것이 이긴다."""
+
+    labels: dict[str, int | None] = Field(
+        default_factory=dict,
+        description='목소리 라벨 → 팀원 ID. 그 라벨의 모든 줄에 한 번에 반영. null은 "모름". 예: {"A": 3, "B": null}',
+    )
+    lines: dict[int, int | None] = Field(
+        default_factory=dict,
+        description='줄 번호 → 팀원 ID. 라벨 연결보다 우선. null은 "모름". 예: {"7": 5}',
+    )
+
+
 class TranscriptIn(SQLModel):
     """직접 쓰기. 원문 전체를 보내면 통째로 바꾼다."""
 

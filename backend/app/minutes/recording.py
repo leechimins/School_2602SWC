@@ -57,6 +57,29 @@ def not_recording_error() -> HTTPException:
     return conflict("NOT_RECORDING", "받아적기를 먼저 시작해 주세요.")
 
 
+def map_speakers(
+    db: Session,
+    meeting_id: int,
+    labels: dict[str, int | None],
+    lines: dict[int, int | None],
+) -> None:
+    """라벨을 그 라벨의 모든 줄에, 그다음 줄마다 고친 것을 반영한다. 커밋은 부르는 쪽.
+
+    줄마다 고친 것을 따로 기억하지 않는다 — 고르기 화면이 라벨과 줄을 한 번에
+    보내므로, 한 요청 안에서 줄이 라벨을 이기면 충분하다. 사람이 고른 값이
+    말한 사람(speaker_user_id)이 되고, 요약은 그걸로 담당자를 추정한다.
+    """
+    segments = db.exec(
+        select(TranscriptSegment).where(TranscriptSegment.meeting_id == meeting_id)
+    ).all()
+    for segment in segments:
+        if segment.speaker_label is not None and segment.speaker_label in labels:
+            segment.speaker_user_id = labels[segment.speaker_label]
+        if segment.seq in lines:
+            segment.speaker_user_id = lines[segment.seq]
+        db.add(segment)
+
+
 @dataclass(frozen=True)
 class Piece:
     seq: int

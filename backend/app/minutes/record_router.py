@@ -26,6 +26,7 @@ from app.minutes.schemas import (
     RecordStartIn,
     SegmentsIn,
     SegmentsOut,
+    SpeakerMappingIn,
     TranscriptIn,
 )
 from app.shared import demo_clock
@@ -317,6 +318,62 @@ def stop_recording(
     if current == "recording":
         meeting.recording_stopped_at = demo_clock.now(db)
         db.add(meeting)
+    db.commit()
+    db.refresh(meeting)
+    return meeting_detail(db, meeting, user_id)
+
+
+@router.put(
+    "/meetings/{meeting_id}/speaker-mapping",
+    response_model=MeetingDetailOut,
+    responses={
+        400: {"description": "`INVALID_INPUT` 이 방 팀원이 아님 / 없는 줄 번호"},
+        409: {"description": "`RECORDING` 받아적는 중 / `NOT_CONFIRMED`"},
+    },
+    summary="말한 사람 정하기",
+)
+def map_speakers(
+    room_id: int,
+    meeting_id: int,
+    body: SpeakerMappingIn,
+    user_id: int = Depends(current_user_id),
+    db: Session = Depends(session_dep),
+) -> MeetingDetailOut:
+    """원문의 줄마다 누가 말했는지 정합니다. 받아적기를 멈춘 뒤에 씁니다.
+
+    - `labels`: 목소리 라벨("A")을 팀원에 연결하면 그 라벨의 모든 줄에 한 번에 반영됩니다.
+    - `lines`: 줄 번호마다 직접 고릅니다. 같은 요청의 라벨 연결보다 우선합니다. 엔진이 화자를 못 나누면 이것만 씁니다.
+    - `null`은 "모름"입니다. 보내지 않은 라벨·줄은 그대로입니다.
+    - 정한 뒤 요약을 다시 부르면 바뀐 이름으로 담당자를 추정합니다.
+    - 이 방 팀원이 아니거나 없는 줄 번호면 400 `INVALID_INPUT`. 받아적는 중이면 409 `RECORDING`.
+    """
+    require_member(db, room_id, user_id)
+    meeting = _locked_recordable(db, room_id, meeting_id)
+    recording.reject_while_recording(meeting)
+
+    members = {u.id for u in task_calc.members(db, room_id)}
+    chosen = {v for v in (*body.labels.values(), *body.lines.values()) if v is not None}
+    if not chosen <= members:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail={
+                "code": "INVALID_INPUT",
+                "field": "speaker_user_id",
+                "message": "이 방 팀원만 고를 수 있습니다.",
+            },
+        )
+    seqs = set(
+        db.exec(
+            select(TranscriptSegment.seq).where(TranscriptSegment.meeting_id == meeting_id)
+        ).all()
+    )
+    if not set(body.lines) <= seqs:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail={"code": "INVALID_INPUT", "field": "lines", "message": "그 줄이 없습니다."},
+        )
+
+    recording.map_speakers(db, meeting_id, body.labels, body.lines)
     db.commit()
     db.refresh(meeting)
     return meeting_detail(db, meeting, user_id)
