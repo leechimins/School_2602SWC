@@ -1,0 +1,40 @@
+.row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.row:first-child {
+  padding-top: 0;
+}
+
+.input {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.input :global(.field) {
+  flex: 1;
+  min-width: 0;
+}
+
+.msg {
+  margin-top: 6px;
+  font-size: var(--fs-meta);
+}
+
+.bad {
+  color: var(--danger);
+}
+
+.lock {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--soft);
+  font-size: var(--fs-meta);
+}

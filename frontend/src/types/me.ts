@@ -3,6 +3,8 @@ import type { IsoDate } from './common.ts'
 // 내 조건(나 탭·온보딩): 회의 잡을 때 쓸 조건 네 가지와 내 주간 시간표.
 // 서버 모양(분·오전오후·영문 enum)은 api/convert.ts가 이 모양으로 바꾼다.
 
+export const WEEKDAYS = ['월', '화', '수', '목', '금', '토', '일'] as const // 시간표 순서(0=월)
+
 export const DAYPARTS = ['아침', '오전', '점심', '오후', '저녁', '밤'] as const
 export type Daypart = (typeof DAYPARTS)[number]
 

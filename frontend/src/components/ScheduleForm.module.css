@@ -1,0 +1,39 @@
+.box {
+  margin-top: 10px;
+  padding: 12px;
+  border-radius: 10px;
+  background: var(--soft);
+}
+
+.box :global(.field) {
+  background: var(--card);
+}
+
+.days {
+  grid-auto-flow: row;
+  grid-template-columns: repeat(7, 1fr);
+}
+
+.days button {
+  min-height: 34px;
+  font-size: 12.5px;
+}
+
+.dayTime {
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.dayTime > div {
+  margin-top: 0;
+}
+
+.act {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 10px;
+}
