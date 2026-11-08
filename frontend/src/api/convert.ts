@@ -5,7 +5,6 @@ import type {
   MeetingBrief,
   MeetingDetail,
   MeetingStatus,
-  MeetingSummary,
   Minutes,
   Schedule,
   Suggestion,
@@ -406,18 +405,6 @@ export type ServerMeetingDetail = {
   suggestions: ServerSuggestion[]
 }
 
-export type ServerMeetingSummary = {
-  id: number
-  topic: string
-  headline: string | null
-  start_at: string
-  mode: ServerMode
-  status: MeetingStatus
-  attendees: string[]
-  has_transcript: boolean
-  suggestion_count: number
-}
-
 export const toSuggestion = (g: ServerSuggestion): Suggestion => ({
   id: id(g.id),
   title: g.title,
@@ -440,18 +427,6 @@ export const toMeetingDetail = (r: ServerMeetingDetail): MeetingDetail => ({
   doneTasks: (r.done_tasks ?? []).map(toTask), // 서버에 아직 없는 묶음. 없으면 비워 둔다
   suggestions: r.suggestions.map(toSuggestion),
   unneededTasks: [], // 서버에 없는 목록(AI가 고르지 않는다). 실서버에서는 이 칸이 안 보인다
-})
-
-export const toMeetingSummary = (m: ServerMeetingSummary): MeetingSummary => ({
-  id: id(m.id),
-  topic: m.topic,
-  headline: m.headline,
-  startAt: m.start_at,
-  mode: meetingMode(m.mode),
-  status: m.status,
-  attendees: m.attendees,
-  hasTranscript: m.has_transcript,
-  suggestionCount: m.suggestion_count,
 })
 
 // ── 에이전트가 한 일 · 양보 기록 ─────────────────────────────

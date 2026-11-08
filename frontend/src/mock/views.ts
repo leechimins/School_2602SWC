@@ -3,7 +3,7 @@ import { daysUntil, formatMD, formatSlot, formatTime, toIsoDate } from '../lib/d
 import { withJosa } from '../lib/korean.ts'
 import type { Id } from '../types/common.ts'
 import type { Home } from '../types/home.ts'
-import type { CoordinatingBrief, MeetingBrief, MeetingDetail, MeetingSummary, Schedule } from '../types/meeting.ts'
+import type { CoordinatingBrief, MeetingBrief, MeetingDetail, Schedule } from '../types/meeting.ts'
 import { NOTICE_KINDS, type ActivityLog, type Notice, type NoticeList } from '../types/notification.ts'
 import type { Room } from '../types/room.ts'
 import type { Burden, Proposal, Scheduling, Utterance } from '../types/scheduling.ts'
@@ -249,23 +249,6 @@ export function buildMeetingDetail(s: DemoState, meetingId: Id, viewer: Id, now:
       t.unneeded?.meetingId === m.id ? [{ task: toTask(s, t, viewer, now), why: t.unneeded.why, kept: t.unneeded.kept }] : [],
     ),
   }
-}
-
-export function buildMeetingList(s: DemoState): MeetingSummary[] {
-  return s.meetings
-    .filter((m) => m.status === 'done')
-    .sort((a, b) => b.startAt.localeCompare(a.startAt))
-    .map((m) => ({
-      id: m.id,
-      topic: m.topic,
-      headline: m.minutes?.headline ?? null,
-      startAt: m.startAt,
-      mode: m.mode,
-      status: m.status,
-      attendees: s.members.map((x) => x.name),
-      hasTranscript: m.transcript.length > 0,
-      suggestionCount: s.suggestions.filter((g) => g.meetingId === m.id).length,
-    }))
 }
 
 /**

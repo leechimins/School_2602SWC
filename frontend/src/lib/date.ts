@@ -30,11 +30,6 @@ export function formatDayLabel(value: DateInput) {
   return `${formatMonthDay(value)} ${weekday(value)}`
 }
 
-/** 회의 날짜처럼 길게: 11월 18일 수요일 */
-export function formatLongDate(value: DateInput) {
-  return `${formatMonthDay(value)} ${weekday(value)}요일`
-}
-
 /** 16:00 */
 export function formatTime(value: DateInput) {
   return d(value).format('HH:mm')
