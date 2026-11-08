@@ -98,6 +98,7 @@ function MeetingBody({ meeting: m, members }: { meeting: MeetingDetail; members:
                 <TaskRow
                   key={task.id}
                   task={task}
+                  meetingDone
                   onStatusChange={(t, status, reason) => changeTaskStatus(user.roomId, t.id, status, reason)}
                 />
               ))}

@@ -14,6 +14,8 @@ type Props = {
   onStatusChange: (task: Task, status: TaskStatus, reason: string | null) => void
   /** 길게 누르기(0.5초)·우클릭 = 고치기 패널 열기 */
   onEdit?: (task: Task) => void
+  /** 회의록 "회의에서 끝난 일": 상태 칩 대신 "회의에서 완료" 뱃지, 체크를 끄면 "진행 중"으로 (시안10 autoRow) */
+  meetingDone?: boolean
   /** 행 아래에 붙는 것 (담당자 지정 칸, 고치기 패널) */
   children?: ReactNode
 }
@@ -39,12 +41,13 @@ const LONG_PRESS_MS = 500
 
 // 할 일 한 줄 (팀 할 일·내 할 일·홈 공통): 체크 · 제목(늦음·막힘 뱃지) | 기한 · 상태 칩
 // 상태 칩과 완료 체크는 담당자만 쓴다. 남의 일은 체크가 회색으로 막혀 있지만, 완료면 체크 표시는 보인다(목업 버그 ⑤).
-export default function TaskRow({ task, onStatusChange, onEdit, children }: Props) {
+export default function TaskRow({ task, onStatusChange, onEdit, meetingDone = false, children }: Props) {
   const [ui, send] = useReducer(reduceUi, { menuOpen: false, askingBlocked: false })
   const rowRef = useRef<HTMLLIElement>(null)
   const cancelPress = useRef<(() => void) | null>(null)
   const mine = task.canChangeStatus
   const done = task.status === '완료'
+  const undoStatus: TaskStatus = meetingDone ? '진행 중' : '시작 전'
 
   // 메뉴 바깥을 누르면 닫는다
   useEffect(() => {
@@ -94,7 +97,7 @@ export default function TaskRow({ task, onStatusChange, onEdit, children }: Prop
             disabled={!mine}
             aria-label={`${task.title} 완료 표시`}
             aria-pressed={done}
-            onClick={() => onStatusChange(task, done ? '시작 전' : '완료', null)}
+            onClick={() => onStatusChange(task, done ? undoStatus : '완료', null)}
           />
           <span className={styles.name}>
             {task.title}
@@ -104,7 +107,9 @@ export default function TaskRow({ task, onStatusChange, onEdit, children }: Prop
         </div>
         <div className={styles.right}>
           {task.dueDate && <span className="meta num">{formatMD(task.dueDate)}</span>}
-          {mine && (
+          {meetingDone && done ? (
+            <Badge tone="ok">회의에서 완료</Badge>
+          ) : mine && (
             <button
               type="button"
               className={`${badge.badge} ${badge[TASK_STATUS_TONE[task.status]]} ${styles.chip}`}
