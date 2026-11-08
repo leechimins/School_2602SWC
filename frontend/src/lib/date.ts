@@ -71,6 +71,15 @@ export function daysUntil(target: DateInput, now: Dayjs) {
   return d(target).startOf('day').diff(now.startOf('day'), 'day')
 }
 
+/** 시작까지 남은 시간: 8일 06:59:12 · 00:30:00 (지났으면 00:00:00) */
+export function formatCountdown(target: DateInput, now: Dayjs) {
+  const s = Math.max(0, d(target).diff(now, 'second'))
+  const days = Math.floor(s / 86400)
+  const p = (n: number) => String(n).padStart(2, '0')
+  const hms = `${p(Math.floor((s % 86400) / 3600))}:${p(Math.floor((s % 3600) / 60))}:${p(s % 60)}`
+  return days ? `${days}일 ${hms}` : hms
+}
+
 /** 디데이 표기: D-31 · D-day · D+2 */
 export function formatDDay(days: number) {
   if (days === 0) return 'D-day'

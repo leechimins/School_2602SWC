@@ -1,4 +1,4 @@
-import { formatDDay, formatMD, periodOf } from '../lib/date.ts'
+import { formatDayLabel, formatDDay, formatMonthDay, periodOf } from '../lib/date.ts'
 import type { IsoDate } from '../types/common.ts'
 import styles from './PeriodCard.module.css'
 
@@ -20,14 +20,14 @@ export default function PeriodCard({ startDate, dueDate, today }: Props) {
         <b className={`${styles.dday} num`}>{formatDDay(left)}</b>
       </div>
       <div className={styles.right}>
-        <span className={`${styles.today} num`}>오늘 {formatMD(today)}</span>
+        <span className={`${styles.today} num`}>오늘 {formatDayLabel(today)}</span>
         <div className={styles.period} role="img" aria-label={`전체 ${total}일 중 ${passed}일 지남`}>
           <i style={{ width: `${at}%` }} />
           <b style={{ left: `${at}%` }} />
         </div>
         <div className="row-between">
-          <span className="meta num">{formatMD(startDate)} 시작</span>
-          <span className="meta num">{formatMD(dueDate)} 마감</span>
+          <span className="meta num">{formatMonthDay(startDate)} 시작</span>
+          <span className="meta num">{formatMonthDay(dueDate)} 마감</span>
         </div>
       </div>
     </section>

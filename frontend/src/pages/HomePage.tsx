@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { getHome } from '../api/rooms.ts'
 import { changeTaskStatus } from '../api/tasks.ts'
 import Badge from '../components/Badge.tsx'
+import DateBlock from '../components/DateBlock.tsx'
 import EmptyState from '../components/EmptyState.tsx'
 import Icon from '../components/Icon.tsx'
 import RetryBox from '../components/RetryBox.tsx'
@@ -12,7 +13,15 @@ import TaskRow from '../components/TaskRow.tsx'
 import { useApi } from '../hooks/useApi.ts'
 import { useClock } from '../hooks/useClock.ts'
 import { useCurrentUser } from '../hooks/useCurrentUser.ts'
-import { dueGroup, formatRange, formatSlot, type DueGroup } from '../lib/date.ts'
+import {
+  dueGroup,
+  formatCountdown,
+  formatDuration,
+  formatRange,
+  formatTimeRange,
+  minutesBetween,
+  type DueGroup,
+} from '../lib/date.ts'
 import { PATHS, pathTo } from '../lib/paths.ts'
 import type { Home } from '../types/home.ts'
 import type { Task } from '../types/task.ts'
@@ -112,6 +121,7 @@ function MyTasks({ tasks }: { tasks: Task[] }) {
 // 다음 회의: 조율 중이면 조율 과정으로, 회의안이 나왔으면 조율 결과로 들어간다
 function NextMeeting({ home }: { home: Home }) {
   const { coordinating: c, nextMeeting: m } = home
+  const now = useClock()
   if (c) {
     return (
       <section className="sec">
@@ -140,20 +150,33 @@ function NextMeeting({ home }: { home: Home }) {
   }
   const confirmed = m.status === 'confirmed'
   const waiting = !confirmed && m.myState === '대기'
+  const answers = confirmed
+    ? '모두 수락했어요'
+    : `아직 응답 ${m.pendingCount}명${m.myState ? ` · 내 응답 ${m.myState}` : ''}`
   return (
     <section className="sec">
       <div className="row-between">
         <h2>다음 회의</h2>
         <Badge tone={confirmed ? 'ok' : 'warn'}>{confirmed ? '확정' : '확정 대기'}</Badge>
       </div>
-      <p className="strong">{m.topic}</p>
-      <p className="meta num">
-        {formatSlot(m.startAt, m.endAt)} · {m.mode}
-        {!confirmed && m.myState && ` · 내 응답 ${m.myState}`}
-      </p>
-      <Link to={pathTo.proposal(m.id)} className={`btn small block ${waiting ? 'primary' : ''}`}>
-        {waiting ? '조율 결과 보고 응답하기' : '조율 결과 보기'}
-      </Link>
+      <div className={styles.meet}>
+        <DateBlock at={m.startAt} />
+        <div className={styles.meetBody}>
+          <p className="strong">{m.topic}</p>
+          <p className="meta num">
+            {formatTimeRange(m.startAt, m.endAt)} · {m.mode} · {formatDuration(minutesBetween(m.startAt, m.endAt))}
+          </p>
+          <p className={styles.tick}>
+            시작까지 <span className="num">{formatCountdown(m.startAt, now)}</span>
+          </p>
+        </div>
+      </div>
+      <div className={`row-between ${styles.meetFoot}`}>
+        <span className="meta">{answers}</span>
+        <Link to={pathTo.proposal(m.id)} className={`btn small ${waiting ? 'primary' : ''}`}>
+          조율 결과 보기
+        </Link>
+      </div>
     </section>
   )
 }

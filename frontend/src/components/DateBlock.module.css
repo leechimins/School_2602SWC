@@ -1,0 +1,28 @@
+.date {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  justify-content: center;
+  width: 50px;
+  padding: 5px 0;
+  border-radius: var(--r-s);
+  background: var(--point);
+  color: var(--on-point);
+  text-align: center;
+  line-height: 1.2;
+}
+
+.date b {
+  font-size: 20px;
+  line-height: 1.15;
+}
+
+.date small {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.muted {
+  background: var(--soft);
+  color: var(--muted);
+}

@@ -7,6 +7,7 @@ import { getSchedule } from '../api/scheduling.ts'
 import AiMark from '../components/AiMark.tsx'
 import Badge from '../components/Badge.tsx'
 import ConfirmSheet from '../components/ConfirmSheet.tsx'
+import DateBlock from '../components/DateBlock.tsx'
 import Icon from '../components/Icon.tsx'
 import RetryBox from '../components/RetryBox.tsx'
 import Screen from '../components/Screen.tsx'
@@ -14,7 +15,6 @@ import { useApi } from '../hooks/useApi.ts'
 import { useClock } from '../hooks/useClock.ts'
 import { useCurrentUser } from '../hooks/useCurrentUser.ts'
 import {
-  dateParts,
   formatDuration,
   formatRange,
   formatTimeRange,
@@ -22,7 +22,6 @@ import {
   minutesBetween,
 } from '../lib/date.ts'
 import { PATHS, pathTo } from '../lib/paths.ts'
-import type { IsoDateTime } from '../types/common.ts'
 import type { MeetingBrief, Schedule } from '../types/meeting.ts'
 import styles from './SchedulePage.module.css'
 
@@ -61,9 +60,7 @@ function ScheduleBody({ schedule, canStartScheduling }: { schedule: Schedule; ca
           <section className="sec">
             {coordinating.map((c) => (
               <Link key={c.id} to={pathTo.scheduling(c.id)} className={styles.row}>
-                <span className={`${styles.date} ${styles.muted}`}>
-                  <b>–</b>
-                </span>
+                <DateBlock muted />
                 <span className={styles.body}>
                   <span className="strong">{c.topic}</span>
                   <span className="meta num">조율 중 · {formatRange(c.windowStart, c.windowEnd)} 사이</span>
@@ -117,18 +114,6 @@ function ScheduleBody({ schedule, canStartScheduling }: { schedule: Schedule; ca
         )}
       </section>
     </>
-  )
-}
-
-// 날짜 칸: 잡힌 회의는 포인트색, 지난 회의는 회색
-function DateBlock({ at, muted = false }: { at: IsoDateTime; muted?: boolean }) {
-  const { month, day, weekday } = dateParts(at)
-  return (
-    <span className={`${styles.date} ${muted ? styles.muted : ''} num`}>
-      <small>{month}</small>
-      <b>{day}</b>
-      <small>{weekday}</small>
-    </span>
   )
 }
 
