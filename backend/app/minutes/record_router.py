@@ -24,6 +24,8 @@ from app.minutes.schemas import (
     MeetingDetailOut,
     MeetingListOut,
     RecordStartIn,
+    SegmentsIn,
+    SegmentsOut,
     TranscriptIn,
 )
 from app.shared import demo_clock
@@ -239,6 +241,51 @@ def start_recording(
     db.commit()
     db.refresh(meeting)
     return meeting_detail(db, meeting, user_id)
+
+
+@router.post(
+    "/meetings/{meeting_id}/transcript/segments",
+    response_model=SegmentsOut,
+    responses={
+        409: {"description": "`NOT_RECORDING` 시작 전 / `RECORDING_STOPPED` 멈춘 뒤 / `NOT_CONFIRMED`"}
+    },
+    summary="받아적은 글 올리기",
+)
+def add_segments(
+    room_id: int,
+    meeting_id: int,
+    body: SegmentsIn,
+    user_id: int = Depends(current_user_id),
+    db: Session = Depends(session_dep),
+) -> SegmentsOut:
+    """받아적은 줄을 번호와 함께 쌓습니다. 끊겼다 다시 보내도 빠짐·중복이 없습니다.
+
+    - 같은 번호를 다시 보내면 건너뜁니다(`skipped`). 처음 온 줄이 남습니다.
+    - 응답의 `missing`은 0부터 지금까지 받은 가장 큰 번호 사이에서 아직 안 온 번호입니다. 그것만 다시 보내세요.
+    - 순서가 섞여 와도 원문은 언제나 번호 순입니다.
+    - 받아적기를 시작하기 전이면 409 `NOT_RECORDING`, 멈춘 뒤면 409 `RECORDING_STOPPED`.
+      멈추기 전에 `missing`이 빌 때까지 보내 주세요.
+    """
+    require_member(db, room_id, user_id)
+    meeting = _locked_recordable(db, room_id, meeting_id)
+    current = recording.state(meeting)
+    if current == "none":
+        raise recording.not_recording_error()
+    if current == "stopped":
+        raise recording.stopped_error()
+
+    stacked = recording.stack(
+        db,
+        meeting_id,
+        [recording.Piece(s.seq, s.speaker_label, s.text) for s in body.segments],
+    )
+    db.commit()
+    return SegmentsOut(
+        added=stacked.added,
+        skipped=stacked.skipped,
+        last_seq=stacked.last_seq,
+        missing=stacked.missing,
+    )
 
 
 @router.post(

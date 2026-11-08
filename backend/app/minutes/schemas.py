@@ -51,6 +51,31 @@ class RecordStartIn(SQLModel):
     )
 
 
+class SegmentIn(SQLModel):
+    """받아적은 한 줄."""
+
+    seq: int = Field(ge=0, le=100_000, description="줄 번호. 0부터 하나씩. 같은 번호를 다시 보내면 건너뜀")
+    speaker_label: str | None = Field(
+        default=None, max_length=8, description='엔진이 붙인 목소리 라벨("A" 등). 없으면 null'
+    )
+    text: str = Field(min_length=1, max_length=1000, description="받아적은 글")
+
+
+class SegmentsIn(SQLModel):
+    """받아적은 줄을 여러 개 한 번에. 끊겼다 다시 보내도 된다."""
+
+    segments: list[SegmentIn] = Field(min_length=1, max_length=50, description="한 번에 50줄까지")
+
+
+class SegmentsOut(SQLModel):
+    added: int = Field(description="이번에 새로 쌓인 줄 수")
+    skipped: int = Field(description="이미 있던 번호라 건너뛴 줄 수")
+    last_seq: int = Field(description="지금까지 받은 가장 큰 줄 번호")
+    missing: list[int] = Field(
+        description="0부터 last_seq 사이에서 아직 안 온 번호(앞에서 100개까지). 이것만 다시 보내면 됨"
+    )
+
+
 class TranscriptIn(SQLModel):
     """직접 쓰기. 원문 전체를 보내면 통째로 바꾼다."""
 
