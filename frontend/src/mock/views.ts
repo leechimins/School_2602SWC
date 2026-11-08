@@ -307,7 +307,7 @@ export function buildNotices(s: DemoState, viewer: Id, now: Dayjs): NoticeList {
       notices.push({
         id: `proposed-${m.id}`, kind: '회의 제안', ...about,
         reason: `${m.topic} 일정이 나왔어요. 수락/거절해 주세요.`,
-        createdAt: s.agentLog.find((a) => a.what.startsWith('조율 결과'))?.at ?? s.clockNow,
+        createdAt: s.agentLog.find((a) => a.what.startsWith(`${m.topic} 제안`))?.at ?? s.clockNow,
       })
     }
     if (p && m.status === 'confirmed') {

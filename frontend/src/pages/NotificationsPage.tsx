@@ -72,8 +72,10 @@ export default function NotificationsPage() {
             ) : (
               activity.data.yieldRecords.map((y) => (
                 <div key={y.id} className={styles.record}>
-                  <p className="strong">{y.meetingLabel}</p>
-                  <p>{withJosa(y.name, '이/가')} 맞춰 줬어요</p>
+                  <p className={styles.yieldHead}>
+                    <span className="strong">{y.meetingLabel}</span>
+                    <span>{withJosa(y.name, '이/가')} 맞춰 줬어요</span>
+                  </p>
                   <p className="meta">{y.why}</p>
                 </div>
               ))

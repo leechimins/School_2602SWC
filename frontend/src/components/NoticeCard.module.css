@@ -1,27 +1,28 @@
+/* 뱃지 | 이유 | › 가 한 줄에 붙는다. 이유가 길면 뱃지 오른쪽에서 줄을 바꾼다 */
 .card {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: start;
+  gap: 8px;
   padding: 10px 0;
   border-bottom: 1px solid var(--line);
+  color: inherit;
+  text-decoration: none;
 }
 
 .card:last-child {
   border-bottom: 0;
 }
 
-.head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
+.reason {
+  margin-top: 1px;
+  line-height: 1.45;
 }
 
 .go {
-  min-height: 30px;
-  font-size: var(--fs-meta);
-  white-space: nowrap;
-}
-
-.reason {
-  margin-top: 3px;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
 }
 
 /* 읽은 알림은 글자만 옅게 (뱃지 글자는 그대로) */

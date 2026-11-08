@@ -11,7 +11,15 @@
   margin: 0;
 }
 
-/* 에이전트 기록: 무엇을 · 왜 | 언제 */
+/* 양보 기록 첫 줄: 어느 회의 | 누가 맞춰 줬나 */
+.yieldHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+}
+
+/* 에이전트 기록: 무엇을 | 언제 */
 .log {
   display: flex;
   justify-content: space-between;
