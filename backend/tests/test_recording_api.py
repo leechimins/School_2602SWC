@@ -220,3 +220,65 @@ def test_잘못된_조각은_400이다(client, seeded, room, blank, seg):
     res = _send(client, room, blank, seg)
 
     assert res.status_code == 400
+
+
+# ── 멈추기 ───────────────────────────────────────────────────────────
+
+
+def _stop(client: TestClient, room: Room, meeting: Meeting):
+    return client.post(_url(room, meeting, "/recording/stop"))
+
+
+def test_멈추면_원문은_남고_상태가_멈춤이_된다(client, seeded, room, blank):
+    _start(client, room, blank)
+    _send(client, room, blank, _seg(0, "하나"), _seg(1, "둘"))
+    stop_at = datetime(2026, 11, 10, 16, 0, tzinfo=KST)
+    demo_clock.set_clock(seeded, stop_at)
+    seeded.commit()
+
+    res = _stop(client, room, blank)
+
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["recording_state"] == "stopped"
+    assert [line["text"] for line in body["transcript"]] == ["하나", "둘"]
+    assert body["minutes"] is None  # 요약은 따로 부른다
+    seeded.refresh(blank)
+    assert blank.recording_stopped_at == stop_at
+
+
+def test_두_번_멈춰도_그대로다(client, seeded, room, blank):
+    _start(client, room, blank)
+    _stop(client, room, blank)
+    seeded.refresh(blank)
+    first = blank.recording_stopped_at
+    demo_clock.set_clock(seeded, datetime(2026, 11, 10, 17, 0, tzinfo=KST))
+    seeded.commit()
+
+    res = _stop(client, room, blank)
+
+    assert res.status_code == 200
+    seeded.refresh(blank)
+    assert blank.recording_stopped_at == first
+
+
+def test_시작_전에는_멈출_수_없다(client, seeded, room, blank):
+    res = _stop(client, room, blank)
+
+    assert res.status_code == 409
+    assert res.json()["code"] == "NOT_RECORDING"
+
+
+def test_멈춘_뒤에는_조각도_다시_시작도_안_된다(client, seeded, room, blank):
+    _start(client, room, blank)
+    _send(client, room, blank, _seg(0))
+    _stop(client, room, blank)
+
+    late = _send(client, room, blank, _seg(1))
+    again = _start(client, room, blank)
+
+    assert late.status_code == 409
+    assert late.json() == {"code": "RECORDING_STOPPED", "message": "이미 받아적기를 마쳤어요."}
+    assert again.status_code == 409
+    assert again.json()["code"] == "RECORDING_STOPPED"
+    assert [seq for seq, *_ in _lines(client, room, blank)] == [0]

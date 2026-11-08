@@ -289,6 +289,38 @@ def add_segments(
 
 
 @router.post(
+    "/meetings/{meeting_id}/recording/stop",
+    response_model=MeetingDetailOut,
+    responses={409: {"description": "`NOT_RECORDING` 시작 전 / `NOT_CONFIRMED`"}},
+    summary="받아적기 멈추기",
+)
+def stop_recording(
+    room_id: int,
+    meeting_id: int,
+    user_id: int = Depends(current_user_id),
+    db: Session = Depends(session_dep),
+) -> MeetingDetailOut:
+    """받아적기를 멈춥니다. 쌓인 원문은 그대로 남고, 요약은 요약 API를 따로 불러 주세요.
+
+    - 두 번 눌러도 그대로입니다(200, 멈춘 시각 안 바뀜).
+    - 멈춘 뒤에는 조각을 더 받지 않습니다. 멈추기 전에 조각 올리기의 `missing`이 빌 때까지 보내 주세요.
+    - 다시 시작할 수 없습니다. 원문을 고치려면 말한 사람 정하기나 직접 쓰기를 쓰세요.
+    - 시작 전이면 409 `NOT_RECORDING`.
+    """
+    require_member(db, room_id, user_id)
+    meeting = _locked_recordable(db, room_id, meeting_id)
+    current = recording.state(meeting)
+    if current == "none":
+        raise recording.not_recording_error()
+    if current == "recording":
+        meeting.recording_stopped_at = demo_clock.now(db)
+        db.add(meeting)
+    db.commit()
+    db.refresh(meeting)
+    return meeting_detail(db, meeting, user_id)
+
+
+@router.post(
     "/meetings/{meeting_id}/summarize",
     response_model=MeetingDetailOut,
     responses={503: {"description": "AI 실패 · 시간 초과. 다시 하기를 보여 주세요"}},
