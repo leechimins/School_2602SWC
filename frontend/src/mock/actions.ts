@@ -281,11 +281,11 @@ export function reduce(s: DemoState, action: Action): DemoState {
       // 회의에 들 사람 모두에게 회의 제안 알림, 방 전체에 기록 한 줄 (meeting/agent_loop.py)
       const told = emit(proposed, result.burdens.map((b) => b.userId), {
         kind: '회의 제안',
-        reason: `${c.topic} 회의 일정이 나왔습니다. 수락·거절해 주세요.`,
+        reason: `${c.topic} 일정이 나왔어요. 수락/거절해 주세요.`,
         dedupe: `meeting${meetingId}`,
         meetingId,
       })
-      return record(told, `${c.topic} 회의를 ${when(lastJudge.slot.startAt, lastJudge.slot.endAt)}으로 제안했어요`, result.rationale || '팀 전체로 가장 덜 불편한 시간이에요')
+      return record(told, `${c.topic} 제안 · ${when(lastJudge.slot.startAt, lastJudge.slot.endAt)}`, result.rationale || '팀 전체로 가장 덜 불편한 시간이에요')
     }
 
     case 'task/add': {
@@ -403,7 +403,7 @@ export function reduce(s: DemoState, action: Action): DemoState {
             x.id === c.id ? { ...x, status: 'running', meetingId: null, script: [...x.script, ...next.script], result: next.result } : x,
           ),
         }
-        return record(reopened, `${m.topic} 회의를 다시 조율해요`, `${nameOf(s, action.userId)} 님이 그 시간은 어렵다고 했어요`)
+        return record(reopened, `${m.topic} 다시 조율`, `${nameOf(s, action.userId)} 님이 그 시간은 어렵다고 했어요`)
       }
 
       // 라운드를 다 쓴 뒤의 거절은 다시 돌지 않고 그 사람을 불참으로 둔다.
@@ -439,11 +439,11 @@ export function reduce(s: DemoState, action: Action): DemoState {
       const left = Object.keys(responses).filter((id) => responses[id] === '거절').map((id) => nameOf(s, id))
       const told = emit(confirmed, Object.keys(responses), {
         kind: '회의 확정',
-        reason: `${m.topic} 회의가 확정됐습니다.${left.length ? ` ${left.join(', ')} 님은 빠져요.` : ''}`,
+        reason: `${m.topic} 일정이 확정됐어요.${left.length ? ` ${left.join(', ')} 님은 빠져요.` : ''}`,
         dedupe: `meeting${m.id}`,
         meetingId: m.id,
       })
-      return record(told, `${m.topic} 회의가 확정됐어요`, left.length ? `${left.join(', ')} 님은 빠지고 나머지가 모두 수락했어요` : '모두 수락했어요')
+      return record(told, `${m.topic} 확정`, left.length ? `${left.join(', ')} 님은 빠지고 나머지가 모두 수락했어요` : '모두 수락했어요')
     }
 
     case 'feedback/undo':
