@@ -1,3 +1,4 @@
+import { wait } from '../lib/timers.ts'
 import { mockContext } from '../mock/context.ts'
 import { DEMO_RECORDING } from '../mock/seed.ts'
 import { dispatch, getState } from '../mock/store.ts'
@@ -87,7 +88,7 @@ const MOCK_SUMMARIZE_MS = 1_800 // 목 모드에서도 정리 중 화면이 잠�
 
 /** 회의록 정리 + 할 일 뽑기(AI). 실패하면 "잠시 후 다시 해 주세요." 한 줄과 다시 하기로 이어 간다 */
 export async function summarizeMeeting(roomId: Id, meetingId: Id): Promise<void> {
-  if (USE_MOCK) await new Promise((resolve) => setTimeout(resolve, MOCK_SUMMARIZE_MS))
+  if (USE_MOCK) await wait(MOCK_SUMMARIZE_MS)
   return withMockWrite(
     () =>
       request<void>(`/rooms/${roomId}/meetings/${meetingId}/summarize`, {

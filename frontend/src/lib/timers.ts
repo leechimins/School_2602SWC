@@ -22,3 +22,13 @@ export function clearAllTimers() {
   pending.forEach(clearTimeout)
   pending.clear()
 }
+
+/**
+ * 잠깐 기다리기(await용). later로 걸어서 "기본"을 누르면 함께 지워지고, 그러면 끝나지 않는다.
+ * 안 그러면 기다리던 쓰기가 초기화된 데이터에 뒤늦게 들어간다(같은 번호의 새 회의를 지난 장면이 정리하는 등).
+ */
+export function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    later(resolve, ms)
+  })
+}

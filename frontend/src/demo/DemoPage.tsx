@@ -2,7 +2,7 @@ import { useRef, useState, useSyncExternalStore, type RefObject } from 'react'
 import { USE_MOCK } from '../api/client.ts'
 import { moveClock, resetClock, useClock } from '../hooks/useClock.ts'
 import { formatMD, formatSlot, formatTime, weekday } from '../lib/date.ts'
-import { getDebug, setDebug, type DebugFlags } from '../lib/debug.ts'
+import { DEBUG_OFF, getDebug, setDebug, type DebugFlags } from '../lib/debug.ts'
 import { PATHS, pathTo } from '../lib/paths.ts'
 import { getState, markChanged, resetState, subscribe } from '../mock/store.ts'
 import { USER } from '../mock/seed.ts'
@@ -19,6 +19,7 @@ import styles from './DemoPage.module.css'
 type Frame = RefObject<HTMLIFrameElement | null>
 
 const SLOW_OPTIONS = [0, 1_000, 3_000]
+const DEFAULT_USERS: [Id, Id] = [USER.jisu, USER.minji] // 왼쪽 팀장, 오른쪽 팀원
 
 /** 휴대폰 화면 하나를 path로 옮기고, 보는 사람(?user)도 함께 정한다 */
 function go(frame: Frame, path: string, userId: Id) {
@@ -31,7 +32,7 @@ function go(frame: Frame, path: string, userId: Id) {
 export default function DemoPage() {
   const left = useRef<HTMLIFrameElement>(null)
   const right = useRef<HTMLIFrameElement>(null)
-  const [users, setUsers] = useState<[Id, Id]>([USER.jisu, USER.minji]) // 왼쪽 팀장, 오른쪽 팀원
+  const [users, setUsers] = useState<[Id, Id]>(DEFAULT_USERS)
   const [debug, setDebugState] = useState<DebugFlags>(getDebug)
   const s = useSyncExternalStore(subscribe, getState)
   const now = useClock()
@@ -60,9 +61,14 @@ export default function DemoPage() {
     go(frames[i], PATHS.home, id)
   }
 
+  // 새로고침 없이 몇 번을 눌러도 같은 처음 화면이 되게(목업 버그 ④):
+  // 데이터·시연 시계·걸어 둔 타이머, 보는 사람, 점검 스위치까지 모두 처음으로
   const reset = () => {
-    resetState() // 데이터·시연 시계·타이머를 모두 처음으로(목업 버그 ④)
-    goBoth(PATHS.home)
+    resetState()
+    setDebug(DEBUG_OFF)
+    setDebugState(DEBUG_OFF)
+    setUsers(DEFAULT_USERS)
+    frames.forEach((f, i) => go(f, PATHS.home, DEFAULT_USERS[i]))
   }
 
   const changeDebug = (patch: Partial<DebugFlags>) => {
@@ -128,7 +134,7 @@ export default function DemoPage() {
           <button type="button" className={styles.reset} onClick={reset}>
             기본
           </button>
-          <p className={styles.hint}>데이터·시연 시계·타이머를 모두 처음으로 돌려요</p>
+          <p className={styles.hint}>데이터·시연 시계·타이머·보는 사람·점검 스위치를 모두 처음으로 돌려요</p>
         </section>
 
         <section>
