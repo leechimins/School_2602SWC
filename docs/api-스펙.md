@@ -105,6 +105,7 @@
 | Record | 받아적기 시작 | POST | `/rooms/{room_id}/meetings/{id}/recording/start` | B | High | ~~동의 고려 필요성~~ → 브리프 11/3 "참석자 동의 없앰. 브라우저 마이크 권한만 최초 1회". **엔드포인트는 그대로 필요합니다.** 받아적는 중 다시 눌러도 그대로. 직접 쓴 원문이 있으면 409, 멈춘 뒤 다시 시작 불가 | **완료** | 미착수 |
 | Record | 받아적은 글 올리기 | POST | `/rooms/{room_id}/meetings/{id}/transcript/segments` | B | High | 끊겼다 다시 올려도 중복·누락 없게. 번호·목소리 라벨·글자를 50줄까지, 같은 번호는 건너뜀, 응답에 빠진 번호 | **완료** | 미착수 |
 | Record | 받아적기 정지 | POST | `/rooms/{room_id}/meetings/{id}/recording/stop` | B | High | 원문을 먼저 저장하고 요약은 따로. 두 번 눌러도 그대로. 받아적는 중에는 직접 쓰기·요약이 409 | **완료** | 미착수 |
+| Record | 받아적기 녹음 올리기 | POST | `/rooms/{room_id}/meetings/{id}/recording/audio` | B | High | 멈출 때 녹음 파일을 본문에 그대로(30분·25MB). AI(Gemini)가 받아적어 줄·목소리 라벨(A·B…)로 쌓고 멈춤. 녹음은 저장 안 함. 실패해도 받아적는 중 그대로라 다시 올리면 됨 | **완료** | 미착수 |
 | Record | 말한 사람 확인 | PUT | `/rooms/{room_id}/meetings/{id}/speaker-mapping` | B | Medium | ~~목소리 A~D → 사람.~~ → 브리프 "자동 화자 구분 없음. **받아적는 사람이 고릅니다**". 자동 화자 구분은 STT 서비스를 고르는 문제라 공짜가 아닙니다. 한 번에 전체 반영은 그대로. 목소리 라벨 → 팀원 한 번에 + 줄마다 고치기(우선), null은 모름 | **완료** | 미착수 |
 | Suggest | 제안 확정하기 | POST | `/rooms/{room_id}/suggestions/confirm` | B | High | 한꺼번에 확정 필수. 담당자 없이도 확정됨 | **완료** | 미착수 |
 | Suggest | 제안 고치기 | PATCH | `/rooms/{room_id}/suggestions/{id}` | B | High | 제목·담당자·기한 (예상 시간 빠짐). 확정 전에만 | **완료** | 미착수 |
