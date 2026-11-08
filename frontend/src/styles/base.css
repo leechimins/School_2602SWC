@@ -19,6 +19,11 @@ body {
   word-break: keep-all; /* 한글 단어 중간에서 줄을 바꾸지 않는다 */
 }
 
+/* 스플래시·로그인 화면(SplashPage)이 떠 있는 동안 */
+body.brand {
+  background: var(--brand);
+}
+
 button,
 input,
 select,

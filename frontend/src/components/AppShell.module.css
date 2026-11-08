@@ -13,3 +13,26 @@
 .screen {
   min-height: 0;
 }
+
+/* 스플래시에서 막 넘어왔을 때: 살짝 아래에서 떠오르며 나타난다 */
+.enter {
+  /* backwards: 끝나면 transform을 놓는다. 남아 있으면 안의 position: fixed(시트 등)가 이 틀 기준이 된다 */
+  animation: shell-in 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}
+
+@keyframes shell-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .enter {
+    animation: none;
+  }
+}

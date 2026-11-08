@@ -36,7 +36,7 @@ function set(next: Identity | null) {
   listeners.forEach((fn) => fn())
 }
 
-/** 개발용 로그인: 이름만 보내면 그 사람이 된다(서버 POST /sessions). 구글 로그인이 붙으면 시작 화면이 그 길을 쓴다 */
+/** 개발용 로그인: 이름만 보내면 그 사람이 된다(서버 POST /sessions). 시연 장치와 "시연 계정으로 둘러보기"가 쓴다 */
 async function devLogin(name: string): Promise<void> {
   await request('/sessions', { method: 'POST', body: { name } })
 }
@@ -60,7 +60,8 @@ async function loadMe(): Promise<Identity | null> {
 }
 
 /**
- * 이 사람으로 로그인하고 서버 번호를 받는다. 앱이 처음 뜰 때와 시연 장치가 사람을 바꿀 때 부른다.
+ * 이 사람으로 로그인하고 서버 번호를 받는다. name이 null이면 로그인은 하지 않고 지금 쿠키의 주인만 확인한다.
+ * 스플래시는 null로(구글 로그인 쿠키 확인), 시연 장치(?user=)는 이름으로 부른다.
  *
  * 서버가 안 닿으면(네트워크·5xx·주소 틀림) 목으로 돌아간다 — "서버가 죽으면 같은 목 데이터로 이어 간다"는
  * client.ts의 원칙과 같다. 이름이 서버에 없으면(404) 로그인 안 한 상태로 둔다.
@@ -80,4 +81,22 @@ export async function signIn(name: string | null): Promise<void> {
     fallBackToMock()
     set(null)
   }
+}
+
+type GoogleLoginOut = { user_id: number; name: string; is_new: boolean }
+
+/**
+ * 구글 로그인 버튼이 준 ID 토큰으로 로그인한다(서버 POST /sessions/google).
+ * 처음 온 사람이면 true — 화면이 방 만들기로 보낸다. 실패하면 ApiError를 그대로 던진다(화면이 message를 띄운다).
+ */
+export async function signInWithGoogle(credential: string): Promise<boolean> {
+  const out = await request<GoogleLoginOut>('/sessions/google', { method: 'POST', body: { credential } })
+  set(await loadMe())
+  return out.is_new
+}
+
+/** 로그아웃. 서버가 안 닿아도 이 화면에서는 로그인 안 한 상태로 둔다 */
+export async function signOut(): Promise<void> {
+  if (isRealServer()) await request('/sessions', { method: 'DELETE' }).catch(() => undefined)
+  set(null)
 }

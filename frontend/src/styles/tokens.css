@@ -56,4 +56,7 @@
   --r-l: 16px; /* 묶음(카드) */
   --r-badge: 4px;
   --app-width: 430px;
+
+  /* 브랜드(TTAK): 스플래시·로그인 화면에만 쓴다. 배경 그림(public/splash/bg.webp)의 가운데 색 */
+  --brand: #7580e6;
 }
