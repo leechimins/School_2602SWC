@@ -7,11 +7,11 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlmodel import Session, select
 
 from app.meeting.models import Meeting
-from app.minutes import recording, summarize, transcript
+from app.minutes import recording, stt, summarize, transcript
 from app.minutes import tasks as task_calc
 from app.minutes.models import Minutes, TranscriptSegment
 from app.minutes.record import (
@@ -324,6 +324,92 @@ def stop_recording(
     if current == "recording":
         meeting.recording_stopped_at = demo_clock.now(db)
         db.add(meeting)
+    db.commit()
+    db.refresh(meeting)
+    return meeting_detail(db, meeting, user_id)
+
+
+async def _audio_body(request: Request) -> bytes:
+    """요청 본문을 그대로(녹음 파일). 엔드포인트는 DB 때문에 동기라 읽기만 여기서."""
+    return await request.body()
+
+
+def _audio_error(code: str, message: str, http: int = status.HTTP_400_BAD_REQUEST) -> HTTPException:
+    return HTTPException(http, detail={"code": code, "message": message})
+
+
+@router.post(
+    "/meetings/{meeting_id}/recording/audio",
+    response_model=MeetingDetailOut,
+    responses={
+        400: {"description": "`AUDIO_INVALID` 녹음을 못 읽음 / `AUDIO_TOO_LONG` 30분·25MB 초과 / `NO_SPEECH` 말소리 없음"},
+        409: {"description": "`NOT_RECORDING` 시작 전 / `RECORDING_STOPPED` 이미 멈춤 / `TRANSCRIPT_EXISTS` 원문 있음"},
+        503: {"description": "`AGENT_TIMEOUT` AI 실패·시간 초과. 같은 녹음으로 다시 하기"},
+    },
+    openapi_extra={
+        "requestBody": {
+            "required": True,
+            "content": {
+                t: {"schema": {"type": "string", "format": "binary"}}
+                for t in ("audio/webm", "audio/mp4", "audio/ogg", "audio/mpeg", "audio/wav")
+            },
+        }
+    },
+    summary="받아적기 녹음 올리기",
+)
+def upload_recording(
+    room_id: int,
+    meeting_id: int,
+    audio: bytes = Depends(_audio_body),
+    user_id: int = Depends(current_user_id),
+    db: Session = Depends(session_dep),
+) -> MeetingDetailOut:
+    """받아적는 중인 회의의 녹음 파일을 받아 AI(Gemini)로 받아적고 받아적기를 멈춥니다.
+
+    - 본문에 녹음 파일을 그대로 보냅니다(`MediaRecorder`의 Blob). 30분·25MB까지.
+    - 말이 바뀌는 곳마다 줄이 되고, 목소리마다 라벨 `A`·`B`…가 붙습니다. 누군지는 말한 사람 정하기로 고릅니다.
+    - 성공하면 받아적기가 멈춘 상태가 됩니다. 이어서 말한 사람 정하기 → 요약을 부르세요.
+    - 실패하면 받아적는 중 그대로라 같은 녹음으로 다시 올릴 수 있습니다. AI 실패는 503 "잠시 후 다시 해 주세요."
+    - 녹음은 서버에 저장하지 않습니다. 최대 2분 걸립니다(70초 녹음에 약 10초).
+    """
+    require_member(db, room_id, user_id)
+
+    def check(meeting: Meeting) -> None:
+        current = recording.state(meeting)
+        if current == "none":
+            raise recording.not_recording_error()
+        if current == "stopped":
+            raise recording.stopped_error()
+        has_text = db.exec(
+            select(TranscriptSegment.id).where(TranscriptSegment.meeting_id == meeting_id)
+        ).first()
+        if has_text is not None:
+            raise recording.conflict("TRANSCRIPT_EXISTS", "이미 받아적은 글이 있어요.")
+
+    check(_recordable_meeting(db, room_id, meeting_id))
+    names = list(member_names(db, room_id))
+    # AI를 부르는 동안(최대 2분) 회의 행을 잠그거나 트랜잭션을 열어 두지 않는다
+    db.commit()
+
+    try:
+        pieces = stt.transcribe(audio, names)
+    except stt.AudioTooLong:
+        raise _audio_error("AUDIO_TOO_LONG", "30분까지 받아적을 수 있어요.") from None
+    except stt.AudioInvalid:
+        raise _audio_error("AUDIO_INVALID", "녹음 파일을 읽지 못했어요. 직접 입력해 주세요.") from None
+    except stt.NoSpeech:
+        raise _audio_error("NO_SPEECH", "말소리를 찾지 못했어요. 직접 입력해 주세요.") from None
+    except stt.EngineFailed:
+        raise _audio_error(
+            "AGENT_TIMEOUT", "잠시 후 다시 해 주세요.", status.HTTP_503_SERVICE_UNAVAILABLE
+        ) from None
+
+    # 받아적는 사이 누가 멈췄거나 글을 올렸으면 덮어쓰지 않는다
+    meeting = _locked_recordable(db, room_id, meeting_id)
+    check(meeting)
+    recording.stack(db, meeting_id, pieces)
+    meeting.recording_stopped_at = demo_clock.now(db)
+    db.add(meeting)
     db.commit()
     db.refresh(meeting)
     return meeting_detail(db, meeting, user_id)
