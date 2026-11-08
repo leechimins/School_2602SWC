@@ -3,6 +3,7 @@ import { daysUntil, formatMD, formatSlot, formatTime, toIsoDate } from '../lib/d
 import { withJosa } from '../lib/korean.ts'
 import type { Id } from '../types/common.ts'
 import type { Home } from '../types/home.ts'
+import type { MyWeek, WeekBlock } from '../types/me.ts'
 import type { CoordinatingBrief, MeetingBrief, MeetingDetail, Schedule } from '../types/meeting.ts'
 import { NOTICE_KINDS, type ActivityLog, type Notice, type NoticeList } from '../types/notification.ts'
 import type { Room } from '../types/room.ts'
@@ -331,4 +332,40 @@ export function buildActivity(s: DemoState): ActivityLog {
     agentLog: [...s.agentLog].sort((a, b) => b.at.localeCompare(a.at)),
     yieldRecords: s.yieldRecords.map((y) => ({ ...y, name: nameOf(s, y.userId) ?? '' })),
   }
+}
+
+/**
+ * 내 한 주(월~일) 시간표: 내 일정(매주 반복) + 내가 거절하지 않은 팀 회의.
+ * 서버 GET /rooms/{id}/me/schedule과 같은 규칙이다. 팀 회의는 확정 대기면 waiting.
+ */
+export function buildMyWeek(s: DemoState, viewer: Id, anyDay: string): MyWeek {
+  const monday = dayjs(anyDay).startOf('day').subtract((dayjs(anyDay).day() + 6) % 7, 'day')
+  const sunday = monday.add(6, 'day')
+  const mine: WeekBlock[] = s.scheduleItems
+    .filter((i) => i.userId === viewer)
+    .map((i) => ({
+      kind: i.kind,
+      title: i.title ?? '일정',
+      weekday: i.weekday,
+      startHour: i.startMin / 60,
+      endHour: i.endMin / 60,
+      source: i.source,
+    }))
+  const meetings: WeekBlock[] = s.meetings
+    .filter((m) => m.status !== 'cancelled')
+    .filter((m) => !dayjs(m.startAt).isBefore(monday) && dayjs(m.startAt).isBefore(sunday.add(1, 'day')))
+    .filter((m) => s.proposals.find((p) => p.meetingId === m.id)?.responses[viewer] !== '거절')
+    .map((m) => {
+      const start = dayjs(m.startAt)
+      const end = dayjs(m.endAt)
+      return {
+        kind: m.status === 'proposed' ? 'waiting' : 'meeting',
+        title: m.status === 'proposed' ? '회의 대기' : '팀 회의',
+        weekday: (start.day() + 6) % 7,
+        startHour: start.hour() + start.minute() / 60,
+        endHour: end.hour() + end.minute() / 60,
+        source: null,
+      }
+    })
+  return { weekStart: toIsoDate(monday), weekEnd: toIsoDate(sunday), blocks: [...mine, ...meetings] }
 }

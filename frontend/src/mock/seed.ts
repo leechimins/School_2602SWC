@@ -1,6 +1,7 @@
 import { withJosa } from '../lib/korean.ts'
 import type { Id, IsoDate, IsoDateTime, MeetingMode } from '../types/common.ts'
 import type { Minutes, MeetingStatus } from '../types/meeting.ts'
+import type { Preferences, ScheduleSource } from '../types/me.ts'
 import type { AgentLogEntry } from '../types/notification.ts'
 import type { YieldLevel } from '../types/room.ts'
 import type { ResponseState, SchedulingStatus } from '../types/scheduling.ts'
@@ -10,7 +11,7 @@ import type { TaskStatus } from '../types/task.ts'
 // 이 값은 서버의 DB 역할이라 보는 사람과 상관없는 원본만 담는다. 화면에 줄 모양(내 점수, can_*)은 mock/views.ts가 만든다.
 // SEED는 직접 바꾸지 않는다. 저장소는 항상 structuredClone(SEED)로 시작한다(목업 버그 ④).
 
-export const SEED_VERSION = 7 // 할 일에 "필요 없어 보이는 일"(unneeded)을 붙였다. 6은 doneMeetingId. 3은 사람 수락·거절을 뺐던 판이라 건너뛴다
+export const SEED_VERSION = 8 // 내 조건(prefs)·주간 일정(scheduleItems)을 붙였다. 7은 할 일에 "필요 없어 보이는 일"(unneeded)을 붙였다. 6은 doneMeetingId. 3은 사람 수락·거절을 뺐던 판이라 건너뛴다
 
 /** 사람 ID는 여기서 한 번만 정한다. 화면 코드에 'minji' 같은 값을 쓰지 않는다 */
 export const USER = {
@@ -107,6 +108,19 @@ export type SeedProposal = {
   feedback: Record<Id, SeedFeedback>
 }
 
+/** 내 일정 한 줄(매주 반복). 요일마다 한 줄이고 같은 묶음(groupId)은 한 일정이다(백엔드 schedule_item) */
+export type SeedScheduleItem = {
+  id: Id
+  userId: Id
+  groupId: number
+  title: string | null // 구글에서 온 약속은 제목이 없다
+  kind: 'class' | 'event'
+  source: ScheduleSource
+  weekday: number // 0=월 … 6=일
+  startMin: number // 자정부터 분
+  endMin: number
+}
+
 export type DemoState = {
   version: number
   clockNow: IsoDateTime // 시연 시계. 앱의 "지금"은 이 값 하나다
@@ -129,8 +143,30 @@ export type DemoState = {
   readNotices: Record<Id, Id[]> // 사람별로 읽은 알림 ID
   agentLog: AgentLogEntry[]
   yieldRecords: { id: Id; meetingLabel: string; userId: Id; why: string }[]
+  prefs: Record<Id, Preferences> // 없으면 아직 온보딩 전(전부 빈 값)
+  scheduleItems: SeedScheduleItem[]
   nextSeq: number // 새로 만드는 항목의 ID 번호
 }
+
+const hour = (h: number) => h * 60
+const item = (
+  id: Id, userId: Id, groupId: number, title: string | null, kind: SeedScheduleItem['kind'],
+  source: ScheduleSource, weekday: number, from: number, to: number,
+): SeedScheduleItem => ({ id, userId, groupId, title, kind, source, weekday, startMin: hour(from), endMin: hour(to) })
+
+/** 에브리타임 공유 링크로 들어오는 수업(시연용). 누가 불러와도 이 네 과목이 들어온다 */
+export const DEMO_EVERYTIME_CLASSES: Omit<SeedScheduleItem, 'id' | 'userId' | 'groupId'>[] = [
+  { title: '디자인사고', kind: 'class', source: 'everytime', weekday: 0, startMin: hour(10), endMin: hour(12) },
+  { title: '자료구조', kind: 'class', source: 'everytime', weekday: 2, startMin: hour(13), endMin: hour(16) },
+  { title: '통계학', kind: 'class', source: 'everytime', weekday: 3, startMin: hour(10), endMin: hour(12) },
+  { title: '영어회화', kind: 'class', source: 'everytime', weekday: 4, startMin: hour(10), endMin: hour(12) },
+]
+
+/** 구글 캘린더를 켜면 들어오는 약속(시연용). 제목 없이 "일정"으로만 보인다 */
+export const DEMO_GOOGLE_EVENTS: Omit<SeedScheduleItem, 'id' | 'userId' | 'groupId'>[] = [
+  { title: null, kind: 'event', source: 'google', weekday: 1, startMin: hour(12), endMin: hour(13) },
+  { title: null, kind: 'event', source: 'google', weekday: 6, startMin: hour(14), endMin: hour(17) },
+]
 
 const { jisu, minji, hyunwoo, seoyeon } = USER
 
@@ -398,6 +434,17 @@ export const SEED: DemoState = {
   yieldRecords: [
     { id: 'y1', meetingLabel: '11월 4일 회의', userId: hyunwoo, why: '알바 시작을 한 시간 늦춰 대면 회의에 맞춰 줬어요.' },
     { id: 'y2', meetingLabel: '10월 28일 회의', userId: hyunwoo, why: '수업 끝나자마자 이동해 회의에 왔어요. 지수도 조금 맞춰 줬어요.' },
+  ],
+  // 지수는 시안10의 "나" 화면 그대로. 민지는 조건만 있고 일정은 온보딩에서 연결해 보이는 사람
+  prefs: {
+    [jisu]: { fromHour: 10, toHour: 21, mode: '비대면', dayparts: ['오후', '저녁'], avoid: '금요일 저녁은 알바 끝나고 너무 지쳐요' },
+    [minji]: { fromHour: 9, toHour: 18, mode: '대면', dayparts: ['오전', '오후'], avoid: '' },
+  },
+  scheduleItems: [
+    ...DEMO_EVERYTIME_CLASSES.map((c, i) => ({ ...c, id: `s${i + 1}`, userId: jisu, groupId: i + 1 })),
+    item('s5', jisu, 5, '카페 알바', 'event', 'manual', 1, 18, 21),
+    item('s6', jisu, 5, '카페 알바', 'event', 'manual', 5, 11, 15),
+    ...DEMO_GOOGLE_EVENTS.map((e, i) => ({ ...e, id: `s${i + 7}`, userId: jisu, groupId: 6 + i })),
   ],
   nextSeq: 100,
 }

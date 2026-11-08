@@ -1,5 +1,7 @@
+import dayjs from 'dayjs'
 import type { Id, MeetingMode } from '../types/common.ts'
 import type { Home } from '../types/home.ts'
+import { DAYPARTS, type MyWeek, type Preferences, type ScheduleSource, type WeekBlock } from '../types/me.ts'
 import type {
   CoordinatingBrief,
   MeetingBrief,
@@ -490,4 +492,74 @@ export const toNoticeList = (r: ServerNoticeList): NoticeList => ({
     }),
   ),
   unreadCount: r.unread_count,
+})
+
+// ── 내 조건(선호·주간 시간표) ─────────────────────────────
+
+type ServerDaypart = 'morning' | 'forenoon' | 'lunch' | 'afternoon' | 'evening' | 'night'
+const SERVER_DAYPARTS: ServerDaypart[] = ['morning', 'forenoon', 'lunch', 'afternoon', 'evening', 'night'] // DAYPARTS와 같은 순서
+
+/** 서버 시각 피커 한 칸: 숫자 + 오전·오후 (backend/app/me/schemas.py Hour12) */
+type ServerHour12 = { hour12: number; ampm: 'am' | 'pm'; minute: 0 | 30 }
+
+export type ServerPreference = {
+  day_start_min: number | null
+  day_end_min: number | null
+  mode_pref: ServerMode | null
+  dayparts: ServerDaypart[] | null
+  avoid_raw: string | null
+}
+
+export const toPreferences = (r: ServerPreference): Preferences => ({
+  fromHour: r.day_start_min === null ? null : Math.floor(r.day_start_min / 60),
+  toHour: r.day_end_min === null ? null : Math.floor(r.day_end_min / 60),
+  mode: r.mode_pref === null ? null : (MODE[r.mode_pref] as Preferences['mode']),
+  dayparts: (r.dayparts ?? []).map((d) => DAYPARTS[SERVER_DAYPARTS.indexOf(d)]),
+  avoid: r.avoid_raw ?? '',
+})
+
+const toHour12 = (hour: number): ServerHour12 => ({ hour12: hour % 12 || 12, ampm: hour < 12 ? 'am' : 'pm', minute: 0 })
+
+/** 온보딩·내 조건 저장 body. 비운 칸은 null(지운다) */
+export const toServerPreferences = (p: Preferences) => ({
+  day_start: p.fromHour === null ? null : toHour12(p.fromHour),
+  day_end: p.toHour === null ? null : toHour12(p.toHour),
+  mode_pref: p.mode === null ? null : toServerMode(p.mode),
+  dayparts: p.dayparts.map((d) => SERVER_DAYPARTS[DAYPARTS.indexOf(d)]),
+  avoid_raw: p.avoid.trim() || null,
+})
+
+export type ServerMySchedule = {
+  week_start: string
+  week_end: string
+  items: {
+    kind: 'class' | 'event' | 'meeting'
+    title: string | null
+    start_at: string
+    end_at: string
+    source: ScheduleSource | null
+    meeting_status: MeetingStatus | null
+  }[]
+}
+
+const hourOf = (iso: string) => {
+  const t = dayjs(iso)
+  return t.hour() + t.minute() / 60
+}
+
+export const toMyWeek = (r: ServerMySchedule): MyWeek => ({
+  weekStart: r.week_start,
+  weekEnd: r.week_end,
+  blocks: r.items.map((i): WeekBlock => {
+    const waiting = i.kind === 'meeting' && i.meeting_status === 'proposed'
+    return {
+      kind: waiting ? 'waiting' : i.kind,
+      title: i.kind === 'meeting' ? (waiting ? '회의 대기' : '팀 회의') : (i.title ?? '일정'),
+      weekday: (dayjs(i.start_at).day() + 6) % 7,
+      startHour: hourOf(i.start_at),
+      // 자정을 넘기는 칸은 그날 끝(24시)까지만 그린다
+      endHour: dayjs(i.end_at).isSame(dayjs(i.start_at), 'day') ? hourOf(i.end_at) : 24,
+      source: i.source,
+    }
+  }),
 })
