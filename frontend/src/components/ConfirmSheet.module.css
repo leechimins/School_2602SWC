@@ -1,7 +1,7 @@
 .sheet {
   width: 100%;
   max-width: var(--app-width);
-  margin: auto auto 0;
+  margin: auto auto var(--app-gap-y); /* 앱 틀 아래 끝에 붙인다 */
   padding: 20px 18px calc(18px + env(safe-area-inset-bottom));
   border: 0;
   border-radius: 18px 18px 0 0;

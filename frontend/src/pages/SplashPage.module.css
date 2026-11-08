@@ -6,7 +6,7 @@
   justify-content: center;
   width: 100%;
   max-width: var(--app-width);
-  height: 100dvh;
+  height: var(--app-height);
   margin: 0 auto;
   overflow: hidden;
   background: var(--brand) url(/splash/bg.webp) center / cover no-repeat;
@@ -185,6 +185,13 @@
 .leaving .actions {
   opacity: 0;
   transition: opacity 0.2s ease;
+}
+
+/* 넓은 화면에서는 앱 틀(AppShell)과 같은 둥근 모서리 */
+@media (min-width: 431px) {
+  .page {
+    border-radius: var(--r-l);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
