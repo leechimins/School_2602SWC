@@ -4,7 +4,7 @@
   grid-template-rows: 1fr auto;
   width: 100%;
   max-width: var(--app-width);
-  height: 100dvh;
+  height: var(--app-height);
   margin: 0 auto;
   background: var(--page);
   overflow: hidden;
@@ -29,6 +29,13 @@
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+/* 넓은 화면에서 틀이 떠 보일 때는 휴대폰처럼 모서리를 둥글게 */
+@media (min-width: 431px) {
+  .app {
+    border-radius: var(--r-l);
   }
 }
 

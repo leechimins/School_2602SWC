@@ -56,7 +56,16 @@
   --r-l: 16px; /* 묶음(카드) */
   --r-badge: 4px;
   --app-width: 430px;
+  /* 앱 틀 높이. 휴대폰에서는 화면 전체, 노트북처럼 넓은 화면에서는 19.5:9(430×932)로 자른다 */
+  --app-height: 100dvh;
+  --app-gap-y: calc((100dvh - var(--app-height)) / 2); /* 틀 위·아래 남는 여백 */
 
   /* 브랜드(TTAK): 스플래시·로그인 화면에만 쓴다. 배경 그림(public/splash/bg.webp)의 가운데 색 */
   --brand: #7580e6;
+}
+
+@media (min-width: 431px) {
+  :root {
+    --app-height: min(100dvh, calc(var(--app-width) * 19.5 / 9));
+  }
 }

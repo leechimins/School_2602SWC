@@ -9,6 +9,13 @@ body,
   height: 100%;
 }
 
+/* 앱 틀(--app-height)이 화면보다 낮으면 위아래 가운데에 둔다 */
+#root {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
 body {
   margin: 0;
   background: var(--frame);
