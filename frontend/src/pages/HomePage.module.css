@@ -26,3 +26,28 @@
   color: var(--point-ink);
   text-decoration: none;
 }
+
+/* 다음 회의(확정·확정 대기): 날짜 칸 | 주제·시간·시작까지 남은 시간, 아래에 응답 현황 + 조율 결과 버튼 */
+.meet {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin-top: 6px;
+}
+
+.meetBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.tick {
+  margin-top: 4px;
+  color: var(--point-ink);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.meetFoot {
+  margin-top: 10px;
+  gap: 8px;
+}

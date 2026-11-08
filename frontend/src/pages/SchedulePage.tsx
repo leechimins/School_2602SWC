@@ -7,6 +7,7 @@ import { getSchedule } from '../api/scheduling.ts'
 import AiMark from '../components/AiMark.tsx'
 import Badge from '../components/Badge.tsx'
 import ConfirmSheet from '../components/ConfirmSheet.tsx'
+import DateBlock from '../components/DateBlock.tsx'
 import Icon from '../components/Icon.tsx'
 import RetryBox from '../components/RetryBox.tsx'
 import Screen from '../components/Screen.tsx'
@@ -14,15 +15,14 @@ import { useApi } from '../hooks/useApi.ts'
 import { useClock } from '../hooks/useClock.ts'
 import { useCurrentUser } from '../hooks/useCurrentUser.ts'
 import {
-  dateParts,
   formatDuration,
   formatRange,
   formatTimeRange,
   isSameDay,
   minutesBetween,
 } from '../lib/date.ts'
+import { answerLine } from '../lib/meeting.ts'
 import { PATHS, pathTo } from '../lib/paths.ts'
-import type { IsoDateTime } from '../types/common.ts'
 import type { MeetingBrief, Schedule } from '../types/meeting.ts'
 import styles from './SchedulePage.module.css'
 
@@ -37,13 +37,19 @@ export default function SchedulePage() {
     <Screen title="일정">
       {res.status === 'error' && <RetryBox message={res.message} onRetry={res.reload} />}
       {res.status === 'ready' && (
-        <ScheduleBody schedule={res.data} canStartScheduling={room.status === 'ready' && room.data.canStartScheduling} />
+        <ScheduleBody
+          schedule={res.data}
+          canStartScheduling={room.status === 'ready' && room.data.canStartScheduling}
+          total={room.status === 'ready' ? room.data.joinedCount : null}
+        />
       )}
     </Screen>
   )
 }
 
-function ScheduleBody({ schedule, canStartScheduling }: { schedule: Schedule; canStartScheduling: boolean }) {
+type BodyProps = { schedule: Schedule; canStartScheduling: boolean; total: number | null }
+
+function ScheduleBody({ schedule, canStartScheduling, total }: BodyProps) {
   const now = useClock()
   const { coordinating, upcoming, past } = schedule
   // 오늘 잡힌 확정 회의가 있으면 "지금 회의 받아적기"가 그 회의에 붙는다
@@ -61,9 +67,7 @@ function ScheduleBody({ schedule, canStartScheduling }: { schedule: Schedule; ca
           <section className="sec">
             {coordinating.map((c) => (
               <Link key={c.id} to={pathTo.scheduling(c.id)} className={styles.row}>
-                <span className={`${styles.date} ${styles.muted}`}>
-                  <b>–</b>
-                </span>
+                <DateBlock muted />
                 <span className={styles.body}>
                   <span className="strong">{c.topic}</span>
                   <span className="meta num">조율 중 · {formatRange(c.windowStart, c.windowEnd)} 사이</span>
@@ -90,7 +94,7 @@ function ScheduleBody({ schedule, canStartScheduling }: { schedule: Schedule; ca
             {canStartScheduling ? '새 회의를 잡으면 에이전트끼리 시간을 조율해요.' : '팀장이 회의를 잡으면 알려 드려요.'}
           </p>
         ) : (
-          upcoming.map((m) => <UpcomingRow key={m.id} meeting={m} isToday={m.id === today?.id} />)
+          upcoming.map((m) => <UpcomingRow key={m.id} meeting={m} isToday={m.id === today?.id} total={total} />)
         )}
       </section>
 
@@ -120,24 +124,10 @@ function ScheduleBody({ schedule, canStartScheduling }: { schedule: Schedule; ca
   )
 }
 
-// 날짜 칸: 잡힌 회의는 포인트색, 지난 회의는 회색
-function DateBlock({ at, muted = false }: { at: IsoDateTime; muted?: boolean }) {
-  const { month, day, weekday } = dateParts(at)
-  return (
-    <span className={`${styles.date} ${muted ? styles.muted : ''} num`}>
-      <small>{month}</small>
-      <b>{day}</b>
-      <small>{weekday}</small>
-    </span>
-  )
-}
-
 // 잡힌 회의 한 줄: 누르면 조율 결과로. 오늘 회의면 오른쪽에 기록 시작
-function UpcomingRow({ meeting: m, isToday }: { meeting: MeetingBrief; isToday: boolean }) {
+function UpcomingRow({ meeting: m, isToday, total }: { meeting: MeetingBrief; isToday: boolean; total: number | null }) {
   const confirmed = m.status === 'confirmed'
-  const line = confirmed
-    ? '모두 수락했어요'
-    : `아직 응답 ${m.pendingCount}명${m.myState ? ` · 내 응답 ${m.myState}` : ''}`
+  const line = answerLine(m, total)
   return (
     <div className={styles.row}>
       <Link to={pathTo.proposal(m.id)} className={styles.main}>

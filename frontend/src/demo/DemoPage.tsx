@@ -41,6 +41,8 @@ export default function DemoPage() {
   const lastScheduling = s.schedulings[s.schedulings.length - 1]
   const lastProposalId = lastScheduling?.meetingId ?? s.proposals[s.proposals.length - 1]?.meetingId
   const scenes: { label: string; path: string }[] = [
+    { label: '방 만들기', path: PATHS.start }, // 처음 들어오기(시안10 시연 장치 "처음"): 방 만들기 → 초대 코드 → 온보딩
+    { label: '온보딩', path: PATHS.onboarding },
     { label: '홈', path: PATHS.home },
     { label: '회의 잡기', path: PATHS.schedulingNew },
     ...(lastScheduling ? [{ label: '시간 정하는 과정', path: pathTo.scheduling(lastScheduling.id) }] : []),

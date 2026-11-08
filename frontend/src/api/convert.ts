@@ -426,7 +426,7 @@ export const toMeetingDetail = (r: ServerMeetingDetail): MeetingDetail => ({
   transcript: r.transcript.map((l) => ({ seq: l.seq, speakerId: optId(l.speaker_user_id), speakerName: l.speaker_name, text: l.text })),
   minutes: r.minutes,
   tasks: r.tasks.map(toTask),
-  doneTasks: (r.done_tasks ?? []).map(toTask), // 서버에 아직 없는 묶음. 없으면 비워 둔다
+  doneTasks: (r.done_tasks ?? []).map(toTask), // "회의에서 끝난 일". 진행 중으로 되돌리면 서버가 목록에서 뺀다
   suggestions: r.suggestions.map(toSuggestion),
   unneededTasks: [], // 서버에 없는 목록(AI가 고르지 않는다). 실서버에서는 이 칸이 안 보인다
 })
