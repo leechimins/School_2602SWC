@@ -2,29 +2,17 @@ import { wait } from '../lib/timers.ts'
 import { mockContext } from '../mock/context.ts'
 import { DEMO_RECORDING } from '../mock/seed.ts'
 import { dispatch, getState } from '../mock/store.ts'
-import { buildMeetingDetail, buildMeetingList } from '../mock/views.ts'
+import { buildMeetingDetail } from '../mock/views.ts'
 import type { Id } from '../types/common.ts'
-import type { MeetingDetail, MeetingSummary, RecordInput, SuggestionPatch } from '../types/meeting.ts'
+import type { MeetingDetail, RecordInput, SuggestionPatch } from '../types/meeting.ts'
 import { USE_MOCK, isRealServer, request, withMock, withMockWrite } from './client.ts'
 import {
   toServerMode,
   toMeetingDetail,
-  toMeetingSummary,
   type ServerMeetingDetail,
-  type ServerMeetingSummary,
 } from './convert.ts'
 
 // 회의 기록·회의록·할 일 제안. 장면 2의 앞부분(회의에서 할 일로)이 여기서 나온다.
-
-export function getMeetings(roomId: Id): Promise<MeetingSummary[]> {
-  return withMock(
-    async () => {
-      const r = await request<{ meetings: ServerMeetingSummary[] }>(`/rooms/${roomId}/meetings`)
-      return r.meetings.map(toMeetingSummary)
-    },
-    () => buildMeetingList(mockContext().s),
-  )
-}
 
 /** 회의록: 원문 + 요약 + 그 회의에서 확정된 할 일 + 확정 전 제안 */
 export function getMeeting(roomId: Id, meetingId: Id): Promise<MeetingDetail> {
