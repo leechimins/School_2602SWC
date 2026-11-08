@@ -264,6 +264,12 @@ type ServerUtterance = {
   speaker_name: string | null
   text: string
   created_at: string
+  // 말풍선 뱃지. 어필 발언은 모두 null이다
+  answer: 'accept' | 'reject' | null
+  burden: ServerBurden | null
+  my_score: number | null // 보는 사람 본인의 반응 발언일 때만
+  slot_start_at: string | null // 판단 에이전트가 낸 시간
+  slot_end_at: string | null
 }
 
 export type ServerScheduling = {
@@ -280,22 +286,23 @@ export type ServerScheduling = {
   utterances: ServerUtterance[]
 }
 
-// 서버 발언에는 아직 text만 있다. 불편 단계·제안 시간은 백엔드 요청 거리라 비워 둔다.
 // 어필/응답은 순서로 가른다: 한 라운드에서 판단 에이전트보다 먼저 나온 팀원 발언이 어필, 뒤에 나온 것이 수락·거절이다
 const judgeSeqByRound = (us: ServerUtterance[]) =>
   new Map(us.filter((u) => u.speaker_kind === 'judge').map((u) => [u.round_no, u.seq]))
 
-const toUtterance = (u: ServerUtterance, judgeSeq: Map<number, number>): Utterance => ({
+const ANSWER = { accept: '수락', reject: '거절' } as const
+
+const toUtterance = (u: ServerUtterance, judgeSeq: Map<number, number>, mode: ServerMode): Utterance => ({
   seq: u.seq,
   round: u.round_no,
   kind: u.speaker_kind === 'judge' ? 'judge' : u.seq < (judgeSeq.get(u.round_no) ?? Infinity) ? 'appeal' : 'answer',
   speakerId: optId(u.speaker_user_id),
   speakerName: u.speaker_name,
   text: u.text,
-  answer: null,
-  burden: null,
-  myScore: null,
-  slot: null,
+  answer: u.answer ? ANSWER[u.answer] : null,
+  burden: u.burden ? BURDEN[u.burden] : null,
+  myScore: u.my_score,
+  slot: u.slot_start_at && u.slot_end_at ? { startAt: u.slot_start_at, endAt: u.slot_end_at, mode: meetingMode(mode) } : null,
   yieldChanges: [],
 })
 
@@ -310,7 +317,7 @@ export const toScheduling = (r: ServerScheduling): Scheduling => {
     mode: MODE[r.mode],
     status: r.status,
     roundsUsed: r.rounds_used,
-    utterances: r.utterances.map((u) => toUtterance(u, judgeSeq)),
+    utterances: r.utterances.map((u) => toUtterance(u, judgeSeq, r.mode)),
     proposalId: optId(r.meeting_id), // 합의·조정이 끝나야 생긴다
   }
 }
