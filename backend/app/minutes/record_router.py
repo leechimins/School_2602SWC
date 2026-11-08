@@ -174,9 +174,11 @@ def write_transcript(
     - 줄마다 한 발언입니다. 빈 줄은 버립니다.
     - `이름: 내용` 꼴이고 이름이 이 방 팀원이면 말한 사람으로 나눕니다. 아니면 말한 사람 없음.
     - 확정 전 회의안이나 취소된 회의면 409 `NOT_CONFIRMED`.
+    - 받아적는 중이면 409 `RECORDING`. 멈춘 뒤에는 받아적은 원문을 이걸로 고쳐 쓸 수 있습니다(목소리 라벨은 사라짐).
     """
     require_member(db, room_id, user_id)
-    meeting = _recordable_meeting(db, room_id, meeting_id)
+    meeting = _locked_recordable(db, room_id, meeting_id)
+    recording.reject_while_recording(meeting)
 
     lines = transcript.parse(body.text, member_names(db, room_id))
     transcript.replace(db, meeting_id, lines)
@@ -341,9 +343,11 @@ def summarize_meeting(
     - 다시 부르면 요약을 바꾸고, 아직 확정하지 않은 AI 제안을 새 제안으로 바꿉니다. 확정된 할 일과 원문은 그대로입니다.
     - AI가 실패하면 503 `AGENT_TIMEOUT`. 처음이면 요약 상태가 `failed`, 전에 요약이 있었으면 그 요약이 그대로 남습니다.
     - 원문이 없으면 409 `NO_TRANSCRIPT`, 확정 전·취소된 회의면 409 `NOT_CONFIRMED`.
+    - 받아적는 중이면 409 `RECORDING`. 멈춘 뒤에 불러 주세요.
     """
     require_member(db, room_id, user_id)
     meeting = _recordable_meeting(db, room_id, meeting_id)
+    recording.reject_while_recording(meeting)
 
     users = task_calc.members(db, room_id)
     names_by_id = {u.id: u.name for u in users if u.id is not None}

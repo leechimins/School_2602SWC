@@ -282,3 +282,65 @@ def test_멈춘_뒤에는_조각도_다시_시작도_안_된다(client, seeded, 
     assert again.status_code == 409
     assert again.json()["code"] == "RECORDING_STOPPED"
     assert [seq for seq, *_ in _lines(client, room, blank)] == [0]
+
+
+# ── 받아적는 동안 막기 ───────────────────────────────────────────────
+
+
+@pytest.fixture
+def model(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """요약 모델을 가짜로. 받은 프롬프트를 남긴다."""
+    from app.minutes import summarize
+
+    prompts: list[str] = []
+
+    def request(prompt: str) -> dict:
+        prompts.append(prompt)
+        return {
+            "headline": "발표 역할 나눔",
+            "decisions": [{"text": "발표는 민지가 맡는다", "lines": [1]}],
+            "discussions": [],
+            "pendings": [],
+            "tasks": [{"title": "슬라이드 만들기", "assignee": "민지", "due_date": None, "lines": [1]}],
+        }
+
+    monkeypatch.setattr(summarize, "request", request)
+    return prompts
+
+
+def test_받아적는_중에는_직접_쓰기가_막힌다(client, seeded, room, blank):
+    _start(client, room, blank)
+    _send(client, room, blank, _seg(0, "받아적은 말"))
+
+    res = client.put(_url(room, blank, "/transcript"), json={"text": "지수: 덮어쓰기"})
+
+    assert res.status_code == 409
+    assert res.json() == {"code": "RECORDING", "message": "받아적는 중이에요. 멈춘 뒤에 해 주세요."}
+    assert _lines(client, room, blank) == [(0, "A", "받아적은 말")]
+
+
+def test_받아적는_중에는_요약이_막히고_모델을_안_부른다(client, seeded, room, blank, model):
+    _start(client, room, blank)
+    _send(client, room, blank, _seg(0))
+
+    res = client.post(_url(room, blank, "/summarize"))
+
+    assert res.status_code == 409
+    assert res.json()["code"] == "RECORDING"
+    assert model == []
+
+
+def test_멈춘_뒤에는_요약이_되고_직접_쓰기로_고칠_수_있다(client, seeded, room, blank, model):
+    _start(client, room, blank)
+    _send(client, room, blank, _seg(0, "시작해요", "A"), _seg(1, "발표는 제가 할게요", "B"))
+    _stop(client, room, blank)
+
+    summarized = client.post(_url(room, blank, "/summarize"))
+    assert summarized.status_code == 200, summarized.text
+    assert "[1] (모름): 발표는 제가 할게요" in model[0]
+
+    fixed = client.put(_url(room, blank, "/transcript"), json={"text": "지수: 시작해요\n민지: 발표는 제가 할게요"})
+    assert fixed.status_code == 200
+    body = fixed.json()
+    assert body["transcript_mode"] == "manual"
+    assert [line["speaker_name"] for line in body["transcript"]] == ["지수", "민지"]

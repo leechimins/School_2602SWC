@@ -47,6 +47,12 @@ def stopped_error() -> HTTPException:
     return conflict("RECORDING_STOPPED", "이미 받아적기를 마쳤어요.")
 
 
+def reject_while_recording(meeting: Meeting) -> None:
+    """받아적는 중에는 원문이 아직 쌓이는 중이라 직접 쓰기·요약을 막는다."""
+    if state(meeting) == "recording":
+        raise conflict("RECORDING", "받아적는 중이에요. 멈춘 뒤에 해 주세요.")
+
+
 def not_recording_error() -> HTTPException:
     return conflict("NOT_RECORDING", "받아적기를 먼저 시작해 주세요.")
 
