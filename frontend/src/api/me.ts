@@ -79,6 +79,12 @@ export function addScheduleItem(input: ScheduleItemInput): Promise<void> {
   )
 }
 
+// 서버에 고치기·지우기 API가 아직 없으면(404·405) "잠시 후 다시"가 아니라 못 한다고 알린다
+const notEditable = (e: unknown) =>
+  e instanceof ApiError && (e.status === 404 || e.status === 405)
+    ? new ApiError(e.status, 'SCHEDULE_EDIT_UNAVAILABLE', '지금은 이 일정을 고칠 수 없어요. 일정 추가로 새로 넣어 주세요.')
+    : e
+
 /**
  * 직접 넣은 일정 한 칸(요일 하나) 고치기. 나 탭 시간표에서 길게 눌러 연다.
  * 실서버 PATCH /me/schedule/items/{id}는 백엔드 요청 중이다(GET 응답의 item_id가 이 용도). 없으면 서버 안내 문구가 그대로 보인다
@@ -89,6 +95,8 @@ export function editScheduleItem(itemId: Id, patch: ScheduleItemPatch): Promise<
       await request(`/me/schedule/items/${itemId}`, {
         method: 'PATCH',
         body: { title: patch.title, start_min: patch.startHour * 60, end_min: patch.endHour * 60 },
+      }).catch((e: unknown) => {
+        throw notEditable(e)
       })
     },
     () => dispatch({ type: 'me/schedule-edit', itemId, patch }),
@@ -99,7 +107,9 @@ export function editScheduleItem(itemId: Id, patch: ScheduleItemPatch): Promise<
 export function deleteScheduleItem(itemId: Id): Promise<void> {
   return withMockWrite(
     async () => {
-      await request(`/me/schedule/items/${itemId}`, { method: 'DELETE' })
+      await request(`/me/schedule/items/${itemId}`, { method: 'DELETE' }).catch((e: unknown) => {
+        throw notEditable(e)
+      })
     },
     () => dispatch({ type: 'me/schedule-delete', itemId }),
   )
