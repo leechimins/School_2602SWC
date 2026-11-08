@@ -183,11 +183,18 @@ def write_transcript(
     - 줄마다 한 발언입니다. 빈 줄은 버립니다.
     - `이름: 내용` 꼴이고 이름이 이 방 팀원이면 말한 사람으로 나눕니다. 아니면 말한 사람 없음.
     - 확정 전 회의안이나 취소된 회의면 409 `NOT_CONFIRMED`.
-    - 받아적는 중이면 409 `RECORDING`. 멈춘 뒤에는 받아적은 원문을 이걸로 고쳐 쓸 수 있습니다(목소리 라벨은 사라짐).
+    - 받아적는 중이어도 받아적은 글이 아직 없으면 직접 쓰기로 바뀝니다(녹음을 잃었거나 마이크가 안 될 때 빠져나가는 길).
+    - 받아적은 글이 쌓이는 중이면 409 `RECORDING`. 멈춘 뒤에는 받아적은 원문을 이걸로 고쳐 쓸 수 있습니다(목소리 라벨은 사라짐).
     """
     require_member(db, room_id, user_id)
     meeting = _locked_recordable(db, room_id, meeting_id)
-    recording.reject_while_recording(meeting)
+    # 녹음 올리기 방식은 멈출 때까지 원문이 비어 있다. 그때 막으면 새로고침·마이크
+    # 거부 뒤 화면에 멈추기 버튼이 없어 빠져나갈 길이 없다
+    has_text = db.exec(
+        select(TranscriptSegment.id).where(TranscriptSegment.meeting_id == meeting_id)
+    ).first()
+    if has_text is not None:
+        recording.reject_while_recording(meeting)
 
     lines = transcript.parse(body.text, member_names(db, room_id))
     transcript.replace(db, meeting_id, lines)
@@ -329,9 +336,25 @@ def stop_recording(
     return meeting_detail(db, meeting, user_id)
 
 
+def _too_long() -> HTTPException:
+    return _audio_error("AUDIO_TOO_LONG", "30분까지 받아적을 수 있어요.")
+
+
 async def _audio_body(request: Request) -> bytes:
-    """요청 본문을 그대로(녹음 파일). 엔드포인트는 DB 때문에 동기라 읽기만 여기서."""
-    return await request.body()
+    """요청 본문을 그대로(녹음 파일). 엔드포인트는 DB 때문에 동기라 읽기만 여기서.
+
+    다 읽고 나서 크기를 보지 않는다 — 큰 파일이 메모리를 다 채운 뒤에야 거절된다.
+    선언된 길이로 먼저 거르고, 읽는 중에도 한도를 넘는 순간 끊는다.
+    """
+    declared = request.headers.get("content-length", "")
+    if declared.isdigit() and int(declared) > stt.MAX_BYTES:
+        raise _too_long()
+    body = bytearray()
+    async for chunk in request.stream():
+        body += chunk
+        if len(body) > stt.MAX_BYTES:
+            raise _too_long()
+    return bytes(body)
 
 
 def _audio_error(code: str, message: str, http: int = status.HTTP_400_BAD_REQUEST) -> HTTPException:
@@ -360,8 +383,9 @@ def _audio_error(code: str, message: str, http: int = status.HTTP_400_BAD_REQUES
 def upload_recording(
     room_id: int,
     meeting_id: int,
-    audio: bytes = Depends(_audio_body),
+    # 로그인부터 본다. 본문(최대 25MB)은 그다음에 읽는다
     user_id: int = Depends(current_user_id),
+    audio: bytes = Depends(_audio_body),
     db: Session = Depends(session_dep),
 ) -> MeetingDetailOut:
     """받아적는 중인 회의의 녹음 파일을 받아 AI(Gemini)로 받아적고 받아적기를 멈춥니다.
@@ -394,7 +418,7 @@ def upload_recording(
     try:
         pieces = stt.transcribe(audio, names)
     except stt.AudioTooLong:
-        raise _audio_error("AUDIO_TOO_LONG", "30분까지 받아적을 수 있어요.") from None
+        raise _too_long() from None
     except stt.AudioInvalid:
         raise _audio_error("AUDIO_INVALID", "녹음 파일을 읽지 못했어요. 직접 입력해 주세요.") from None
     except stt.NoSpeech:

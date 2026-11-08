@@ -286,3 +286,34 @@ def test_화자는_나온_순서대로_A_B_C이고_빈_줄은_버린다():
         (1, "B", "둘째 말"),
         (2, "C", "숫자 화자"),
     ]
+
+
+# ── 화면에서 빠져나가는 길 ───────────────────────────────────────────
+
+
+def test_녹음을_잃으면_직접_쓰기로_빠져나갈_수_있다(client, seeded, room, blank, engine):
+    """새로고침·마이크 거부로 녹음이 사라져도 화면의 "직접 쓰기"가 막히지 않는다."""
+    _start(client, room, blank)
+
+    res = client.put(_url(room, blank, "/transcript"), json={"text": "지수: 녹음이 날아가서 직접 써요"})
+
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["transcript_mode"] == "manual"
+    assert body["recording_state"] == "none"
+    assert [line["speaker_name"] for line in body["transcript"]] == ["지수"]
+
+    # 다른 폰이 뒤늦게 녹음을 올려도 직접 쓴 원문을 덮지 않는다
+    late = _upload(client, room, blank)
+    assert late.status_code == 409
+    assert late.json()["code"] == "NOT_RECORDING"
+    assert engine.calls == []
+
+
+def test_로그인부터_보고_본문을_읽는다(client, seeded, blank, engine, monkeypatch):
+    monkeypatch.setattr(stt, "MAX_BYTES", 100)
+    room = seeded.exec(select(Room)).one()
+
+    res = _upload(client, room, blank)  # 로그인 안 함, 한도를 넘는 본문
+
+    assert res.status_code == 401
