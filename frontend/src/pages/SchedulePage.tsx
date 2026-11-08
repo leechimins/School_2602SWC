@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { messageOf } from '../api/client.ts'
-import { canRecordLive, createMeeting } from '../api/records.ts'
+import { canRecordLive, createMeeting, getMeeting } from '../api/records.ts'
 import { getRoom } from '../api/rooms.ts'
 import { getSchedule } from '../api/scheduling.ts'
 import AiMark from '../components/AiMark.tsx'
@@ -22,7 +22,7 @@ import {
   minutesBetween,
 } from '../lib/date.ts'
 import { answerLine } from '../lib/meeting.ts'
-import { PATHS, pathTo } from '../lib/paths.ts'
+import { pathTo } from '../lib/paths.ts'
 import type { MeetingBrief, Schedule } from '../types/meeting.ts'
 import styles from './SchedulePage.module.css'
 
@@ -54,10 +54,17 @@ function ScheduleBody({ schedule, canStartScheduling, total }: BodyProps) {
   const { coordinating, upcoming, past } = schedule
   // 오늘 잡힌 확정 회의가 있으면 "지금 회의 받아적기"가 그 회의에 붙는다
   const today = upcoming.find((m) => m.status === 'confirmed' && isSameDay(m.startAt, now))
+  // 오늘 회의를 이미 기록했으면 "기록 시작" 대신 "회의록 보기". 일정 목록에는 기록 여부가 없어 그 회의만 따로 본다
+  const user = useCurrentUser()
+  const todayDetail = useApi(
+    () => (today ? getMeeting(user.roomId, today.id) : Promise.resolve(null)),
+    [user.roomId, user.id, today?.id],
+  )
+  const recorded = todayDetail.status === 'ready' && !!todayDetail.data && todayDetail.data.transcript.length > 0
 
   return (
     <>
-      <RecordNow todayMeeting={today ?? null} />
+      <RecordNow todayMeeting={recorded ? null : (today ?? null)} />
 
       {coordinating.length > 0 && (
         <>
@@ -81,20 +88,17 @@ function ScheduleBody({ schedule, canStartScheduling, total }: BodyProps) {
 
       <div className="sec-h">
         <h2>잡힌 회의</h2>
-        {canStartScheduling && (
-          <Link to={PATHS.schedulingNew} className={`link ${styles.secLink}`}>
-            + 새 회의 잡기
-          </Link>
-        )}
       </div>
       <section className="sec">
         {upcoming.length === 0 ? (
           <p className="meta">
             잡힌 회의가 없어요.{' '}
-            {canStartScheduling ? '새 회의를 잡으면 에이전트끼리 시간을 조율해요.' : '팀장이 회의를 잡으면 알려 드려요.'}
+            {canStartScheduling ? '홈에서 새 회의를 잡을 수 있어요.' : '팀장이 회의를 잡으면 알려 드려요.'}
           </p>
         ) : (
-          upcoming.map((m) => <UpcomingRow key={m.id} meeting={m} isToday={m.id === today?.id} total={total} />)
+          upcoming.map((m) => (
+            <UpcomingRow key={m.id} meeting={m} isToday={m.id === today?.id} recorded={recorded} total={total} />
+          ))
         )}
       </section>
 
@@ -124,8 +128,10 @@ function ScheduleBody({ schedule, canStartScheduling, total }: BodyProps) {
   )
 }
 
-// 잡힌 회의 한 줄: 누르면 조율 결과로. 오늘 회의면 오른쪽에 기록 시작
-function UpcomingRow({ meeting: m, isToday, total }: { meeting: MeetingBrief; isToday: boolean; total: number | null }) {
+type RowProps = { meeting: MeetingBrief; isToday: boolean; recorded: boolean; total: number | null }
+
+// 잡힌 회의 한 줄: 누르면 조율 결과로. 오늘 회의면 오른쪽에 기록 시작(기록했으면 회의록 보기)
+function UpcomingRow({ meeting: m, isToday, recorded, total }: RowProps) {
   const confirmed = m.status === 'confirmed'
   const line = answerLine(m, total)
   return (
@@ -140,7 +146,11 @@ function UpcomingRow({ meeting: m, isToday, total }: { meeting: MeetingBrief; is
           <span className="meta">{line}</span>
         </span>
       </Link>
-      {isToday ? (
+      {isToday && recorded ? (
+        <Link to={pathTo.meeting(m.id)} className="btn small">
+          회의록 보기
+        </Link>
+      ) : isToday ? (
         <Link to={pathTo.record(m.id)} className="btn small primary">
           기록 시작
         </Link>
@@ -151,7 +161,7 @@ function UpcomingRow({ meeting: m, isToday, total }: { meeting: MeetingBrief; is
   )
 }
 
-// 지금 회의 받아적기(실서버는 기록하기): 오늘 잡힌 회의가 있으면 거기에 붙고, 없으면 주제 한 줄(비워도 됨)만 받고 바로 연다
+// 지금 회의 받아적기(실서버는 기록하기): 오늘 잡힌 회의가 있으면 거기에 붙고, 없으면 주제 한 줄(필수)만 받고 바로 연다
 function RecordNow({ todayMeeting }: { todayMeeting: MeetingBrief | null }) {
   const user = useCurrentUser()
   const navigate = useNavigate()
@@ -164,7 +174,7 @@ function RecordNow({ todayMeeting }: { todayMeeting: MeetingBrief | null }) {
 
   const open = async (topic: string) => {
     try {
-      const id = await createMeeting(user.roomId, { meetingId: null, topic: topic || null, mode: '대면' })
+      const id = await createMeeting(user.roomId, { meetingId: null, topic, mode: '대면' })
       navigate(pathTo.record(id))
     } catch (e) {
       setError(messageOf(e))
@@ -201,7 +211,7 @@ function RecordNow({ todayMeeting }: { todayMeeting: MeetingBrief | null }) {
           body="잡힌 회의가 없어도 바로 시작해요. 끝나면 지난 회의 목록에 들어가요."
           okLabel="기록 시작"
           irreversible={false}
-          input={{ label: '회의 주제', placeholder: '예: 발표 순서 정하기 (비워 둬도 돼요)' }}
+          input={{ label: '회의 주제', placeholder: '예: 발표 순서 정하기', required: '회의 주제를 적어 주세요.' }}
           onClose={({ ok, value }) => {
             setAsking(false)
             if (ok) open(value)

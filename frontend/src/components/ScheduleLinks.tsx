@@ -7,7 +7,8 @@ import styles from './ScheduleLinks.module.css'
 
 type Props = {
   blocks: WeekBlock[] // 이번 주 내 시간표. 어디서 온 일정이 있는지로 연결 여부를 본다
-  onAddManual?: () => void // 주면 "직접 입력" 줄이 생긴다. 나 탭은 아래 "+ 일정 추가"가 같은 일을 해서 안 준다
+  onAddManual?: () => void // 주면 "직접 입력" 줄이 생긴다. My 탭은 아래 "+ 일정 추가"가 같은 일을 해서 안 준다
+  showLock?: boolean // 바쁨/비어 있음 안내. My 탭은 묶음 제목 옆에 따로 두어 끈다
 }
 
 type Reading = { state: 'idle' } | { state: 'reading' } | { state: 'ok' | 'fail'; message: string }
@@ -15,7 +16,7 @@ type Reading = { state: 'idle' } | { state: 'reading' } | { state: 'ok' | 'fail'
 const hourText = (h: number) => (Number.isInteger(h) ? `${h}` : `${Math.floor(h)}:30`)
 
 // 내 일정 가져오기: 에브리타임 공유 링크(수업) · 구글 캘린더(개인 약속) · 직접 입력(알바·반복 같은 개인 일정, 온보딩에서만)
-export default function ScheduleLinks({ blocks, onAddManual }: Props) {
+export default function ScheduleLinks({ blocks, onAddManual, showLock = true }: Props) {
   const [url, setUrl] = useState('')
   const [et, setEt] = useState<Reading>({ state: 'idle' })
   const [googleError, setGoogleError] = useState<string | null>(null)
@@ -102,9 +103,11 @@ export default function ScheduleLinks({ blocks, onAddManual }: Props) {
           </button>
         </div>
       )}
-      <p className={styles.lock}>
-        팀원에게는 <b>바쁨 / 비어 있음</b>만 보여요. 약속 이름은 아무도 못 봐요.
-      </p>
+      {showLock && (
+        <p className={styles.lock}>
+          팀원에게는 <b>바쁨 / 비어 있음</b>만 보여요. 약속 이름은 아무도 못 봐요.
+        </p>
+      )}
     </>
   )
 }

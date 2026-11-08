@@ -36,6 +36,11 @@ button {
   cursor: pointer;
 }
 
+/* 입력창 크기는 화면이 정한다(휴대폰 폭에서 끌어 늘리면 틀이 깨진다) */
+textarea {
+  resize: none;
+}
+
 p {
   margin: 0;
 }

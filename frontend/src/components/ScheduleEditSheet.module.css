@@ -1,0 +1,13 @@
+.name {
+  width: 100%;
+}
+
+.time {
+  margin-top: var(--gap-2);
+}
+
+/* 취소 | 삭제 | 저장 중 가운데 */
+.delete {
+  flex: 1;
+  color: var(--danger);
+}

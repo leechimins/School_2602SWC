@@ -24,6 +24,12 @@
   margin-top: 8px;
 }
 
+.missing {
+  margin-top: 6px;
+  color: var(--danger);
+  font-size: var(--fs-meta);
+}
+
 /* 왼쪽 취소(글자) | 오른쪽 하는 일(버튼) */
 .actions {
   display: flex;

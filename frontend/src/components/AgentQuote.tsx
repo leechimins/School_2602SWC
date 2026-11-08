@@ -31,14 +31,17 @@ export default function AgentQuote({ name, prefs }: Props) {
     ),
     avoidText && (
       <span key="avoid">
-        피하고 싶은 시간은 <em>‘{avoidText}’</em>라고 했어요. 팀원에게는 이 말을 그대로 보여 주지 않고 다듬어서 조율 근거로 써요.
+        피하고 싶은 시간은 <em>‘{avoidText}’</em>라고 했어요.
       </span>
     ),
   ].filter(Boolean)
 
   return (
     <div className={styles.quote}>
-      <p className="meta">내 에이전트가 이렇게 말해 줘요</p>
+      <p className={styles.head}>
+        <b>내 에이전트가 이렇게 말해요</b>
+        {avoidText && <span>팀원에겐 다듬어서 전해요</span>}
+      </p>
       <p>
         {sentences.length === 0 ? (
           '아직 고른 조건이 없어요. 조건이 없으면 비어 있는 시간 중에서 골라요.'

@@ -1,7 +1,7 @@
 import dayjs from 'dayjs'
 import type { Id, IsoDateTime } from '../types/common.ts'
-import { formatMD, formatMonthDay } from '../lib/date.ts'
-import type { Preferences, ScheduleItemInput } from '../types/me.ts'
+import { formatMD, formatMonthDay, formatSlot } from '../lib/date.ts'
+import type { Preferences, ScheduleItemInput, ScheduleItemPatch } from '../types/me.ts'
 import type { RecordInput, SuggestionPatch } from '../types/meeting.ts'
 import { YIELD_LEVELS, type RoomInput, type YieldLevel } from '../types/room.ts'
 import type { SchedulingInput } from '../types/scheduling.ts'
@@ -47,6 +47,8 @@ export type Action =
   | { type: 'meeting/summarize'; meetingId: Id }
   | { type: 'me/prefs'; userId: Id; prefs: Preferences }
   | { type: 'me/schedule-add'; userId: Id; input: ScheduleItemInput }
+  | { type: 'me/schedule-edit'; itemId: Id; patch: ScheduleItemPatch }
+  | { type: 'me/schedule-delete'; itemId: Id }
   | { type: 'me/everytime'; userId: Id }
   | { type: 'me/google'; userId: Id }
 
@@ -140,6 +142,15 @@ export function reduce(s: DemoState, action: Action): DemoState {
       return { ...s, scheduleItems: [...s.scheduleItems, ...rows], nextSeq: s.nextSeq + rows.length }
     }
 
+    case 'me/schedule-edit': {
+      const { title, startHour, endHour } = action.patch
+      const edit = (i: SeedScheduleItem) => (i.id === action.itemId ? { ...i, title, startMin: startHour * 60, endMin: endHour * 60 } : i)
+      return { ...s, scheduleItems: s.scheduleItems.map(edit) }
+    }
+
+    case 'me/schedule-delete':
+      return { ...s, scheduleItems: s.scheduleItems.filter((i) => i.id !== action.itemId) }
+
     case 'me/everytime':
       // 다시 불러오기: 이전 에브리타임 수업을 지우고 새로 넣는다(직접 넣은 일정은 그대로)
       return replaceSource(s, action.userId, 'everytime', DEMO_EVERYTIME_CLASSES)
@@ -206,7 +217,7 @@ export function reduce(s: DemoState, action: Action): DemoState {
           },
         ],
         agentLog: [
-          { id: `a${s.nextSeq}`, at: now(s), what: '조율 결과를 냈어요', why: result.rationale },
+          { id: `a${s.nextSeq}`, at: now(s), what: `${c.topic} 제안 · ${formatSlot(lastJudge.slot.startAt, lastJudge.slot.endAt)}`, why: result.rationale },
           ...s.agentLog,
         ],
         nextSeq: s.nextSeq + 1,
@@ -312,7 +323,7 @@ export function reduce(s: DemoState, action: Action): DemoState {
             x.id === c.id ? { ...x, status: 'running', meetingId: null, script: [...x.script, ...next.script], result: next.result } : x,
           ),
           agentLog: [
-            { id: `a${s.nextSeq}`, at: now(s), what: '거절된 회의안 대신 다시 조율하고 있어요', why: `남은 라운드 ${MAX_ROUNDS - roundsUsed(c)}번 안에서 다시 잡아요.` },
+            { id: `a${s.nextSeq}`, at: now(s), what: `${c.topic} 다시 조율`, why: `남은 라운드 ${MAX_ROUNDS - roundsUsed(c)}번 안에서 다시 잡아요.` },
             ...s.agentLog,
           ],
           nextSeq: s.nextSeq + 1,
@@ -397,7 +408,7 @@ export function reduce(s: DemoState, action: Action): DemoState {
           {
             id: `a${s.nextSeq}`,
             at: now(s),
-            what: `${formatMD(m.startAt)} 회의록에서 할 일 제안 ${suggestions.length}개를 만들었어요`,
+            what: `${formatMD(m.startAt)} 회의록 · 할 일 제안 ${suggestions.length}개`,
             why: suggestions.length ? '확정 전까지는 회의록에만 보여요.' : '회의에서 맡을 일이 분명히 나오지 않았어요.',
           },
           ...s.agentLog,

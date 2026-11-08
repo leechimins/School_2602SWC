@@ -64,6 +64,15 @@
   padding: 0;
 }
 
+/* 카드 안쪽 여백이 있으니 첫 줄 위·끝 줄 아래 여백은 뺀다 */
+.list > li:first-child {
+  padding-top: 0;
+}
+
+.list > li:last-child {
+  padding-bottom: 0;
+}
+
 /* 업무 배정 검토 머리: 몇 개 나왔고 몇 개 확정했는지 | 모두 확정 */
 .reviewTop {
   display: flex;

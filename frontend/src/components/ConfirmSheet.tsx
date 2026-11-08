@@ -9,7 +9,7 @@ type Props = {
   okLabel: string // 하는 일 이름: "삭제", "막힘으로 바꾸기"
   danger?: boolean // 삭제류는 빨간 버튼
   irreversible?: boolean // "되돌릴 수 없습니다" 안내
-  input?: { label: string; placeholder: string } // 막힌 이유·피드백 한 줄
+  input?: { label: string; placeholder: string; required?: string } // 막힌 이유·피드백 한 줄. required는 비웠을 때 보일 안내
   onClose: (result: ConfirmResult) => void
 }
 
@@ -18,6 +18,7 @@ type Props = {
 export default function ConfirmSheet({ title, body, okLabel, danger = false, irreversible = true, input, onClose }: Props) {
   const ref = useRef<HTMLDialogElement>(null)
   const [value, setValue] = useState('')
+  const [missing, setMissing] = useState(false)
 
   // 그려질 때 바로 연다. 닫을 때는 부모가 이 컴포넌트를 빼면 된다
   useEffect(() => {
@@ -25,7 +26,10 @@ export default function ConfirmSheet({ title, body, okLabel, danger = false, irr
     if (dialog && !dialog.open) dialog.showModal()
   }, [])
 
-  const close = (ok: boolean) => onClose({ ok, value: value.trim() })
+  const close = (ok: boolean) => {
+    if (ok && input?.required && !value.trim()) return setMissing(true) // 창을 닫지 않고 아래에 안내
+    onClose({ ok, value: value.trim() })
+  }
 
   return (
     // Esc로 닫으면 취소
@@ -40,8 +44,16 @@ export default function ConfirmSheet({ title, body, okLabel, danger = false, irr
           maxLength={40}
           placeholder={input.placeholder}
           aria-label={input.label}
-          onChange={(e) => setValue(e.target.value)}
+          onChange={(e) => {
+            setValue(e.target.value)
+            setMissing(false)
+          }}
         />
+      )}
+      {missing && (
+        <p className={styles.missing} role="alert">
+          {input?.required}
+        </p>
       )}
       <div className={styles.actions}>
         <button type="button" className="btn quiet" onClick={() => close(false)}>

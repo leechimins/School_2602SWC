@@ -8,7 +8,7 @@ const TABS: { key: TabKey; label: string; to: string; icon: IconName }[] = [
   { key: 'home', label: '홈', to: PATHS.home, icon: 'home' },
   { key: 'schedule', label: '일정', to: PATHS.schedule, icon: 'calendar' },
   { key: 'tasks', label: '할 일', to: PATHS.tasks, icon: 'tasks' },
-  { key: 'me', label: '나', to: PATHS.me, icon: 'person' },
+  { key: 'me', label: 'My', to: PATHS.me, icon: 'person' },
 ]
 
 export default function TabBar() {

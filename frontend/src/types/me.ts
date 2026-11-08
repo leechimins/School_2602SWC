@@ -1,4 +1,4 @@
-import type { IsoDate } from './common.ts'
+import type { Id, IsoDate } from './common.ts'
 
 // 내 조건(나 탭·온보딩): 회의 잡을 때 쓸 조건 네 가지와 내 주간 시간표.
 // 서버 모양(분·오전오후·영문 enum)은 api/convert.ts가 이 모양으로 바꾼다.
@@ -31,6 +31,7 @@ export type WeekBlock = {
   startHour: number // 18.5 = 18:30
   endHour: number
   source: ScheduleSource | null // 팀 회의는 null
+  itemId: Id | null // 내 일정이면 그 일정 ID(직접 넣은 일정을 길게 눌러 고치기·지우기). 팀 회의는 null
 }
 
 export type MyWeek = {
@@ -45,6 +46,9 @@ export type ScheduleItemInput = {
   kind: 'class' | 'event'
   days: { weekday: number; startHour: number; endHour: number }[]
 }
+
+/** 직접 넣은 일정 한 칸(요일 하나) 고치기 */
+export type ScheduleItemPatch = { title: string; startHour: number; endHour: number }
 
 /** 일정 연결 결과 한 줄: "수업 4개를 가져왔어요" */
 export type LinkResult = { count: number }

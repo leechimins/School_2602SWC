@@ -22,7 +22,6 @@
 .textarea {
   min-height: 76px;
   padding-top: var(--gap-2);
-  resize: vertical;
 }
 
 .range {

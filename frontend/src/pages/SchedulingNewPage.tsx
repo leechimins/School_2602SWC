@@ -24,7 +24,7 @@ const MAX_MIN = 240
 function defaultInput(now: Dayjs): SchedulingInput {
   const monday = now.add(1, 'week').day(1)
   return {
-    topic: '중간 점검 전 회의', // 시연에서 바로 시작하도록 채워 둔다
+    topic: '',
     windowStart: toIsoDate(monday),
     windowEnd: toIsoDate(monday.add(4, 'day')),
     durationMin: 120,
@@ -96,7 +96,7 @@ function SchedulingForm({ room }: { room: Room }) {
       <section className="sec">
         <label className={form.label}>
           주제
-          <input className="field" value={input.topic} maxLength={40} onChange={(e) => set('topic', e.target.value)} />
+          <input className="field" value={input.topic} maxLength={40} placeholder="예: 중간 점검 전 회의" onChange={(e) => set('topic', e.target.value)} />
         </label>
         <span className={form.label}>언제부터 언제 사이에</span>
         <div className={form.range}>

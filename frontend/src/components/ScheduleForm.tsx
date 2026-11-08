@@ -98,7 +98,7 @@ export default function ScheduleForm({ onSaved, onCancel }: Props) {
   )
 }
 
-function HourSelect({ label, value, onChange }: { label: string; value: number; onChange: (h: number) => void }) {
+export function HourSelect({ label, value, onChange }: { label: string; value: number; onChange: (h: number) => void }) {
   return (
     <select className="field num" aria-label={label} value={value} onChange={(e) => onChange(Number(e.target.value))}>
       {HOURS.map((h) => (

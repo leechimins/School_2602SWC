@@ -142,7 +142,7 @@ export default function TaskRow({ task, onStatusChange, onEdit, meetingDone = fa
       {ui.askingBlocked && (
         <ConfirmSheet
           title="막힘으로 바꿀까요?"
-          body="팀에 바로 알려요. 막힌 이유를 한 줄 남기면 알림에 같이 보여요. 비워 둬도 돼요."
+          body="팀원에게 바로 알려요. 막힌 이유도 한 줄 남길 수 있어요."
           okLabel="막힘으로 바꾸기"
           irreversible={false}
           input={{ label: '막힌 이유', placeholder: '예: 인터뷰 녹취가 아직 안 왔어요' }}

@@ -96,7 +96,6 @@ function MyTasks({ tasks }: { tasks: Task[] }) {
       {tasks.length === 0 ? (
         <EmptyState
           title="아직 할 일이 없어요"
-          description="회의를 기록하면 에이전트가 할 일을 뽑아 제안해요. 회의록에서 확정하면 여기에 들어와요."
           action={{ label: '일정으로 가기', to: PATHS.schedule }}
         />
       ) : (

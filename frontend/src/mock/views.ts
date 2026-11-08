@@ -1,5 +1,5 @@
 import dayjs, { type Dayjs } from 'dayjs'
-import { daysUntil, formatMD, formatSlot, formatTime, toIsoDate } from '../lib/date.ts'
+import { daysUntil, formatMD, formatTime, toIsoDate } from '../lib/date.ts'
 import { withJosa } from '../lib/korean.ts'
 import type { Id } from '../types/common.ts'
 import type { Home } from '../types/home.ts'
@@ -290,7 +290,6 @@ export function buildNotices(s: DemoState, viewer: Id, now: Dayjs): NoticeList {
   }
 
   for (const m of s.meetings) {
-    const slot = `${formatSlot(m.startAt, m.endAt)} ${m.mode}`
     const about = { taskId: null, taskTitle: null, meetingId: m.id }
     const minutesToStart = dayjs(m.startAt).diff(now, 'minute')
     if (m.status === 'confirmed' && minutesToStart > 0 && minutesToStart <= 30) {
@@ -307,14 +306,14 @@ export function buildNotices(s: DemoState, viewer: Id, now: Dayjs): NoticeList {
     if (p && m.status === 'proposed' && p.responses[viewer] === '대기') {
       notices.push({
         id: `proposed-${m.id}`, kind: '회의 제안', ...about,
-        reason: `회의 일정이 나왔습니다. ${slot}. ${p.rationale}`,
-        createdAt: s.agentLog.find((a) => a.what.startsWith('조율 결과'))?.at ?? s.clockNow,
+        reason: `${m.topic} 일정이 나왔어요. 수락/거절해 주세요.`,
+        createdAt: s.agentLog.find((a) => a.what.startsWith(`${m.topic} 제안`))?.at ?? s.clockNow,
       })
     }
     if (p && m.status === 'confirmed') {
       notices.push({
         id: `confirmed-${m.id}`, kind: '회의 확정', ...about,
-        reason: `${withJosa(slot, '으로/로')} 확정됐어요. 모두 수락했어요`,
+        reason: `${m.topic} 일정이 확정됐어요.`,
         createdAt: s.clockNow,
       })
     }
@@ -350,6 +349,7 @@ export function buildMyWeek(s: DemoState, viewer: Id, anyDay: string): MyWeek {
       startHour: i.startMin / 60,
       endHour: i.endMin / 60,
       source: i.source,
+      itemId: i.id,
     }))
   const meetings: WeekBlock[] = s.meetings
     .filter((m) => m.status !== 'cancelled')
@@ -365,6 +365,7 @@ export function buildMyWeek(s: DemoState, viewer: Id, anyDay: string): MyWeek {
         startHour: start.hour() + start.minute() / 60,
         endHour: end.hour() + end.minute() / 60,
         source: null,
+        itemId: null,
       }
     })
   return { weekStart: toIsoDate(monday), weekEnd: toIsoDate(sunday), blocks: [...mine, ...meetings] }
