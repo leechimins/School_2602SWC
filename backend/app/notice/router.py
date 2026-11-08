@@ -132,7 +132,7 @@ LOG_LIMIT = 50
 class AgentLogOut(SQLModel):
     id: int = Field(description="기록 ID")
     at: datetime = Field(description="한 시각(시연 시계)")
-    what: str = Field(description="무엇을 했나. 예: 발표 리허설 회의를 11월 16일(월) 15:00–17:00으로 제안했어요")
+    what: str = Field(description="무엇을 했나. 예: 발표 리허설 제안 · 11월 16일(월) 15:00–17:00")
     why: str = Field(description="왜. 사람별 점수 숫자는 들어가지 않는다")
 
 

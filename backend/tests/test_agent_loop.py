@@ -25,11 +25,10 @@ from app.meeting.models import (
     Utterance,
     YieldEntry,
 )
-from app.notice.models import Notification
+from app.notice.models import AgentLog
 from app.shared.base import KST
 from app.shared.enums import (
     MeetingStatus,
-    NotificationKind,
     Mode,
     ResponseState,
     SchedulingPhase,
@@ -419,13 +418,9 @@ def test_한_번만_돌고_조정이면_한_번이라고_말한다(
     assert "한 번 돌았지만" in 판단.text, 판단.text
     assert "세 번" not in 판단.text
 
-    알림 = session.exec(
-        select(Notification).where(
-            Notification.kind == NotificationKind.MEETING_CONFIRMED
-        )
-    ).first()
-    assert 알림 is not None
-    assert "한 번 조율했지만" in 알림.reason, 알림.reason
+    기록 = session.exec(select(AgentLog).where(col(AgentLog.what).contains("확정"))).first()
+    assert 기록 is not None
+    assert "한 번 조율했지만" in 기록.why, 기록.why
 
 
 def test_전원_가능한_후보가_없으면_라운드_수를_말하지_않는다(
@@ -444,13 +439,9 @@ def test_전원_가능한_후보가_없으면_라운드_수를_말하지_않는�
     list(run_rounds(session, s))
 
     # rounds_used는 0이 아니다 — 조정 발언이 1라운드 자리에 붙으며 1로 올린다.
-    # 그래서 알림 문구가 rounds_used를 읽으면 이 길을 "한 번 돌았다"로 오해한다.
-    # 조정 발언 전에 센 값을 넘기는 이유가 이 테스트다.
-    알림 = session.exec(
-        select(Notification).where(
-            Notification.kind == NotificationKind.MEETING_CONFIRMED
-        )
-    ).first()
-    assert 알림 is not None
-    assert "모두가 가능한 시간이 없어" in 알림.reason
-    assert "조율했지만" not in 알림.reason
+    # 그래서 기록 문구(에이전트 기록의 "왜")가 rounds_used를 읽으면 이 길을 "한 번 돌았다"로 오해한다.
+    # 조정 발언 전에 센 값을 넘기는 이유가 이 테스트다. 알림은 짧게 "판단 에이전트가 정했어요"만 쓴다.
+    기록 = session.exec(select(AgentLog).where(col(AgentLog.what).contains("확정"))).first()
+    assert 기록 is not None
+    assert "모두가 가능한 시간이 없어" in 기록.why
+    assert "조율했지만" not in 기록.why
