@@ -61,17 +61,17 @@ export default function MePage() {
           <b className={styles.name}>{user.name}</b> {user.isLeader && <Badge tone="here">팀장</Badge>}
           {room.status === 'ready' && <p className="meta">{room.data.name}</p>}
         </div>
+        {prefs.status === 'ready' && (
+          <button type="button" className={`btn small ${styles.prefBtn}`} onClick={() => setEditingPrefs(true)}>
+            좋아하는 방식 바꾸기
+          </button>
+        )}
       </div>
 
       {prefs.status === 'error' && <RetryBox message={prefs.message} onRetry={prefs.reload} />}
       {prefs.status === 'ready' && (
         <>
           <AgentQuote name={user.name} prefs={prefs.data} />
-          <div className={styles.prefLink}>
-            <button type="button" className="btn small" onClick={() => setEditingPrefs(true)}>
-              좋아하는 방식 바꾸기
-            </button>
-          </div>
           {editingPrefs && <PrefSheet initial={prefs.data} onClose={() => setEditingPrefs(false)} />}
         </>
       )}

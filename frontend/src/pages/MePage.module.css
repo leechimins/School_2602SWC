@@ -13,8 +13,8 @@
   margin-top: 8px;
 }
 
-.prefLink {
-  display: flex;
-  justify-content: flex-end;
-  padding: 0 18px;
+/* 프로필 줄 오른쪽 끝 */
+.prefBtn {
+  margin-left: auto;
+  flex-shrink: 0;
 }
