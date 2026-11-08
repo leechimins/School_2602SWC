@@ -22,6 +22,7 @@ import {
   minutesBetween,
   type DueGroup,
 } from '../lib/date.ts'
+import { answerLine } from '../lib/meeting.ts'
 import { PATHS, pathTo } from '../lib/paths.ts'
 import type { Home } from '../types/home.ts'
 import type { Task } from '../types/task.ts'
@@ -150,9 +151,7 @@ function NextMeeting({ home }: { home: Home }) {
   }
   const confirmed = m.status === 'confirmed'
   const waiting = !confirmed && m.myState === '대기'
-  const answers = confirmed
-    ? '모두 수락했어요'
-    : `아직 응답 ${m.pendingCount}명${m.myState ? ` · 내 응답 ${m.myState}` : ''}`
+  const answers = answerLine(m, home.joinedCount)
   return (
     <section className="sec">
       <div className="row-between">
