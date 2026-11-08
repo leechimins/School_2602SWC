@@ -9,5 +9,4 @@
 /* 취소 | 삭제 | 저장 중 가운데 */
 .delete {
   flex: 1;
-  color: var(--danger);
 }
