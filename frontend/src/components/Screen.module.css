@@ -39,6 +39,7 @@
 .body {
   min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: contain; /* 끝까지 굴려도 바깥 페이지가 따라 움직이지 않게 */
   padding-bottom: 20px;
 }
 

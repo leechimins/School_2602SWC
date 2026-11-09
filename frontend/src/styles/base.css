@@ -52,6 +52,15 @@ p {
   margin: 0;
 }
 
+/* 휴대폰 앱처럼 스크롤 막대를 숨긴다(굴리기는 그대로). 노트북 시연에서도 화면 안에 회색 막대가 생기지 않는다 */
+* {
+  scrollbar-width: none;
+}
+
+*::-webkit-scrollbar {
+  display: none;
+}
+
 [hidden] {
   display: none !important;
 }
