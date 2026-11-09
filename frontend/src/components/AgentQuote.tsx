@@ -36,16 +36,20 @@ export default function AgentQuote({ name, prefs }: Props) {
     ),
   ].filter(Boolean)
 
+  // 11/9 TTAK: 캐릭터(내 에이전트)가 말하는 말풍선. AI가 만든 말이라 노란 테두리를 유지한다
   return (
-    <div className={styles.quote}>
-      <p className="meta">내 에이전트가 이렇게 말해 줘요</p>
-      <p>
-        {sentences.length === 0 ? (
-          '아직 고른 조건이 없어요. 조건이 없으면 비어 있는 시간 중에서 골라요.'
-        ) : (
-          <>“{sentences.flatMap((el, i) => (i === 0 ? [el] : [' ', el]))}”</>
-        )}
-      </p>
+    <div className={styles.wrap}>
+      <img className={styles.face} src="/splash/peek.webp" alt="" aria-hidden="true" />
+      <div className={styles.quote}>
+        <p className="meta">내 에이전트가 이렇게 말해 줘요</p>
+        <p>
+          {sentences.length === 0 ? (
+            '아직 고른 조건이 없어요. 조건이 없으면 비어 있는 시간 중에서 골라요.'
+          ) : (
+            <>“{sentences.flatMap((el, i) => (i === 0 ? [el] : [' ', el]))}”</>
+          )}
+        </p>
+      </div>
     </div>
   )
 }

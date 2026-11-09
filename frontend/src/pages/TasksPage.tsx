@@ -9,7 +9,6 @@ import Icon, { type IconName } from '../components/Icon.tsx'
 import RetryBox from '../components/RetryBox.tsx'
 import Screen from '../components/Screen.tsx'
 import TaskEditor from '../components/TaskEditor.tsx'
-import { AssigneeSelect } from '../components/TaskFields.tsx'
 import TaskRow from '../components/TaskRow.tsx'
 import { useApi } from '../hooks/useApi.ts'
 import { useCurrentUser } from '../hooks/useCurrentUser.ts'
@@ -57,7 +56,7 @@ export default function TasksPage() {
   )
 
   return (
-    <Screen title="할 일 관리" hero={{ sub: '우리 팀의 할 일을 확인하고 함께 진행해요!' }} aux={mine} dock={dock}>
+    <Screen title="할 일" aux={mine} dock={dock}>
       {res.status === 'error' && <RetryBox message={res.message} onRetry={res.reload} />}
       {res.status === 'ready' && <TeamTaskList data={res.data} members={members} addCard={addCard} />}
     </Screen>
@@ -109,8 +108,9 @@ function TeamTaskList({ data, members, addCard }: { data: TeamTasks; members: Me
       task={task}
       onStatusChange={(t, status: TaskStatus, reason) => changeTaskStatus(user.roomId, t.id, status, reason)}
       onEdit={task.canEdit ? (t) => setEditingId(t.id) : undefined}
+      assign={{ members, onPick: (assigneeId) => editTask(user.roomId, task.id, { assigneeId }) }}
     >
-      {editingId === task.id ? (
+      {editingId === task.id && (
         <TaskEditor
           task={task}
           members={members}
@@ -118,17 +118,6 @@ function TeamTaskList({ data, members, addCard }: { data: TeamTasks; members: Me
           onDelete={() => dismissTask(user.roomId, task.id)}
           onClose={() => setEditingId(null)}
         />
-      ) : (
-        !task.assigneeId && (
-          <div className={styles.assign}>
-            <AssigneeSelect
-              members={members}
-              value={null}
-              emptyLabel="담당자 지정"
-              onChange={(assigneeId) => editTask(user.roomId, task.id, { assigneeId })}
-            />
-          </div>
-        )
       )}
     </TaskRow>
   )

@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { getHome } from '../api/rooms.ts'
 import { changeTaskStatus } from '../api/tasks.ts'
@@ -16,10 +16,13 @@ import { useCurrentUser } from '../hooks/useCurrentUser.ts'
 import {
   dueGroup,
   formatCountdown,
+  formatDayLabel,
+  formatDDay,
   formatDuration,
   formatRange,
   formatTimeRange,
   minutesBetween,
+  periodOf,
   type DueGroup,
 } from '../lib/date.ts'
 import { answerLine } from '../lib/meeting.ts'
@@ -28,7 +31,8 @@ import type { Home } from '../types/home.ts'
 import type { Task } from '../types/task.ts'
 import styles from './HomePage.module.css'
 
-// 홈: 지금 무엇을 봐야 하는지 한 화면에 — 기간(마감 디데이) · 다음 회의 · 새 회의 잡기(팀장) · 내 할 일.
+// 홈(11/9 TTAK): 머리(방 이름 · 오늘 · 마감 디데이) → 마감 카드 → 다음 회의 → 새 회의 잡기(팀장) → 내 할 일.
+// 앱에서 머리(보라 그라데이션 + 캐릭터)는 홈에만 붙인다.
 // "먼저 챙길 것"은 홈에 따로 두지 않고 종의 숫자와 할 일 옆 늦음·막힘 뱃지로 알린다
 export default function HomePage() {
   const user = useCurrentUser()
@@ -42,24 +46,49 @@ export default function HomePage() {
     </Link>
   )
   const title = home.status === 'ready' ? home.data.roomName : '홈'
+  const sub =
+    home.status === 'ready'
+      ? `오늘 ${formatDayLabel(home.data.today)} · 마감까지 ${formatDDay(periodOf(home.data.startDate, home.data.dueDate, home.data.today).left)}`
+      : undefined
 
   return (
-    <Screen title={title} aux={bell}>
+    <Screen title={title} hero={{ sub }} aux={bell}>
       {home.status === 'error' && <RetryBox message={home.message} onRetry={home.reload} />}
       {home.status === 'ready' && (
         <>
           <PeriodCard startDate={home.data.startDate} dueDate={home.data.dueDate} today={home.data.today} />
           <NextMeeting home={home.data} />
           {home.data.canStartScheduling && (
-            <Link to={PATHS.schedulingNew} className={`sec ${styles.newMeeting}`}>
-              <b>+ 새 회의 잡기</b>
-              <span className="meta">기간과 길이만 정하면 에이전트들이 시간을 조율해요</span>
+            <Link to={PATHS.schedulingNew} className={styles.newMeeting}>
+              <span className={styles.newIcon} aria-hidden="true">
+                <Icon name="calendar" />
+              </span>
+              <span className={styles.newText}>
+                <b>새 회의 잡기</b>
+                <span>기간과 길이만 정하면 에이전트가 시간을 맞춰요</span>
+              </span>
+              <span className={styles.chev} aria-hidden="true">
+                <Icon name="back" />
+              </span>
             </Link>
           )}
           <MyTasks tasks={home.data.myTasks} />
         </>
       )}
     </Screen>
+  )
+}
+
+// 카드 제목 줄: 아이콘 + 제목 (+ 오른쪽)
+function CardHead({ icon, title, right }: { icon: 'calendar' | 'tasks'; title: string; right?: ReactNode }) {
+  return (
+    <div className={styles.cardHead}>
+      <span className={styles.headIcon} aria-hidden="true">
+        <Icon name={icon} small />
+      </span>
+      <h2>{title}</h2>
+      {right && <span className={styles.headRight}>{right}</span>}
+    </div>
   )
 }
 
@@ -72,7 +101,7 @@ const GROUPS: { label: DueGroup; color: string }[] = [
   { label: '기한 없음', color: 'var(--check-idle)' },
 ]
 
-// 내 할 일: 기한으로 묶고(기한 지남 → 오늘 → 내일 → 그 이후), 끝낸 일은 맨 아래 "완료"
+// 내 할 일: 요약 칩(기한 지남 · 오늘 · 남은 일) → 기한 묶음(기한 지남 → 오늘 → 내일 → 그 이후) → 맨 아래 "완료"
 function MyTasks({ tasks }: { tasks: Task[] }) {
   const user = useCurrentUser()
   const now = useClock()
@@ -82,6 +111,8 @@ function MyTasks({ tasks }: { tasks: Task[] }) {
     ...GROUPS.map((g) => ({ ...g, tasks: open.filter((t) => dueGroup(t.dueDate, now) === g.label) })),
     { label: '완료', color: 'var(--check-idle)', tasks: done },
   ].filter((g) => g.tasks.length > 0)
+  const late = open.filter((t) => dueGroup(t.dueDate, now) === '기한 지남').length
+  const today = open.filter((t) => dueGroup(t.dueDate, now) === '오늘').length
   const row = (task: Task) => (
     <TaskRow
       key={task.id}
@@ -89,10 +120,15 @@ function MyTasks({ tasks }: { tasks: Task[] }) {
       onStatusChange={(t, status, reason) => changeTaskStatus(user.roomId, t.id, status, reason)}
     />
   )
+  const teamLink = (
+    <Link to={PATHS.tasks} className={styles.more}>
+      팀 할 일 보기 ›
+    </Link>
+  )
 
   return (
     <section className="sec">
-      <h2>내 할 일</h2>
+      <CardHead icon="tasks" title="내 할 일" right={tasks.length > 0 ? teamLink : undefined} />
       {tasks.length === 0 ? (
         <EmptyState
           title="아직 할 일이 없어요"
@@ -101,6 +137,21 @@ function MyTasks({ tasks }: { tasks: Task[] }) {
         />
       ) : (
         <>
+          <div className={styles.summary}>
+            {late > 0 && (
+              <span className={styles.sumLate}>
+                기한 지남 <b className="num">{late}</b>
+              </span>
+            )}
+            {today > 0 && (
+              <span className={styles.sumToday}>
+                오늘 <b className="num">{today}</b>
+              </span>
+            )}
+            <span>
+              남은 일 <b className="num">{open.length}</b>
+            </span>
+          </div>
           {open.length === 0 && <p className="meta">남은 할 일이 없어요.</p>}
           {groups.map((g) => (
             <div key={g.label}>
@@ -110,9 +161,6 @@ function MyTasks({ tasks }: { tasks: Task[] }) {
               <ul className={styles.list}>{g.tasks.map(row)}</ul>
             </div>
           ))}
-          <Link to={PATHS.tasks} className="link">
-            팀 할 일 보기
-          </Link>
         </>
       )}
     </section>
@@ -126,13 +174,15 @@ function NextMeeting({ home }: { home: Home }) {
   if (c) {
     return (
       <section className="sec">
-        <div className="row-between">
-          <h2>다음 회의</h2>
-          <Badge>조율 중</Badge>
+        <CardHead icon="calendar" title="다음 회의" right={<Badge tone="here">조율 중</Badge>} />
+        <div className={styles.meet}>
+          <span className={styles.spin} aria-hidden="true" />
+          <div className={styles.meetBody}>
+            <p className={styles.topic}>{c.topic}</p>
+            <p className="meta num">{formatRange(c.windowStart, c.windowEnd)} 사이 · 에이전트끼리 시간을 맞추는 중</p>
+          </div>
         </div>
-        <p className="strong">{c.topic}</p>
-        <p className="meta num">{formatRange(c.windowStart, c.windowEnd)} 사이 · 에이전트끼리 시간을 맞추는 중</p>
-        <Link to={pathTo.scheduling(c.id)} className="btn small block">
+        <Link to={pathTo.scheduling(c.id)} className={`btn primary block ${styles.wide}`}>
           조율 과정 보기
         </Link>
       </section>
@@ -141,8 +191,8 @@ function NextMeeting({ home }: { home: Home }) {
   if (!m) {
     return (
       <section className="sec">
-        <h2>다음 회의</h2>
-        <p className="strong">아직 잡힌 회의가 없어요</p>
+        <CardHead icon="calendar" title="다음 회의" />
+        <p className={styles.topic}>아직 잡힌 회의가 없어요</p>
         <p className="meta">
           {home.canStartScheduling ? '마감 전에 필요할 때 언제든 잡아요.' : '팀장이 회의를 잡으면 알려 드려요.'}
         </p>
@@ -154,20 +204,21 @@ function NextMeeting({ home }: { home: Home }) {
   const answers = answerLine(m, home.joinedCount)
   return (
     <section className="sec">
-      <div className="row-between">
-        <h2>다음 회의</h2>
-        <Badge tone={confirmed ? 'ok' : 'warn'}>{confirmed ? '확정' : '확정 대기'}</Badge>
-      </div>
+      <CardHead
+        icon="calendar"
+        title="다음 회의"
+        right={<Badge tone={confirmed ? 'ok' : 'warn'}>{confirmed ? '확정' : '확정 대기'}</Badge>}
+      />
       <div className={styles.meet}>
         <DateBlock at={m.startAt} />
         <div className={styles.meetBody}>
-          <p className="strong">{m.topic}</p>
+          <p className={styles.topic}>{m.topic}</p>
           <p className="meta num">
             {formatTimeRange(m.startAt, m.endAt)} · {m.mode} · {formatDuration(minutesBetween(m.startAt, m.endAt))}
           </p>
-          <p className={styles.tick}>
+          <span className={styles.tick}>
             시작까지 <span className="num">{formatCountdown(m.startAt, now)}</span>
-          </p>
+          </span>
         </div>
       </div>
       <div className={`row-between ${styles.meetFoot}`}>

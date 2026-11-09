@@ -30,10 +30,6 @@ const STATUS: Record<SchedulingStatus, { label: string; tone: Tone; title: strin
 
 const STAGES = ['일정 수집', '시간 조율 중', '최종 확정'] as const
 
-const HERO = {
-  sub: '팀원의 일정과 선호를 보고 가장 딱 맞는 회의 시간을 찾고 있어요!',
-  icon: <Icon name="calendar" />,
-}
 
 const slotText = (slot: Slot) => `${formatSlot(slot.startAt, slot.endAt)} · ${slot.mode}`
 
@@ -60,7 +56,7 @@ export default function SchedulingPage() {
     return <Talk key={res.data.id} scheduling={res.data} viewerId={user.id} isLeader={user.isLeader} />
   }
   return (
-    <Screen title="회의 조율" hero={HERO} backTo={PATHS.home}>
+    <Screen title="회의 조율" backTo={PATHS.home}>
       {res.status === 'loading' && <Waiting what="에이전트들이 모이고 있어요" />}
       {res.status === 'error' && <RetryBox message={res.message} onRetry={res.reload} />}
     </Screen>
@@ -99,7 +95,7 @@ function Talk({ scheduling: s, viewerId, isLeader }: TalkProps) {
   return (
     <Screen
       title="회의 조율"
-      hero={HERO}
+     
       backTo={PATHS.home}
       dock={<Dock scheduling={s} status={status} round={round} slot={lastSlot} isLeader={isLeader} />}
     >

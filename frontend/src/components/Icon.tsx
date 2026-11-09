@@ -38,6 +38,8 @@ const PATHS = {
   check: <path d="m5.5 12.5 4.2 4 8.8-9" />,
   chevron: <path d="m6 9.5 6 6 6-6" />,
   plus: <path d="M12 5v14M5 12h14" />,
+  link: <path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" />,
+  heart: <path d="M12 19.5s-7-4.3-7-9.3A3.9 3.9 0 0 1 12 8a3.9 3.9 0 0 1 7 2.2c0 5-7 9.3-7 9.3z" />,
 } as const
 
 export type IconName = keyof typeof PATHS

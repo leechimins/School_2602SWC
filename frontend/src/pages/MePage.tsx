@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { isRealServer, messageOf } from '../api/client.ts'
 import { getMyWeek, getPreferences, savePreferences } from '../api/me.ts'
@@ -7,6 +7,7 @@ import { signOut } from '../api/session.ts'
 import AgentQuote from '../components/AgentQuote.tsx'
 import Avatar from '../components/Avatar.tsx'
 import Badge from '../components/Badge.tsx'
+import Icon, { type IconName } from '../components/Icon.tsx'
 import PrefForm from '../components/PrefForm.tsx'
 import RetryBox from '../components/RetryBox.tsx'
 import ScheduleForm from '../components/ScheduleForm.tsx'
@@ -52,28 +53,35 @@ export default function MePage() {
 
   return (
     <Screen title="나">
-      <div className={styles.profile}>
-        <Avatar name={user.name} size="large" />
-        <div>
+      {/* 프로필: 큰 아바타 · 이름 · 팀장 · 방 이름 | 팀 보기 */}
+      <section className={`sec ${styles.profile}`}>
+        <span className={styles.bigAvatar}>
+          <Avatar name={user.name} size="large" />
+        </span>
+        <div className={styles.who}>
           <b className={styles.name}>{user.name}</b> {user.isLeader && <Badge tone="here">팀장</Badge>}
           {room.status === 'ready' && <p className="meta">{room.data.name}</p>}
         </div>
-      </div>
+        <Link to={PATHS.team} className={styles.team}>
+          팀 보기 ›
+        </Link>
+      </section>
 
       {prefs.status === 'error' && <RetryBox message={prefs.message} onRetry={prefs.reload} />}
       {prefs.status === 'ready' && <AgentQuote name={user.name} prefs={prefs.data} />}
 
       <section className="sec">
-        <h2>내 일정 가져오기</h2>
+        <SecTitle icon="link" title="내 일정 가져오기" />
         {thisWeek.status === 'error' && <RetryBox message={thisWeek.message} onRetry={thisWeek.reload} />}
         {thisWeek.status === 'ready' && <ScheduleLinks blocks={thisWeek.data.blocks} onAddManual={openAdd} />}
       </section>
 
       <section className="sec">
-        <div className="row-between">
-          <h2>내 시간</h2>
-          {shown.status === 'ready' && <span className="meta num">{formatRange(shown.data.weekStart, shown.data.weekEnd)}</span>}
-        </div>
+        <SecTitle
+          icon="calendar"
+          title="내 시간"
+          right={shown.status === 'ready' && <span className="meta num">{formatRange(shown.data.weekStart, shown.data.weekEnd)}</span>}
+        />
         <Segmented label="주" options={WEEKS} value={week} onChange={setWeek} />
         {shown.status === 'error' && <RetryBox message={shown.message} onRetry={shown.reload} />}
         {shown.status === 'ready' && <WeekGrid blocks={shown.data.blocks} />}
@@ -98,23 +106,32 @@ export default function MePage() {
       </section>
 
       <section className="sec">
-        <h2>내가 좋아하는 방식</h2>
+        <SecTitle icon="heart" title="내가 좋아하는 방식" />
         {prefs.status === 'ready' && <PrefEditor key={JSON.stringify(prefs.data)} initial={prefs.data} />}
       </section>
 
-      <section className="sec">
-        <p className="meta">팀원 목록과 양보 점수, 초대 코드는 팀 화면에서 봐요.</p>
-        <Link to={PATHS.team} className="link">
-          팀 보기
-        </Link>
-      </section>
       {/* 목 모드에는 로그인이 없어서 숨긴다 */}
       {isRealServer() && (
-        <button type="button" className="btn quiet block" onClick={logout}>
-          로그아웃
-        </button>
+        <div className={styles.logout}>
+          <button type="button" className="btn quiet" onClick={logout}>
+            로그아웃
+          </button>
+        </div>
       )}
     </Screen>
+  )
+}
+
+// 카드 제목 줄: 아이콘 + 제목 (+ 오른쪽)
+function SecTitle({ icon, title, right }: { icon: IconName; title: string; right?: ReactNode }) {
+  return (
+    <div className={styles.secTitle}>
+      <span className={styles.secIcon} aria-hidden="true">
+        <Icon name={icon} small />
+      </span>
+      <h2>{title}</h2>
+      {right && <span className={styles.secRight}>{right}</span>}
+    </div>
   )
 }
 

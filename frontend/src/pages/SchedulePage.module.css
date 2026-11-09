@@ -79,3 +79,105 @@
   display: block;
 }
 
+
+/* ── 11/9 TTAK ─────────────────────────────── */
+
+/* 제목줄 오른쪽 "＋ 새 회의 잡기" (팀장) */
+.newPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  min-height: 34px;
+  margin-right: 6px;
+  padding: 0 14px;
+  border-radius: 99px;
+  background: var(--point-grad);
+  box-shadow: 0 4px 10px color-mix(in srgb, var(--point) 30%, transparent);
+  color: var(--on-point);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.newPill :global(svg.i) {
+  stroke-width: 2.2;
+}
+
+/* 지금 회의 받아적기: 그라데이션 강조 카드 */
+.recNow {
+  padding: 16px;
+  background: var(--point-grad);
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--point) 30%, transparent);
+}
+
+.recIcon {
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+}
+
+.recText {
+  flex: 1;
+  min-width: 0;
+}
+
+.recGo {
+  flex: none;
+  transform: scaleX(-1);
+}
+
+/* 섹션 제목: 아이콘 + 제목 + 개수 */
+.secHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 20px 20px 0;
+}
+
+.secHead h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.secIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: var(--point-soft);
+  color: var(--point);
+}
+
+.secCount {
+  padding: 0 8px;
+  border-radius: 99px;
+  background: var(--soft);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* 회의 행: 위아래 여유를 조금 더 */
+.row {
+  min-height: 68px;
+  padding: 10px 0;
+}
+
+/* 잡힌 회의 없음: 작은 캐릭터 + 안내 */
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 0 4px;
+  text-align: center;
+}
+
+.empty img {
+  width: 72px;
+  height: auto;
+  margin-bottom: 4px;
+}

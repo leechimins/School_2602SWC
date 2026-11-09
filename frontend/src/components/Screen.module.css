@@ -6,20 +6,26 @@
 }
 
 .top {
-  min-height: 54px;
+  min-height: 60px;
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 0 8px 0 16px;
+  padding: 6px 8px 0 20px;
   background: var(--page);
 }
 
 .title {
   flex: 1;
   margin: 0;
-  font-size: var(--fs-title);
+  font-size: 22px;
   font-weight: 800;
   letter-spacing: -0.03em;
+}
+
+/* 제목줄 오른쪽 링크·아이콘은 포인트색 */
+.top > :global(.link),
+.top > :global(.icon-btn) {
+  color: var(--point-ink);
 }
 
 .back {
@@ -109,10 +115,11 @@
   align-items: center;
   gap: 8px;
   margin: 0;
-  font-size: 28px;
+  font-size: 25px;
   font-weight: 800;
   letter-spacing: -0.03em;
   line-height: 1.25;
+  word-break: keep-all;
   text-shadow: 0 2px 8px rgb(60 60 150 / 0.2);
 }
 

@@ -19,3 +19,67 @@
   gap: 6px;
   margin-top: 10px;
 }
+
+/* ── 11/9 TTAK ─────────────────────────────── */
+.profile {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px var(--sp);
+}
+
+/* 프로필 아바타는 56px로 크게 */
+.bigAvatar > span {
+  width: 56px;
+  height: 56px;
+  font-size: 20px;
+}
+
+.who {
+  flex: 1;
+  min-width: 0;
+}
+
+.team {
+  flex: none;
+  padding: 6px 12px;
+  border-radius: 99px;
+  background: var(--point-soft);
+  color: var(--point-ink);
+  font-size: 12.5px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.secTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.secTitle h2 {
+  margin: 0 !important;
+  font-size: 16px !important;
+  font-weight: 800;
+}
+
+.secIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  background: var(--point-soft);
+  color: var(--point);
+}
+
+.secRight {
+  margin-left: auto;
+}
+
+.logout {
+  margin-top: 14px;
+  text-align: center;
+}

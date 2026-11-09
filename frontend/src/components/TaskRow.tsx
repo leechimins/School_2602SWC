@@ -1,8 +1,11 @@
-import { useEffect, useReducer, useRef, type MouseEvent, type PointerEvent, type ReactNode } from 'react'
+import { useEffect, useReducer, useRef, useState, type MouseEvent, type PointerEvent, type ReactNode } from 'react'
 import { formatMD } from '../lib/date.ts'
 import { later } from '../lib/timers.ts'
 import { TASK_STATUS_TONE } from '../lib/tones.ts'
+import type { Id } from '../types/common.ts'
+import type { Member } from '../types/room.ts'
 import { TASK_STATUSES, type Task, type TaskStatus } from '../types/task.ts'
+import Avatar from './Avatar.tsx'
 import Badge from './Badge.tsx'
 import badge from './Badge.module.css'
 import ConfirmSheet from './ConfirmSheet.tsx'
@@ -30,7 +33,9 @@ type Props = {
   onEdit?: (task: Task) => void
   /** 회의록 "회의에서 끝난 일": 상태 칩 대신 "회의에서 완료" 뱃지, 체크를 끄면 "진행 중"으로 (시안10 autoRow) */
   meetingDone?: boolean
-  /** 행 아래에 붙는 것 (담당자 지정 칸, 고치기 패널) */
+  /** 담당자 없는 할 일: 오른쪽에 "＋ 담당자 지정" 칩 → 팀원 목록에서 골라 바로 배정 (11/9) */
+  assign?: { members: Member[]; onPick: (assigneeId: Id) => void }
+  /** 행 아래에 붙는 것 (고치기 패널) */
   children?: ReactNode
 }
 
@@ -55,23 +60,27 @@ const LONG_PRESS_MS = 500
 
 // 할 일 한 줄 (팀 할 일·내 할 일·홈 공통): 체크 · 제목(늦음·막힘 뱃지) | 기한 · 상태 칩
 // 상태 칩과 완료 체크는 담당자만 쓴다. 남의 일은 체크가 회색으로 막혀 있지만, 완료면 체크 표시는 보인다(목업 버그 ⑤).
-export default function TaskRow({ task, onStatusChange, onEdit, meetingDone = false, children }: Props) {
+export default function TaskRow({ task, onStatusChange, onEdit, meetingDone = false, assign, children }: Props) {
   const [ui, send] = useReducer(reduceUi, { menuOpen: false, askingBlocked: false })
+  const [picking, setPicking] = useState(false) // 담당자 고르는 목록이 열려 있다
   const rowRef = useRef<HTMLLIElement>(null)
   const cancelPress = useRef<(() => void) | null>(null)
   const mine = task.canChangeStatus
   const done = task.status === '완료'
   const undoStatus: TaskStatus = meetingDone ? '진행 중' : '시작 전'
 
-  // 메뉴 바깥을 누르면 닫는다
+  // 메뉴(상태·담당자) 바깥을 누르면 닫는다
   useEffect(() => {
-    if (!ui.menuOpen) return
+    if (!ui.menuOpen && !picking) return
     const close = (e: globalThis.PointerEvent) => {
-      if (!rowRef.current?.contains(e.target as Node)) send({ type: 'menu/close' })
+      if (rowRef.current?.contains(e.target as Node)) return
+      send({ type: 'menu/close' })
+      setPicking(false)
     }
     document.addEventListener('pointerdown', close)
     return () => document.removeEventListener('pointerdown', close)
-  }, [ui.menuOpen])
+  }, [ui.menuOpen, picking])
+  const unassigned = !task.assigneeId && assign !== undefined
 
   const pick = (status: TaskStatus) => {
     if (status === '막힘' && task.status !== '막힘') return send({ type: 'blocked/ask' })
@@ -121,6 +130,16 @@ export default function TaskRow({ task, onStatusChange, onEdit, meetingDone = fa
           {task.dueDate && <span className="meta num">{formatMD(task.dueDate)}</span>}
           {meetingDone && done ? (
             <Badge tone="ok">회의에서 완료</Badge>
+          ) : unassigned ? (
+            <button
+              type="button"
+              className={styles.assignChip}
+              aria-haspopup="menu"
+              aria-expanded={picking}
+              onClick={() => setPicking((v) => !v)}
+            >
+              <Icon name="plus" small /> 담당자 지정
+            </button>
           ) : mine ? (
             <button
               type="button"
@@ -137,6 +156,24 @@ export default function TaskRow({ task, onStatusChange, onEdit, meetingDone = fa
             <Badge tone={TASK_STATUS_TONE[task.status]}>
               <StatusLabel status={task.status} />
             </Badge>
+          )}
+          {picking && assign && (
+            <div className={`${styles.menu} ${styles.people}`} role="menu" aria-label="담당자 고르기">
+              {assign.members.map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setPicking(false)
+                    assign.onPick(m.id)
+                  }}
+                >
+                  <Avatar name={m.name} size="small" />
+                  {m.name}
+                </button>
+              ))}
+            </div>
           )}
           {ui.menuOpen && (
             <div className={styles.menu} role="menu">
