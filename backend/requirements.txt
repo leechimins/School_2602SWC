@@ -9,3 +9,5 @@ itsdangerous>=2.2
 # 에브리타임 공유 링크 읽기. 설치 뒤 한 번: python -m playwright install chromium
 # 없으면 에브리타임 연동만 빠지고 앱은 돈다
 playwright>=1.47
+# 받아적기: 브라우저 녹음(webm·mp4 등)을 mp3로 바꿔 모델에 보낸다
+av>=14

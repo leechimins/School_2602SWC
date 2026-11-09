@@ -321,6 +321,25 @@ def test_다시_쓰면_원문이_통째로_바뀐다(
     ]
 
 
+@pytest.mark.parametrize("text", ["", "  \n\n  ", "지수:\n민지 :  "])
+def test_남는_줄이_없는_글은_거절하고_원문을_지우지_않는다(
+    client: TestClient, seeded: Session, login, text: str
+) -> None:
+    # 실수로 빈 칸을 저장하면 받아적은 원문까지 통째로 사라지고 되돌릴 수 없다
+    room = _room(seeded)
+    meeting = _meeting(seeded, "중간 발표 자료 나누기")  # 시드 원문 6줄
+    login("지수")
+
+    res = client.put(_url(room, f"/{meeting.id}/transcript"), json={"text": text})
+
+    assert res.status_code == 400, res.text
+    error = res.json()
+    assert (error["code"], error["field"]) == ("INVALID_INPUT", "text")
+    assert error["message"] == "회의 내용을 적어 주세요."
+    after = client.get(_url(room, f"/{meeting.id}")).json()
+    assert len(after["transcript"]) == 6
+
+
 def test_전각_콜론도_말한_사람으로_읽는다() -> None:
     lines = parse("현우：확인했어요", {"현우": 3})
 

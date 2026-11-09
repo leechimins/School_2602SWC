@@ -14,6 +14,7 @@ Gemini·Groq·OpenRouter가 환경변수 두 줄로 바뀐다. 기본값은 Gemi
 
 from __future__ import annotations
 
+import base64
 import json
 import os
 import re
@@ -92,6 +93,61 @@ def complete_json(prompt: str, *, max_tokens: int = 700) -> dict | None:
                 "reasoning_effort": "none",
             },
             timeout=TIMEOUT_SEC,
+        )
+        response.raise_for_status()
+        text = response.json()["choices"][0]["message"]["content"]
+    except Exception:  # noqa: BLE001 - 무엇이 실패해도 앱은 돌아야 한다
+        return None
+
+    return _parse(text)
+
+
+# 녹음 받아적기(레인 B, #40). 70초 녹음에 8초 안팎이었고(11/8 측정), 30분까지
+# 받으므로 넉넉히 둔다. 조율처럼 구경하는 시간이 아니라 "정리 중"을 기다리는 시간이다.
+AUDIO_TIMEOUT_SEC = 120.0
+
+
+def complete_json_audio(
+    prompt: str, audio: bytes, *, audio_format: str = "mp3", max_tokens: int = 16_000
+) -> dict | None:
+    """프롬프트와 녹음을 함께 보내고 JSON 객체를 받는다. 안 되면 None.
+
+    complete_json과 같은 주소·키·끄는 스위치·실패 규칙을 쓴다. OpenAI 호환
+    규약의 input_audio라 형식은 mp3·wav만 된다 — 변환은 부르는 쪽이 한다.
+    녹음은 보내고 버린다(저장하지 않음).
+    """
+    key = _api_key()
+    if not enabled() or key is None:
+        return None
+
+    base = os.getenv("LLM_BASE_URL", DEFAULT_BASE_URL).rstrip("/")
+    try:
+        response = httpx.post(
+            f"{base}/chat/completions",
+            headers={"Authorization": f"Bearer {key}"},
+            json={
+                "model": os.getenv("LLM_MODEL", DEFAULT_MODEL),
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": prompt},
+                            {
+                                "type": "input_audio",
+                                "input_audio": {
+                                    "data": base64.b64encode(audio).decode("ascii"),
+                                    "format": audio_format,
+                                },
+                            },
+                        ],
+                    }
+                ],
+                "max_tokens": max_tokens,
+                # 받아적기는 들은 그대로 옮기는 일이라 흔들림이 없어야 한다
+                "temperature": 0,
+                "reasoning_effort": "none",
+            },
+            timeout=AUDIO_TIMEOUT_SEC,
         )
         response.raise_for_status()
         text = response.json()["choices"][0]["message"]["content"]
