@@ -119,3 +119,15 @@ export function periodOf(start: DateInput, due: DateInput, today: DateInput) {
 export function dateParts(value: DateInput) {
   return { month: d(value).format('M월'), day: d(value).format('D'), weekday: weekday(value) }
 }
+
+/** 그 날이 든 주의 월~일 7일 (홈 주간 달력) */
+export function weekOf(today: DateInput): Dayjs[] {
+  const t = d(today)
+  const monday = t.subtract((t.day() + 6) % 7, 'day') // 일요일(0)은 6일 전 월요일로
+  return Array.from({ length: 7 }, (_, i) => monday.add(i, 'day'))
+}
+
+/** 2026년 11월 */
+export function formatYearMonth(value: DateInput) {
+  return d(value).format('YYYY년 M월')
+}

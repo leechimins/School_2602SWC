@@ -1,150 +1,187 @@
 import { Link } from 'react-router-dom'
 import { getHome } from '../api/rooms.ts'
+import { getSchedule } from '../api/scheduling.ts'
 import { changeTaskStatus } from '../api/tasks.ts'
 import Icon from '../components/Icon.tsx'
 import RetryBox from '../components/RetryBox.tsx'
 import Screen from '../components/Screen.tsx'
 import TaskRow from '../components/TaskRow.tsx'
 import { useApi } from '../hooks/useApi.ts'
-import { useClock } from '../hooks/useClock.ts'
 import { useCurrentUser } from '../hooks/useCurrentUser.ts'
-import { dueGroup, formatDDay, formatMD, formatTime, periodOf, weekday } from '../lib/date.ts'
+import { formatDDay, formatMD, formatTime, formatYearMonth, isSameDay, periodOf, weekday, weekOf } from '../lib/date.ts'
 import { PATHS, pathTo } from '../lib/paths.ts'
 import type { Home } from '../types/home.ts'
+import type { MeetingBrief } from '../types/meeting.ts'
+import type { Task } from '../types/task.ts'
 import styles from './HomePage.module.css'
 
-const TODAY_MAX = 3 // 오늘 챙길 일: 기한 지남·오늘 중 최대 셋
+const TASK_MAX = 4 // 오늘 할 일: 내 할 일 중 넷
 
-// 홈(11/9 시안): 윗줄(방 이름 · 알림) → 인사(+ 달력 그림) → 마감 디데이 → 다음 회의 | 내 할 일 → 오늘 챙길 일.
-// 할 일 전체는 할 일 탭, 새 회의 잡기는 회의 탭에 있다. 홈은 "지금 뭐가 있지?"만 답한다.
+// 홈(11/9 시안): 보라 머리(로고 · 알림 · 프로필 · 인사 · 캐릭터) → 주간 달력(다음 회의 · 마감 디데이) → 오늘 할 일 → 마감 디데이.
+// 하단 탭과 다른 화면은 그대로다. 홈은 "이번 주에 뭐가 있지?"만 답한다.
 export default function HomePage() {
   const user = useCurrentUser()
   const home = useApi(() => getHome(user.roomId), [user.roomId, user.id])
+  // 회의 있는 날 점. 실패해도 점만 빠지고 홈은 그대로 그린다
+  const schedule = useApi(() => getSchedule(user.roomId), [user.roomId, user.id])
+  const meetings = schedule.status === 'ready' ? schedule.data.upcoming : []
 
   return (
     <Screen title="홈" bare>
       {home.status === 'error' && <RetryBox message={home.message} onRetry={home.reload} />}
-      {home.status === 'ready' && <HomeBody home={home.data} name={user.name} />}
+      {home.status === 'ready' && <HomeBody home={home.data} name={user.name} meetings={meetings} />}
     </Screen>
   )
 }
 
-function HomeBody({ home, name }: { home: Home; name: string }) {
-  const { total, passed, left } = periodOf(home.startDate, home.dueDate, home.today)
-  const percent = Math.round((passed / total) * 100)
-
+function HomeBody({ home, name, meetings }: { home: Home; name: string; meetings: MeetingBrief[] }) {
   return (
     <>
-      <div className={styles.topBar}>
-        <Link to={PATHS.team} className={styles.roomPill}>
-          <Icon name="person" small />
-          <span>{home.roomName}</span>
-        </Link>
-        <Link to={PATHS.notifications} className={styles.bell} aria-label={`알림, 안 읽은 것 ${home.unreadCount}개`}>
-          <Icon name="bell" />
-          {home.unreadCount > 0 && <i className={styles.dot} aria-hidden="true" />}
-        </Link>
-      </div>
-
-      <div className={styles.greet}>
-        <h1 className={styles.hello}>
-          {name ? `${name}님,` : '안녕하세요,'}
-          <br />
-          오늘도 프로젝트를
-          <br />
-          <b>TTAK</b> 맞춰가요!
-        </h1>
-        <img className={styles.peek} src="/splash/calendar.webp" alt="" aria-hidden="true" />
-      </div>
-
-      <section className={`sec ${styles.dday}`}>
-        <div>
-          <p className={styles.ddayLabel}>프로젝트 마감까지</p>
-          <b className={`${styles.ddayNum} num`}>{formatDDay(left)}</b>
+      <header className={styles.hero}>
+        <div className={styles.topBar}>
+          <img className={styles.logo} src="/splash/logo.webp" alt="TTAK" />
+          <div className={styles.actions}>
+            <Link to={PATHS.notifications} className={styles.round} aria-label={`알림, 안 읽은 것 ${home.unreadCount}개`}>
+              <Icon name="bell" />
+              {home.unreadCount > 0 && <i className={styles.dot} aria-hidden="true" />}
+            </Link>
+            <Link to={PATHS.me} className={styles.round} aria-label="내 정보">
+              <Icon name="person" />
+            </Link>
+          </div>
         </div>
-        <div className={styles.ddayRight}>
-          <span className={styles.bar} role="img" aria-label={`전체 ${total}일 중 ${passed}일 지남`}>
-            <i style={{ width: `${percent}%` }} />
-          </span>
-          <span className="meta num">기간 {percent}% 지남</span>
+        <div className={styles.greet}>
+          <p className={styles.hi}>{name ? `${name}님,` : '안녕하세요,'}</p>
+          <h1 className={styles.hello}>
+            오늘도
+            <br />
+            딱 맞게, <b>TTAK!</b>
+            <span className={styles.spark} aria-hidden="true">
+              ✦
+            </span>
+          </h1>
+          <p className={styles.sub}>계획한 일, 하나씩 함께 끝내봐요!</p>
         </div>
-      </section>
+        <img className={styles.peek} src="/splash/peek.webp" alt="" aria-hidden="true" />
+      </header>
 
-      <div className={styles.tiles}>
-        <NextMeetingTile home={home} />
-        <Link to={PATHS.myTasks} className={styles.tile}>
-          <span className={styles.tileIcon} data-tint="coral" aria-hidden="true">
-            <Icon name="check" small />
-          </span>
-          <b className={styles.tileTitle}>내 할 일</b>
-          <span className={`${styles.tileSub} num`}>{home.myTasks.filter((t) => t.status !== '완료').length}개 남음</span>
-          <span className={styles.chev} aria-hidden="true">
-            <Icon name="back" small />
-          </span>
-        </Link>
+      <div className={styles.cards}>
+        <WeekCard home={home} meetings={meetings} />
+        <TodayTasks tasks={home.myTasks} />
+        <DeadlineCard home={home} />
       </div>
-
-      <TodayTasks home={home} />
     </>
   )
 }
 
-// 다음 회의 타일: 조율 중이면 조율 과정으로, 회의안이 나왔으면 조율 결과로, 없으면 회의 탭으로
-function NextMeetingTile({ home }: { home: Home }) {
+// 주간 달력: 이번 주 월~일 + 회의 있는 날(보라 점) · 할 일 기한(회색 점) · 프로젝트 마감(핑크 꼬리표).
+// 아래 한 줄에 다음 회의와 마감 디데이
+function WeekCard({ home, meetings }: { home: Home; meetings: MeetingBrief[] }) {
+  const days = weekOf(home.today)
+  const { left } = periodOf(home.startDate, home.dueDate, home.today)
   const { coordinating: c, nextMeeting: m } = home
   const to = c ? pathTo.scheduling(c.id) : m ? pathTo.proposal(m.id) : PATHS.schedule
-  const topic = c?.topic ?? m?.topic ?? '잡힌 회의 없음'
-  const when = c
-    ? '시간 맞추는 중'
+  const next = c
+    ? `시간 맞추는 중 · ${c.topic}`
     : m
-      ? `${formatMD(m.startAt).replace('/', '.')} (${weekday(m.startAt)}) ${formatTime(m.startAt)}`
-      : '회의 탭에서 잡아요'
+      ? `${formatMD(m.startAt)}(${weekday(m.startAt)}) ${formatTime(m.startAt)} ${m.topic}`
+      : '잡힌 회의 없음'
 
   return (
-    <Link to={to} className={styles.tile}>
-      <span className={styles.tileIcon} aria-hidden="true">
-        <Icon name="calendar" small />
-      </span>
-      <b className={styles.tileTitle}>다음 회의</b>
-      <span className={styles.tileSub}>{topic}</span>
-      <span className={`${styles.tileSub} num`}>{when}</span>
-      <span className={styles.chev} aria-hidden="true">
-        <Icon name="back" small />
-      </span>
-    </Link>
+    <section className={`sec ${styles.week}`}>
+      <div className={styles.weekHead}>
+        <span className={styles.month}>
+          <Icon name="calendar" />
+          {formatYearMonth(home.today)}
+        </span>
+        <Link to={PATHS.schedule} className={styles.pill}>
+          <Icon name="calendar" small /> 일정 보기
+        </Link>
+      </div>
+
+      <ol className={styles.days}>
+        {days.map((day) => {
+          const iso = day.format('YYYY-MM-DD')
+          const isToday = isSameDay(day, home.today)
+          const hasMeeting = meetings.some((mt) => isSameDay(mt.startAt, day))
+          const hasDue = home.myTasks.some((t) => t.dueDate === iso && t.status !== '완료')
+          const isDeadline = isSameDay(home.dueDate, day)
+          return (
+            <li key={iso} className={styles.day} data-dow={day.day()} data-today={isToday}>
+              {isDeadline && <span className={styles.deadlineTag}>마감</span>}
+              <span className={styles.dow}>{weekday(day)}</span>
+              <b className={`${styles.date} num`}>{day.date()}</b>
+              <span className={styles.marks} aria-hidden="true">
+                {hasMeeting && <i className={styles.meetDot} />}
+                {hasDue && <i className={styles.dueDot} />}
+              </span>
+            </li>
+          )
+        })}
+      </ol>
+
+      <div className={styles.weekFoot}>
+        <Link to={to} className={styles.next}>
+          <span className={styles.nextLabel}>다음 회의</span>
+          <span className={`${styles.nextText} num`}>{next}</span>
+        </Link>
+        <span className={`${styles.ddayChip} num`}>마감 {formatDDay(left)}</span>
+      </div>
+    </section>
   )
 }
 
-// 오늘 챙길 일: 기한 지남 → 오늘 순으로 최대 셋. 없으면 카드째 숨긴다
-function TodayTasks({ home }: { home: Home }) {
+// 오늘 할 일: 내 할 일 전부 중 넷. 끝낸 일을 위로, 그다음 남은 일을 기한 순으로. 알약은 완료/전체
+function TodayTasks({ tasks }: { tasks: Task[] }) {
   const user = useCurrentUser()
-  const now = useClock()
-  const open = home.myTasks.filter((t) => t.status !== '완료')
-  const late = open.filter((t) => dueGroup(t.dueDate, now) === '기한 지남')
-  const today = open.filter((t) => dueGroup(t.dueDate, now) === '오늘')
-  const picks = [...late, ...today].slice(0, TODAY_MAX)
-  if (picks.length === 0) return null
+  const done = tasks.filter((t) => t.status === '완료')
+  const open = tasks.filter((t) => t.status !== '완료') // 서버가 기한 순으로 준다
+  const picks = [...done, ...open].slice(0, TASK_MAX)
 
   return (
     <section className="sec">
       <div className={styles.cardHead}>
         <h2>
-          <i className={styles.pinkDot} aria-hidden="true" />
-          오늘 챙길 일
+          오늘 할 일 <span className={`${styles.count} num`}>{done.length}/{tasks.length}</span>
         </h2>
         <Link to={PATHS.myTasks} className={styles.more}>
           전체 보기 ›
         </Link>
       </div>
-      <ul className={styles.list}>
-        {picks.map((task) => (
-          <TaskRow
-            key={task.id}
-            task={task}
-            onStatusChange={(t, status, reason) => changeTaskStatus(user.roomId, t.id, status, reason)}
-          />
-        ))}
-      </ul>
+      {picks.length === 0 ? (
+        <p className="meta">아직 할 일이 없어요</p>
+      ) : (
+        <ul className={styles.list}>
+          {picks.map((task) => (
+            <TaskRow
+              key={task.id}
+              task={task}
+              onStatusChange={(t, status, reason) => changeTaskStatus(user.roomId, t.id, status, reason)}
+            />
+          ))}
+        </ul>
+      )}
+    </section>
+  )
+}
+
+// 마감 디데이(시안의 "이번 주 진행률" 자리): 디데이 + 기간 막대 + 달력 그림
+function DeadlineCard({ home }: { home: Home }) {
+  const { total, passed, left } = periodOf(home.startDate, home.dueDate, home.today)
+  const percent = Math.round((passed / total) * 100)
+  return (
+    <section className={`sec ${styles.deadline}`}>
+      <div className={styles.deadlineText}>
+        <p className={styles.deadlineLabel}>프로젝트 마감까지</p>
+        <b className={`${styles.ddayNum} num`}>{formatDDay(left)}</b>
+      </div>
+      <div className={styles.deadlineBar}>
+        <span className={styles.bar} role="img" aria-label={`전체 ${total}일 중 ${passed}일 지남`}>
+          <i style={{ width: `${percent}%` }} />
+        </span>
+        <span className="meta num">기간 {percent}% 지남</span>
+      </div>
+      <img className={styles.cal} src="/splash/calendar.webp" alt="" aria-hidden="true" />
     </section>
   )
 }

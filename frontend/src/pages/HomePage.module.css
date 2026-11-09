@@ -1,61 +1,51 @@
-/* 홈 (11/9 시안) */
+/* 홈 (11/9 시안: 보라 머리 · 주간 달력 · 오늘 할 일 · 마감 디데이) */
 .list {
   margin: 0;
   padding: 0;
 }
 
-/* 윗줄: 로고 | 방 이름 알약 | 알림 */
+/* ── 보라 머리 ── */
+.hero {
+  position: relative;
+  padding: 16px 0 54px;
+  overflow: hidden;
+  background:
+    url(/splash/bg.webp) center 30% / cover no-repeat,
+    linear-gradient(180deg, #7c78f0, #9b97f6);
+  color: var(--white);
+}
+
 .topBar {
-  display: grid;
-  grid-template-columns: 1fr auto;
+  display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 18px var(--gutter) 0 calc(var(--gutter) + 4px);
+  justify-content: space-between;
+  padding: 0 var(--gutter) 0 calc(var(--gutter) + 2px);
 }
 
 .logo {
-  width: 74px;
+  width: 96px;
   height: auto;
+  filter: drop-shadow(0 2px 6px rgb(60 50 160 / 0.25));
 }
 
-.roomPill {
-  display: inline-flex;
-  align-items: center;
-  justify-self: start;
-  gap: 6px;
-  max-width: 100%;
-  min-height: 36px;
-  padding: 0 14px;
-  border-radius: 99px;
-  background: var(--card);
-  box-shadow: var(--shadow-card);
-  color: var(--strong);
-  font-size: 13px;
-  font-weight: 700;
-  text-decoration: none;
+.actions {
+  display: flex;
+  gap: 10px;
 }
 
-.roomPill span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.roomPill :global(svg.i) {
-  color: var(--point);
-}
-
-.bell {
+/* 반투명 흰 둥근 버튼 */
+.round {
   position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  background: var(--card);
-  box-shadow: var(--shadow-card);
-  color: var(--strong);
+  width: 46px;
+  height: 46px;
+  border: 1px solid rgb(255 255 255 / 0.45);
+  border-radius: 16px;
+  background: rgb(255 255 255 / 0.22);
+  backdrop-filter: blur(6px);
+  color: var(--white);
 }
 
 .dot {
@@ -64,47 +54,61 @@
   right: 10px;
   width: 9px;
   height: 9px;
-  border: 2px solid var(--card);
+  border: 2px solid var(--white);
   border-radius: 50%;
   background: var(--pink);
 }
 
-/* 인사: 큰 글 + 오른쪽 캐릭터 */
 .greet {
   position: relative;
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  min-height: 150px;
-  padding: 22px var(--gutter) 0 calc(var(--gutter) + 6px);
+  z-index: 1;
+  max-width: 64%;
+  padding: 22px 0 0 calc(var(--gutter) + 6px);
+}
+
+.hi {
+  font-size: 15px;
+  opacity: 0.85;
 }
 
 .hello {
   position: relative;
-  z-index: 1;
-  margin: 0;
-  padding-bottom: 18px;
-  color: var(--text);
-  font-size: 25px;
-  font-weight: 700;
-  line-height: 1.38;
+  margin: 4px 0 0;
+  font-size: 30px;
+  font-weight: 900;
+  line-height: 1.25;
   letter-spacing: -0.03em;
+  text-shadow: 0 2px 10px rgb(60 50 160 / 0.25);
 }
 
 .hello b {
-  color: var(--point);
+  color: var(--pink-light);
   font-weight: 900;
-  /* 달력 그림의 핑크로 밑줄 하이라이트 */
-  background: linear-gradient(transparent 64%, var(--pink-soft) 64%);
 }
 
+.spark {
+  margin-left: 4px;
+  color: var(--pink-light);
+  font-size: 18px;
+  vertical-align: top;
+}
+
+.sub {
+  margin-top: 10px;
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+/* 캐릭터: 오른쪽에서 주간 달력 카드 위로 손을 걸친다. 카드(.cards)가 아래쪽을 덮는다 */
 .peek {
-  flex: none;
-  width: 40%;
-  max-width: 160px;
+  position: absolute;
+  right: 6px;
+  bottom: 20px; /* 카드가 머리 아래 36px을 덮는다 → 그림 아래 16px(손끝·달력 띠)만 가려진다 */
+  z-index: 0;
+  width: 46%;
+  max-width: 200px;
   height: auto;
-  margin: 0 -4px -6px 0;
-  filter: drop-shadow(0 12px 18px rgb(92 88 200 / 0.18));
+  filter: drop-shadow(0 10px 16px rgb(60 50 160 / 0.25));
   animation: bob 3.6s cubic-bezier(0.45, 0, 0.55, 1) infinite;
 }
 
@@ -118,121 +122,197 @@
   }
 }
 
-/* 마감 디데이 */
-.dday {
+/* 카드 묶음: 머리 위로 올라와 캐릭터 아래쪽을 덮는다 */
+.cards {
   position: relative;
   z-index: 1;
-  display: grid;
-  grid-template-columns: auto 1fr;
-  align-items: center;
-  gap: 18px;
-  margin-top: 0 !important;
-  padding: 20px !important;
+  margin-top: -36px;
+  padding-bottom: 20px;
 }
 
-.ddayLabel {
-  color: var(--text);
-  font-size: 13px;
+.cards > :global(.sec):first-child {
+  margin-top: 0;
+}
+
+/* ── 주간 달력 ── */
+.week {
+  padding: 18px 16px 14px !important;
+}
+
+.weekHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.month {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--strong);
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.month :global(svg.i) {
+  color: var(--point);
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid color-mix(in srgb, var(--point) 35%, var(--card));
+  border-radius: 99px;
+  color: var(--point-ink);
+  font-size: 12.5px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.day {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding-top: 6px;
+}
+
+.dow {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.day[data-dow='6'] .dow {
+  color: var(--point);
+}
+
+.day[data-dow='0'] .dow {
+  color: var(--pink-ink);
+}
+
+.date {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 99px;
+  color: var(--strong);
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.day[data-today='true'] .date {
+  background: var(--point-grad);
+  box-shadow: 0 6px 14px color-mix(in srgb, var(--point) 40%, transparent);
+  color: var(--on-point);
+}
+
+.day[data-today='true'] .dow {
+  color: var(--point-ink);
   font-weight: 700;
 }
 
-.ddayNum {
-  display: block;
-  color: var(--point);
-  font-size: 36px;
-  font-weight: 900;
-  letter-spacing: -0.03em;
-  line-height: 1.1;
-}
-
-.ddayRight {
+/* 점: 회의(보라) · 할 일 기한(회색) */
+.marks {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 8px;
+  gap: 3px;
+  height: 6px;
 }
 
-.bar {
-  width: 100%;
-  height: 12px;
-  overflow: hidden;
+.marks i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.meetDot {
+  background: var(--point);
+}
+
+.dueDot {
+  background: var(--french-gray);
+}
+
+/* 프로젝트 마감일 꼬리표 */
+.deadlineTag {
+  position: absolute;
+  top: -10px;
+  padding: 0 6px;
   border-radius: 99px;
-  background: color-mix(in srgb, var(--french-gray) 35%, var(--white));
+  background: var(--pink);
+  color: var(--white);
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 16px;
 }
 
-.bar > i {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  /* 보라에서 끝으로 갈수록 핑크: 마감이 다가오는 쪽 */
-  background: linear-gradient(90deg, #8c88f8, var(--point) 60%, var(--pink));
-}
-
-/* 다음 회의 | 내 할 일 두 칸 */
-.tiles {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin: var(--gap-card) var(--gutter) 0;
-}
-
-.tile {
-  position: relative;
+/* 아래 한 줄: 다음 회의 | 마감 디데이 */
+.weekFoot {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  min-height: 132px;
-  padding: 18px 30px 16px 18px;
-  border-radius: var(--r-l);
-  background: var(--card);
-  box-shadow: var(--shadow-card);
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.next {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
   color: var(--text);
   text-decoration: none;
 }
 
-.tileIcon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  margin-bottom: 10px;
-  border-radius: 10px;
-  background: var(--tc, var(--point));
-  color: var(--white);
-}
-
-.tileTitle {
-  color: var(--strong);
-  font-size: 16px;
+.nextLabel {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: 99px;
+  background: var(--point-soft);
+  color: var(--point-ink);
+  font-size: 11.5px;
   font-weight: 800;
 }
 
-.tileSub {
-  max-width: 100%;
+.nextText {
   overflow: hidden;
-  color: var(--muted);
   font-size: 13px;
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-/* 뒤로 아이콘을 뒤집어 오른쪽 화살표로 */
-.chev {
-  position: absolute;
-  right: 12px;
-  bottom: 18px;
-  color: var(--french-gray);
-  transform: scaleX(-1);
+.ddayChip {
+  flex: none;
+  padding: 3px 10px;
+  border-radius: 99px;
+  background: var(--pink-soft);
+  color: var(--pink-ink);
+  font-size: 12px;
+  font-weight: 800;
 }
 
-/* 오늘 챙길 일 */
+/* ── 오늘 할 일 ── */
 .cardHead {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .cardHead h2 {
@@ -241,27 +321,82 @@
   gap: 8px;
   margin: 0 !important;
   color: var(--strong);
-  font-size: 16px !important;
+  font-size: 18px !important;
   font-weight: 800;
+}
+
+.count {
+  padding: 1px 10px;
+  border-radius: 99px;
+  background: var(--soft);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .more {
   color: var(--point-ink);
-  font-size: var(--fs-meta);
+  font-size: 13px;
   font-weight: 700;
   text-decoration: none;
+}
+
+/* ── 마감 디데이 ── */
+.deadline {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto 1fr 76px;
+  align-items: center;
+  gap: 14px;
+  overflow: hidden;
+}
+
+.deadlineLabel {
+  color: var(--text);
+  font-size: 13.5px;
+  font-weight: 700;
+}
+
+.ddayNum {
+  display: block;
+  background: var(--point-text-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-size: 36px;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.deadlineBar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.bar {
+  height: 14px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--point) 12%, var(--white));
+}
+
+.bar > i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #b9a8f8, #d9a0f0 70%, var(--pink-light));
+}
+
+.cal {
+  width: 76px;
+  height: auto;
+  transform: rotate(-6deg);
 }
 
 @media (prefers-reduced-motion: reduce) {
   .peek {
     animation: none;
   }
-}
-
-.pinkDot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--pink);
-  box-shadow: 0 0 0 4px var(--pink-soft);
 }
