@@ -87,5 +87,5 @@
 
 /* 방이 없는 사람의 시작 갈래(초대 코드로 들어가기 | 방 만들기) */
 .ways {
-  margin: 8px 12px 0;
+  margin: var(--gap-card) var(--gutter) 0;
 }

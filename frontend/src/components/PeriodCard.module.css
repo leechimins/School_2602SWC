@@ -21,7 +21,7 @@
 
 .dday {
   display: block;
-  background: var(--point-text-grad);
+  background: linear-gradient(135deg, var(--accent), #8b5cf6);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;

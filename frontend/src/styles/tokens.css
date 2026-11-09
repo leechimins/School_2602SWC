@@ -57,13 +57,20 @@
   --r-badge: 99px;
   --shadow-card: 0 6px 20px rgb(84 90 220 / 0.1);
   --app-width: 430px;
+  --gutter: 16px; /* 화면 좌우 여백: 카드 바깥 */
+  --gap-card: 14px; /* 카드와 카드 사이 */
+  --gap-section: 28px; /* 묶음 제목 위 */
 
   /* 브랜드(TTAK): 스플래시와 화면 머리(hero). 배경 그림(public/splash/bg.webp)의 가운데 색 */
   --brand: #7580e6;
   --brand-top: #aeb3f5;
-  --brand-grad: linear-gradient(180deg, #8a91ec 0%, #a5aaf2 55%, var(--page) 100%);
+  --brand-grad: linear-gradient(180deg, #5f6cf1 0%, #7f78f4 45%, #a99ff8 78%, var(--page) 100%);
   --point-grad: linear-gradient(135deg, #6a74f2, #8b6cf3);
   --point-text-grad: linear-gradient(135deg, #4a6cf7, #8b5cf6);
+
+  /* 강조색(코랄 분홍): 캐릭터 볼·효과선에서. "지금 챙길 것"에만 아껴 쓴다 — 디데이, 남은 시간, 안 읽은 수, 오늘 */
+  --accent: #ff5c84;
+  --accent-soft: #ffe7ee;
 
   /* 보조 색: 캐릭터 그림(볼 분홍·효과선)에서 뽑았다. 카드 아이콘과 요약 칸에만 쓴다(장식 금지) */
   --tint-blue: #4a7cf7;

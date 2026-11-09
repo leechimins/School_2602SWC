@@ -68,7 +68,7 @@ export default function TasksPage() {
   const stats = res.status === 'ready' ? [statOf('진행 중', 'blue'), statOf('막힘', 'pink'), statOf('완료', 'mint')] : []
 
   return (
-    <Screen title="할 일" aux={mine} dock={dock} band={{ sub: '확정된 할 일을 사람별로 모아 봐요', stats }}>
+    <Screen title="할 일" aux={mine} dock={dock} band={{ stats }}>
       {res.status === 'error' && <RetryBox message={res.message} onRetry={res.reload} />}
       {res.status === 'ready' && (
         <TeamTaskList data={res.data} members={members} addCard={addCard} filter={filter} setFilter={setFilter} />
@@ -198,7 +198,6 @@ function TeamTaskList({ data, members, addCard, filter, setFilter }: ListProps) 
           )
         })}
       </div>
-      <p className={`meta ${styles.guide}`}>길게 누르거나 우클릭하면 고치기</p>
       {groups.map((g) => {
         const key = g.id ?? 'none'
         const open = !folded.has(key)

@@ -40,7 +40,7 @@
   justify-content: space-between;
   align-items: center;
   gap: 8px;
-  margin: 8px 12px 0;
+  margin: var(--gap-card) var(--gutter) 0;
   padding: 8px 12px;
   border: 1px dashed color-mix(in srgb, var(--sub) 60%, var(--card));
   border-radius: var(--r-s);
@@ -57,8 +57,8 @@
 /* 상태 필터 칩 */
 .chips {
   display: flex;
-  gap: 6px;
-  padding: 10px 12px 2px;
+  gap: 8px;
+  padding: 20px var(--gutter) 4px;
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -195,7 +195,7 @@
 
 /* 사람별 묶음: 아바타 · 이름 · 개수 · 접기 */
 .group {
-  margin-top: 6px;
+  margin-top: 14px;
 }
 
 .groupHead {
@@ -204,7 +204,7 @@
   gap: 10px;
   width: 100%;
   min-height: 52px;
-  padding: 6px 22px 0;
+  padding: 4px calc(var(--gutter) + 4px) 0;
   border: 0;
   background: none;
   text-align: left;
@@ -237,9 +237,9 @@
 }
 
 .groupCard {
-  margin-top: 4px;
-  padding-top: 6px;
-  padding-bottom: 6px;
+  margin-top: 6px;
+  padding-top: 8px;
+  padding-bottom: 8px;
 }
 
 /* 하단 "할 일 추가하기": 큰 보라 그라데이션 버튼 */
@@ -257,7 +257,7 @@
 }
 
 .adding {
-  margin: 10px 12px 0;
+  margin: var(--gap-card) var(--gutter) 0;
 }
 
 /* 필터 칩 안 개수 */

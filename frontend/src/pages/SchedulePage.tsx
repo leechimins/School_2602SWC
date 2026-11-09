@@ -64,12 +64,11 @@ export default function SchedulePage() {
       : []
 
   return (
-    <Screen title="일정" aux={newMeeting} band={{ sub: '회의 잡기부터 회의록까지 한곳에서 봐요', stats }}>
+    <Screen title="일정" aux={newMeeting} band={{ stats }}>
       {res.status === 'error' && <RetryBox message={res.message} onRetry={res.reload} />}
       {res.status === 'ready' && (
         <ScheduleBody
           schedule={res.data}
-          canStartScheduling={room.status === 'ready' && room.data.canStartScheduling}
           total={room.status === 'ready' ? room.data.joinedCount : null}
         />
       )}
@@ -77,9 +76,9 @@ export default function SchedulePage() {
   )
 }
 
-type BodyProps = { schedule: Schedule; canStartScheduling: boolean; total: number | null }
+type BodyProps = { schedule: Schedule; total: number | null }
 
-function ScheduleBody({ schedule, canStartScheduling, total }: BodyProps) {
+function ScheduleBody({ schedule, total }: BodyProps) {
   const now = useClock()
   const { coordinating, upcoming, past } = schedule
   // 오늘 잡힌 확정 회의가 있으면 "지금 회의 받아적기"가 그 회의에 붙는다
@@ -113,9 +112,6 @@ function ScheduleBody({ schedule, canStartScheduling, total }: BodyProps) {
           <div className={styles.empty}>
             <img src="/splash/peek.webp" alt="" aria-hidden="true" />
             <p className="strong">잡힌 회의가 없어요</p>
-            <p className="meta">
-              {canStartScheduling ? '새 회의를 잡으면 에이전트끼리 시간을 조율해요.' : '팀장이 회의를 잡으면 알려 드려요.'}
-            </p>
           </div>
         ) : (
           upcoming.map((m) => <UpcomingRow key={m.id} meeting={m} isToday={m.id === today?.id} total={total} />)
@@ -204,11 +200,11 @@ function RecordNow({ todayMeeting }: { todayMeeting: MeetingBrief | null }) {
         </span>
         <span className={styles.recText}>
           <b>{label}</b>
-          <span>
-            {todayMeeting
-              ? `오늘 ${formatTimeRange(todayMeeting.startAt, todayMeeting.endAt)} '${todayMeeting.topic}' 회의를 ${verb}`
-              : `잡힌 회의가 없어도 주제 한 줄만 쓰고 바로 ${verb}`}
-          </span>
+          {todayMeeting && (
+            <span>
+              오늘 {formatTimeRange(todayMeeting.startAt, todayMeeting.endAt)} '{todayMeeting.topic}' 회의를 {verb}
+            </span>
+          )}
         </span>
         <span className={styles.recGo} aria-hidden="true">
           <Icon name="back" />

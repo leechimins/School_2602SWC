@@ -44,7 +44,7 @@
 
 /* 판단 에이전트 카드: 묶음(.sec)과 같은 좌우 여백 */
 .judge {
-  margin: 10px 12px 0;
+  margin: var(--gap-card) var(--gutter) 0;
 }
 
 /* 판단 에이전트 카드 안의 양보 점수 상자 */

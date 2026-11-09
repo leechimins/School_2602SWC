@@ -145,13 +145,15 @@
 }
 
 /* 캐릭터: 오른쪽 아래에서 고개를 내밀고, 손은 바로 아래 첫 카드 위에 걸친다 */
+/* 캐릭터: 왼쪽에서 첫 카드 뒤로 몸을 숨기고 손만 카드 모서리에 걸친다.
+   카드(.heroBody, z 1)가 캐릭터(z 0) 아래쪽을 덮어 그림 밑의 달력 띠가 가려진다 */
 .peek {
   position: absolute;
-  left: 8px;
-  bottom: -12px;
-  z-index: 2;
-  width: 38%;
-  max-width: 160px;
+  left: calc(var(--gutter) + 10px);
+  bottom: -26px;
+  z-index: 0;
+  width: 36%;
+  max-width: 150px;
   height: auto;
   pointer-events: none;
   filter: drop-shadow(0 6px 10px rgb(60 60 160 / 0.15));
@@ -171,6 +173,7 @@
 /* 첫 묶음은 머리 위로 살짝 올라와 캐릭터 손 아래 깔린다 */
 .heroBody {
   position: relative;
+  z-index: 1;
   margin-top: -14px;
 }
 
@@ -186,7 +189,7 @@
 
 /* ── 띠 머리(band): 일정·할 일 ─────────────────── */
 .band {
-  padding: 8px 0 34px;
+  padding: 12px 0 40px;
   background:
     radial-gradient(circle at 88% 0%, rgb(139 108 243 / 0.18) 0 90px, transparent 91px),
     radial-gradient(circle at 70% 30%, rgb(74 124 247 / 0.12) 0 60px, transparent 61px),
@@ -239,8 +242,8 @@
   position: relative;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-  margin: -22px 12px 0;
+  gap: 10px;
+  margin: -22px var(--gutter) 0;
 }
 
 .stat {

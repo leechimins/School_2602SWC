@@ -98,7 +98,7 @@
 
 /* 이미 확정한 할 일: 제안 카드와 같은 자리, 흰 카드 + 확정 뱃지 */
 .confirmed {
-  margin: 8px 12px 0;
+  margin: var(--gap-card) var(--gutter) 0;
   padding: 8px 12px;
   border: 1px solid var(--line);
   border-radius: var(--r-l);

@@ -71,8 +71,9 @@
   width: 28px;
   height: 28px;
   border-radius: 10px;
-  background: var(--tc-soft, var(--point-soft));
-  color: var(--tc, var(--point));
+  background: var(--tc, var(--point));
+  box-shadow: 0 3px 8px color-mix(in srgb, var(--tc, var(--point)) 35%, transparent);
+  color: var(--white);
 }
 
 .secRight {
