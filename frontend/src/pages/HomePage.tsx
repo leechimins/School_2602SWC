@@ -18,7 +18,7 @@ import styles from './HomePage.module.css'
 
 const TASK_MAX = 4 // 오늘 할 일: 내 할 일 중 넷
 
-// 홈(11/9 시안): 보라 머리(로고 · 알림 · 프로필 · 인사 · 캐릭터) → 주간 달력(다음 회의 · 마감 디데이) → 오늘 할 일 → 마감 디데이.
+// 홈(11/9 시안): 보라 머리(로고 · 알림 · 캐릭터) → 주간 달력(다음 회의 · 마감 디데이) → 오늘 할 일 → 마감 디데이.
 // 하단 탭과 다른 화면은 그대로다. 홈은 "이번 주에 뭐가 있지?"만 답한다.
 export default function HomePage() {
   const user = useCurrentUser()
@@ -30,31 +30,15 @@ export default function HomePage() {
   return (
     <Screen title="홈" bare>
       {home.status === 'error' && <RetryBox message={home.message} onRetry={home.reload} />}
-      {home.status === 'ready' && <HomeBody home={home.data} name={user.name} meetings={meetings} />}
+      {home.status === 'ready' && <HomeBody home={home.data} meetings={meetings} />}
     </Screen>
   )
 }
 
-function HomeBody({ home, name, meetings }: { home: Home; name: string; meetings: MeetingBrief[] }) {
+function HomeBody({ home, meetings }: { home: Home; meetings: MeetingBrief[] }) {
   return (
     <>
-      <BrandHero
-        unread={home.unreadCount}
-        logo={false}
-        head={
-          <>
-            <p className={styles.hi}>{name ? `${name}님,` : '안녕하세요,'}</p>
-            {/* TTAK은 로고 글씨체 그대로(로고 그림) */}
-            <h1 className={styles.hello}>
-              계획한 일
-              <br />
-              <img className={styles.ttak} src="/splash/logo.webp" alt="TTAK" /> 맞게,
-              <br />
-              끝내봐요.
-            </h1>
-          </>
-        }
-      >
+      <BrandHero unread={home.unreadCount}>
         <WeekCard home={home} meetings={meetings} />
         <TodayTasks tasks={home.myTasks} />
         <DeadlineCard home={home} />

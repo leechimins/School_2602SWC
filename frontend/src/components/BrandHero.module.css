@@ -1,6 +1,7 @@
 /* TTAK 보라 머리 (홈 · 마이 공통) */
 .hero {
   position: relative;
+  min-height: 210px; /* 글이 없어도 캐릭터가 들어갈 높이 */
   padding: 16px 0 54px;
   overflow: hidden;
   background:
@@ -67,19 +68,26 @@
 
 
 /* 캐릭터: 오른쪽에서 첫 카드(.cards, z 1) 윗변을 두 손으로 잡는다. 떠다니지 않고 고정.
-   크기를 px로 고정해 손 위치가 화면 폭에 따라 흔들리지 않게 한다 (그림 700×544 → 180×140).
-   그림 맨 아래 7%(원래 달력 윗부분 보라 띠)는 잘라 낸다 → 보이는 아래끝은 그림 위에서 130px.
-   손가락 가운데(그림 위에서 약 82%, 115px)에 카드 윗변이 오도록: 카드는 머리 아래 36px을 덮으므로
-   그림 아래끝 = 머리 아래끝 위 36 - (130 - 115) - 10(잘린 몫) = 11px */
+   두 겹으로 그린다 — .peek(몸 전체, z 0)은 카드 뒤, .hands(손만 오려 낸 peek-hands.webp, z 2)는 카드 앞.
+   크기는 px로 고정(그림 700×544 → 180×140)해 손 위치가 화면 폭에 따라 흔들리지 않는다.
+   카드 윗변이 그림 위에서 82%(115px, 손가락 가운데)에 오도록: 카드는 머리 아래 36px을 덮으므로
+   그림 아래끝 = 머리 아래끝 위 36 - (140 - 115) = 11px */
 .peek {
   position: absolute;
-  right: 10px;
+  right: 12px;
   bottom: 11px;
-  z-index: 2;
+  z-index: 0;
   width: 180px;
   height: auto;
-  clip-path: inset(0 0 7% 0);
+  pointer-events: none;
+}
+
+.peek:not(.hands) {
   filter: drop-shadow(0 8px 14px rgb(60 50 160 / 0.22));
+}
+
+.hands {
+  z-index: 2;
 }
 
 

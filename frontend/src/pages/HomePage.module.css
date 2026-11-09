@@ -4,36 +4,6 @@
   padding: 0;
 }
 
-/* ── 인사말 (BrandHero 머리 안) ── */
-.hi {
-  font-size: 15px;
-  opacity: 0.85;
-}
-
-.hello {
-  position: relative;
-  margin: 4px 0 0;
-  font-size: 30px;
-  font-weight: 900;
-  line-height: 1.25;
-  letter-spacing: -0.03em;
-  text-shadow: 0 2px 10px rgb(60 50 160 / 0.25);
-}
-
-.hello b {
-  color: var(--pink-light);
-  font-weight: 900;
-}
-
-/* 문장 안의 TTAK: 로고 그림을 글자 높이에 맞춘다 */
-.ttak {
-  height: 1.25em;
-  width: auto;
-  margin: 0 2px -0.22em 0;
-  vertical-align: baseline;
-  filter: drop-shadow(0 2px 6px rgb(60 50 160 / 0.25));
-}
-
 /* ── 주간 달력 ── */
 .week {
   padding: 18px 16px 14px !important;

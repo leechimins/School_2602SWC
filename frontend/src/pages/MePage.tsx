@@ -57,6 +57,7 @@ export default function MePage() {
     <Screen title="마이" bare>
       <BrandHero
         unread={home.status === 'ready' ? home.data.unreadCount : 0}
+        character={false}
         head={
           <>
             <h1 className={styles.title}>마이</h1>
