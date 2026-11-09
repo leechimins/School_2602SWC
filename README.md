@@ -43,7 +43,7 @@ School_2602SWC/
    git clone https://github.com/leechimins/School_2602SWC.git
    ```
 2. 백엔드 실행: [`backend/README.md`](backend/README.md) — Docker로 Postgres를 띄우고 네 줄이면 됩니다.
-3. 프론트엔드 실행: `frontend/`가 생기면 [`frontend/README.md`](frontend/README.md)에 적습니다.
+3. 프론트엔드 실행: [`frontend/README.md`](frontend/README.md) — `npm install` 후 `npm run dev`. 서버 없이도 목 데이터로 모든 화면과 시연(`/demo`)이 돕니다.
 
 ---
 
