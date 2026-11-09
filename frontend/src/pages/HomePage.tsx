@@ -42,12 +42,15 @@ export default function HomePage() {
     </Link>
   )
   const title = home.status === 'ready' ? home.data.roomName : '홈'
-  // 보라 띠 머리: 로고 한 줄 + 팀 이름 + 종. 솜솜이 한 장이 기간 카드 위에 손을 걸친다
+  // 보라 띠 머리: 로고 한 줄 + 흰 알약 상자에 팀 이름 + 종. 솜솜이 한 장이 기간 카드 위에 손을 걸친다
   const hero = (
     <header className={styles.hero}>
       <div className={styles.heroText}>
         <img className={styles.logo} src="/brand/logo-white.webp" alt="TTAK" />
-        <h1 className={styles.title}>{title}</h1>
+        <h1 className={styles.title}>
+          <Icon name="team" small />
+          <span>{title}</span>
+        </h1>
       </div>
       {bell}
     </header>
