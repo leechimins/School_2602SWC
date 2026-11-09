@@ -25,6 +25,7 @@
 .actions {
   display: flex;
   gap: 10px;
+  margin-left: auto; /* 로고가 없어도 오른쪽 위 */
 }
 
 /* 반투명 흰 둥근 버튼 */
@@ -65,31 +66,22 @@
 
 
 
-/* 캐릭터: 오른쪽에서 주간 달력 카드 위에 손을 올린다. 캐릭터(z 2)가 카드(.cards, z 1)보다 위에 그려지고,
-   그림 맨 아래 보라 띠(원래 그림의 달력 윗부분)는 잘라 손만 카드 모서리에 걸친다.
-   카드는 머리 아래 36px을 덮는다 → 잘린 아래끝이 카드 윗변보다 14px 아래로 내려오게 둔다 */
+/* 캐릭터: 오른쪽에서 첫 카드(.cards, z 1) 윗변을 두 손으로 잡는다. 떠다니지 않고 고정.
+   크기를 px로 고정해 손 위치가 화면 폭에 따라 흔들리지 않게 한다 (그림 700×544 → 180×140).
+   그림 맨 아래 7%(원래 달력 윗부분 보라 띠)는 잘라 낸다 → 보이는 아래끝은 그림 위에서 130px.
+   손가락 가운데(그림 위에서 약 82%, 115px)에 카드 윗변이 오도록: 카드는 머리 아래 36px을 덮으므로
+   그림 아래끝 = 머리 아래끝 위 36 - (130 - 115) - 10(잘린 몫) = 11px */
 .peek {
   position: absolute;
-  right: 6px;
-  bottom: 10px;
+  right: 10px;
+  bottom: 11px;
   z-index: 2;
-  width: 46%;
-  max-width: 200px;
+  width: 180px;
   height: auto;
   clip-path: inset(0 0 7% 0);
-  filter: drop-shadow(0 10px 16px rgb(60 50 160 / 0.25));
-  animation: bob 3.6s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  filter: drop-shadow(0 8px 14px rgb(60 50 160 / 0.22));
 }
 
-@keyframes bob {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-4px);
-  }
-}
 
 /* 카드 묶음: 머리 위로 올라와 캐릭터 아래쪽을 덮는다 */
 .cards {
@@ -104,8 +96,3 @@
 }
 
 
-@media (prefers-reduced-motion: reduce) {
-  .peek {
-    animation: none;
-  }
-}

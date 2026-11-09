@@ -40,19 +40,18 @@ function HomeBody({ home, name, meetings }: { home: Home; name: string; meetings
     <>
       <BrandHero
         unread={home.unreadCount}
-        profileButton
+        logo={false}
         head={
           <>
             <p className={styles.hi}>{name ? `${name}님,` : '안녕하세요,'}</p>
+            {/* TTAK은 로고 글씨체 그대로(로고 그림) */}
             <h1 className={styles.hello}>
-              오늘도
+              계획한 일
               <br />
-              딱 맞게, <b>TTAK!</b>
-              <span className={styles.spark} aria-hidden="true">
-                ✦
-              </span>
+              <img className={styles.ttak} src="/splash/logo.webp" alt="TTAK" /> 맞게,
+              <br />
+              끝내봐요.
             </h1>
-            <p className={styles.sub}>계획한 일, 하나씩 함께 끝내봐요!</p>
           </>
         }
       >

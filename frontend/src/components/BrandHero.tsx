@@ -9,20 +9,22 @@ type Props = {
   head: ReactNode
   /** 안 읽은 알림 수. 0이면 종에 점이 없다 */
   unread: number
-  /** 오른쪽 위에 내 정보 버튼도 둘지 (홈만) */
+  /** 오른쪽 위에 내 정보 버튼도 둘지 */
   profileButton?: boolean
+  /** 왼쪽 위 TTAK 로고 (홈은 인사말 안에 로고가 있어 뺀다) */
+  logo?: boolean
   /** 머리 아래 카드들. 첫 카드가 머리 위로 올라와 캐릭터 손 아래 깔린다 */
   children: ReactNode
 }
 
 // TTAK 보라 머리(홈 · 마이 공통, 11/9 시안): 구름 배경 · 왼쪽 위 로고 · 오른쪽 위 둥근 버튼 · 오른쪽 캐릭터.
 // 캐릭터(z 2)가 카드 묶음(z 1)보다 위에 그려져 손이 첫 카드 윗변에 걸친다.
-export default function BrandHero({ head, unread, profileButton = false, children }: Props) {
+export default function BrandHero({ head, unread, profileButton = false, logo = true, children }: Props) {
   return (
     <>
       <header className={styles.hero}>
         <div className={styles.topBar}>
-          <img className={styles.logo} src="/splash/logo.webp" alt="TTAK" />
+          {logo && <img className={styles.logo} src="/splash/logo.webp" alt="TTAK" />}
           <div className={styles.actions}>
             <Link to={PATHS.notifications} className={styles.round} aria-label={`알림, 안 읽은 것 ${unread}개`}>
               <Icon name="bell" />
