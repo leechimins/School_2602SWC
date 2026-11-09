@@ -7,6 +7,7 @@ import DemoPage from './demo/DemoPage.tsx'
 import { isBooted } from './lib/boot.ts'
 import { PATHS } from './lib/paths.ts'
 import HomePage from './pages/HomePage.tsx'
+import JoinPage from './pages/JoinPage.tsx'
 import MeetingPage from './pages/MeetingPage.tsx'
 import MePage from './pages/MePage.tsx'
 import NotificationsPage from './pages/NotificationsPage.tsx'
@@ -65,6 +66,7 @@ export default function App() {
         }
       >
         <Route path={PATHS.start} element={<StartPage />} />
+        <Route path={PATHS.join} element={<JoinPage />} />
         <Route path={PATHS.onboarding} element={<OnboardingPage />} />
       </Route>
       <Route path={PATHS.login} element={<SplashPage />} />

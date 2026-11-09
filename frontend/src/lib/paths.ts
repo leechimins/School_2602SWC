@@ -19,7 +19,8 @@ export const PATHS = {
   me: '/me',
   // 탭 밖 (처음 한 번)
   login: '/login', // 스플래시 + 구글 로그인
-  start: '/start',
+  start: '/start', // 방 만들기(팀장)
+  join: '/join', // 초대 코드로 들어가기(팀원)
   onboarding: '/onboarding',
   // 시연 화면
   demo: '/demo',

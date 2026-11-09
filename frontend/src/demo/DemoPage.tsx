@@ -45,6 +45,7 @@ export default function DemoPage() {
   const lastProposalId = lastScheduling?.meetingId ?? s.proposals[s.proposals.length - 1]?.meetingId
   const scenes: { label: string; path: string }[] = [
     { label: '방 만들기', path: PATHS.start },
+    { label: '초대 코드', path: PATHS.join },
     { label: '홈', path: PATHS.home },
     ...(lastScheduling ? [{ label: '조율 과정', path: pathTo.scheduling(lastScheduling.id) }] : []),
     ...(lastProposalId ? [{ label: '조율 확인', path: pathTo.proposal(lastProposalId) }] : []),

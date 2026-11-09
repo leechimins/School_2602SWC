@@ -51,6 +51,9 @@ function Recorder({ meeting: m, members }: { meeting: MeetingDetail; members: Me
   const [error, setError] = useState('')
   const summarize = useSummarize(user.roomId, m.id)
 
+  // 조율로 잡힌 회의는 수락한 사람 수, 바로 기록하는 회의는 수락한 사람이 없어 팀원 수를 보인다
+  const people = m.attendees.length > 0 ? `참석 ${m.attendees.length}명` : `팀원 ${members.length}명`
+
   // 원문 저장 → 정리 → 회의록으로. 정리만 실패하면 이 화면에 남아 다시 하기를 보여 준다
   const finish = async (text: string) => {
     if (!saved) {
@@ -69,7 +72,7 @@ function Recorder({ meeting: m, members }: { meeting: MeetingDetail; members: Me
     <section className="sec">
       <p className={styles.topic}>{m.topic}</p>
       <p className="meta num">
-        {formatDayLabel(m.startAt)} {formatTimeRange(m.startAt, m.endAt)} · {m.mode} · 참석 {m.attendees.length}명
+        {formatDayLabel(m.startAt)} {formatTimeRange(m.startAt, m.endAt)} · {m.mode} · {people}
       </p>
       {error && (
         <p className="meta" role="alert">
@@ -156,7 +159,7 @@ function Recorder({ meeting: m, members }: { meeting: MeetingDetail; members: Me
       )}
       {step === 'live' && (
         <Live
-          memberCount={m.attendees.length}
+          people={people}
           onStop={(lines) => {
             setHeard(lines)
             setStep(lines.length ? 'voice' : 'idle')
@@ -170,7 +173,7 @@ function Recorder({ meeting: m, members }: { meeting: MeetingDetail; members: Me
 }
 
 // 받아적는 중: 빨간 점 + "받아적는 중" + 경과 시간 + 쌓이는 글. 표시가 늘 보여 숨기지 않는다
-function Live({ memberCount, onStop }: { memberCount: number; onStop: (lines: Heard[]) => void }) {
+function Live({ people, onStop }: { people: string; onStop: (lines: Heard[]) => void }) {
   const [seconds, setSeconds] = useState(0)
   const [script] = useState(liveTranscript)
   const lines = script.slice(0, Math.floor((seconds * 1000) / LIVE_MS))
@@ -193,7 +196,7 @@ function Live({ memberCount, onStop }: { memberCount: number; onStop: (lines: He
     <section className="sec">
       <div className="row-between">
         <span className={styles.recDot}>받아적는 중</span>
-        <span className="meta">참석 {memberCount}명</span>
+        <span className="meta">{people}</span>
       </div>
       <p className={`${styles.clock} num`} aria-label={`${seconds}초 지남`}>
         {mm}:{ss}

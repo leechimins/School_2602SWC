@@ -17,6 +17,7 @@ import { useApi } from '../hooks/useApi.ts'
 import { useCurrentUser } from '../hooks/useCurrentUser.ts'
 import { useSummarize } from '../hooks/useSummarize.ts'
 import { formatDayLabel, formatMD, formatTimeRange } from '../lib/date.ts'
+import { attendeeNames } from '../lib/meeting.ts'
 import { PATHS, pathTo } from '../lib/paths.ts'
 import type { MeetingDetail, Minutes } from '../types/meeting.ts'
 import type { Member } from '../types/room.ts'
@@ -43,6 +44,7 @@ function MeetingBody({ meeting: m, members }: { meeting: MeetingDetail; members:
   const user = useCurrentUser()
   const [showRaw, setShowRaw] = useState(false)
   const recorded = m.transcript.length > 0
+  const attendees = attendeeNames(m)
 
   return (
     <>
@@ -52,7 +54,7 @@ function MeetingBody({ meeting: m, members }: { meeting: MeetingDetail; members:
           <span>{formatDayLabel(m.startAt)}</span>
           <span>{formatTimeRange(m.startAt, m.endAt)}</span>
           <span>{m.mode}</span>
-          <span>참석 {m.attendees.join(' · ')}</span>
+          {attendees.length > 0 && <span>참석 {attendees.join(' · ')}</span>}
         </p>
         {recorded && (
           <button type="button" className="btn small block" aria-expanded={showRaw} onClick={() => setShowRaw(!showRaw)}>
