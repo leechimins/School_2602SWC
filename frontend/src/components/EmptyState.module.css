@@ -1,5 +1,13 @@
 .empty {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   padding: 4px 0;
+}
+
+.art {
+  width: 64px;
+  flex: none;
 }
 
 .action {
