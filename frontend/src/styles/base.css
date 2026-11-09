@@ -75,8 +75,8 @@ p {
   margin: 8px 12px 0;
   padding: 14px var(--sp);
   background: var(--card);
-  border: 1px solid var(--line);
   border-radius: var(--r-l);
+  box-shadow: var(--shadow);
 }
 
 .sec h2 {
