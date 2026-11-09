@@ -45,8 +45,20 @@
 
 .row :global(.field) {
   min-height: 32px;
-  padding: 0 8px;
+  padding: 0 10px;
+  border-radius: var(--r-s);
+  background-color: var(--card);
   font-size: 13px;
+}
+
+/* 직접 추가 카드는 흰 바탕이라 입력칸을 회색으로 */
+.card.plain .row :global(.field) {
+  background-color: var(--soft);
+}
+
+.row select:global(.field) {
+  padding-right: 28px;
+  background-position: right 8px center;
 }
 
 .row select {

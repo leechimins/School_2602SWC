@@ -1,4 +1,4 @@
-/* 앱 전체 기본값과 여러 화면이 같이 쓰는 모양(버튼·묶음·메타 글자). 시안10과 같은 값이다. */
+/* 앱 전체 기본값과 여러 화면이 같이 쓰는 모양(버튼·묶음·메타 글자·입력칸). 11/9 스타일 견본 값이다. */
 * {
   box-sizing: border-box;
 }
@@ -52,6 +52,15 @@ p {
   margin: 0;
 }
 
+/* 휴대폰 앱처럼 스크롤 막대를 숨긴다(굴리기는 그대로). 노트북 시연에서도 화면 안에 회색 막대가 생기지 않는다 */
+* {
+  scrollbar-width: none;
+}
+
+*::-webkit-scrollbar {
+  display: none;
+}
+
 [hidden] {
   display: none !important;
 }
@@ -72,16 +81,16 @@ p {
 
 /* 묶음: 카드 한 장 */
 .sec {
-  margin: 8px 12px 0;
-  padding: 14px var(--sp);
+  margin: 12px 12px 0;
+  padding: 15px 17px;
   background: var(--card);
-  border: 1px solid var(--line);
   border-radius: var(--r-l);
+  box-shadow: var(--shadow);
 }
 
 .sec h2 {
   margin: 0 0 6px;
-  font-size: var(--fs-sec);
+  font-size: 15px;
   font-weight: 700;
   letter-spacing: -0.01em;
 }
@@ -103,7 +112,7 @@ p {
 
 /* 버튼. 두 개를 나란히 둘 때는 왼쪽 .quiet(또는 .del) | 오른쪽 .primary */
 .btn {
-  min-height: 44px;
+  min-height: 40px;
   padding: 0 14px;
   border: 0;
   border-radius: var(--r);
@@ -161,13 +170,41 @@ p {
   text-decoration: none;
 }
 
+/* 입력칸: 테두리 없이 회색으로 채운 큼직한 칸 */
 .field {
-  min-height: 38px;
-  padding: 0 10px;
-  border: 1px solid var(--line);
-  border-radius: var(--r-s);
-  background: var(--card);
-  font-size: var(--fs-body);
+  min-height: 46px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: var(--r-field);
+  background: var(--soft);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.field::placeholder {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.field:focus {
+  outline: 2px solid var(--point);
+  outline-offset: -2px;
+}
+
+textarea.field {
+  padding: 12px 14px;
+  font-weight: 500;
+}
+
+/* 고르기 칸: 기본 화살표 대신 얇은 꺾쇠 */
+select.field {
+  -webkit-appearance: none;
+  appearance: none;
+  padding-right: 34px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M3 4.5 6 7.5 9 4.5' fill='none' stroke='%2324242e' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-position: right 12px center;
+  background-size: 12px;
+  background-repeat: no-repeat;
 }
 
 /* 아이콘: 1.6px 선 아이콘 */

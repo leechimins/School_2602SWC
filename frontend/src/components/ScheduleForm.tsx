@@ -6,6 +6,7 @@ import { WEEKDAYS, type ScheduleItemInput } from '../types/me.ts'
 import styles from './ScheduleForm.module.css'
 import Segmented from './Segmented.tsx'
 import seg from './Segmented.module.css'
+import Sheet from './Sheet.tsx'
 
 const KINDS = ['일정', '수업'] as const
 const HOURS = Array.from({ length: 13 }, (_, i) => i + 9) // 9:00~21:00
@@ -15,7 +16,8 @@ type Props = {
   onCancel: () => void
 }
 
-// 일정 추가(매주 반복): 이름 · 종류 · 요일 여러 개 · 요일마다 시간. 구글 캘린더 약속은 캘린더에서 고친다
+// 일정 추가 시트(매주 반복): 이름 · 종류 · 요일 여러 개 · 요일마다 시간. '좋아하는 방식' 시트와 같은 모양.
+// 구글 캘린더 약속은 캘린더에서 고친다
 export default function ScheduleForm({ onSaved, onCancel }: Props) {
   const [title, setTitle] = useState('')
   const [kind, setKind] = useState<(typeof KINDS)[number]>('일정')
@@ -54,8 +56,20 @@ export default function ScheduleForm({ onSaved, onCancel }: Props) {
   }
 
   return (
-    <div className={styles.box}>
-      <p className="strong">일정 추가</p>
+    <Sheet
+      title="일정 추가"
+      onClose={onCancel}
+      actions={
+        <>
+          <button type="button" className="btn quiet" onClick={onCancel}>
+            취소
+          </button>
+          <button type="button" className="btn primary" disabled={saving} onClick={save}>
+            {saving ? '저장하는 중…' : '저장'}
+          </button>
+        </>
+      }
+    >
       <label className={form.label}>
         이름 (나만 보여요)
         <input className="field" value={title} maxLength={20} placeholder="예: 카페 알바" onChange={(e) => setTitle(e.target.value)} />
@@ -86,21 +100,13 @@ export default function ScheduleForm({ onSaved, onCancel }: Props) {
           {error}
         </p>
       )}
-      <div className={styles.act}>
-        <button type="button" className="btn small quiet" onClick={onCancel}>
-          취소
-        </button>
-        <button type="button" className="btn small primary" disabled={saving} onClick={save}>
-          저장
-        </button>
-      </div>
-    </div>
+    </Sheet>
   )
 }
 
 export function HourSelect({ label, value, onChange }: { label: string; value: number; onChange: (h: number) => void }) {
   return (
-    <select className="field num" aria-label={label} value={value} onChange={(e) => onChange(Number(e.target.value))}>
+    <select className={`field num ${styles.hour}`} aria-label={label} value={value} onChange={(e) => onChange(Number(e.target.value))}>
       {HOURS.map((h) => (
         <option key={h} value={h}>
           {h}:00

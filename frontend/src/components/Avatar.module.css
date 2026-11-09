@@ -24,5 +24,6 @@
 .large {
   width: 34px;
   height: 34px;
-  font-size: 13px;
+  font-size: 15px;
+  font-weight: 800;
 }
