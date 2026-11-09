@@ -646,7 +646,7 @@ def respond(
             record(
                 db,
                 room_id,
-                f"{meeting.topic} 회의를 다시 조율해요",
+                f"{meeting.topic} 다시 조율",
                 f"{member_names(db, room_id).get(user_id, '팀원')} 님이 그 시간은 어렵다고 했어요",
             )
             try:
@@ -701,7 +701,7 @@ def respond(
             user_ids=[s.user_id for s in siblings],
             kind=NotificationKind.MEETING_CONFIRMED,
             reason=(
-                f"{meeting.topic} 회의가 확정됐습니다."
+                f"{meeting.topic} 일정이 확정됐어요."
                 + (f" {', '.join(빠진)} 님은 빠져요." if 빠진 else "")
             )[:200],
             dedupe=f"meeting{meeting_id}",
@@ -710,7 +710,7 @@ def respond(
         record(
             db,
             room_id,
-            f"{meeting.topic} 회의가 확정됐어요",
+            f"{meeting.topic} 확정",
             f"{', '.join(빠진)} 님은 빠지고 나머지가 모두 수락했어요" if 빠진 else "모두 수락했어요",
         )
     db.commit()

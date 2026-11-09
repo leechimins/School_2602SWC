@@ -599,12 +599,12 @@ def _propose(
         meeting.id,
         [c.user_id for c in costs],
         NotificationKind.MEETING_PROPOSED,
-        f"{scheduling.topic} 회의 일정이 나왔습니다. 수락·거절해 주세요.",
+        f"{scheduling.topic} 일정이 나왔어요. 수락/거절해 주세요.",
     )
     record(
         db,
         scheduling.room_id,
-        f"{scheduling.topic} 회의를 {_때(candidate)}으로 제안했어요",
+        f"{scheduling.topic} 제안 · {_때(candidate)}",
         meeting.rationale or "팀 전체로 가장 덜 불편한 시간이에요",
     )
     db.commit()
@@ -657,12 +657,12 @@ def _confirm(
         meeting.id,
         [c.user_id for c in costs],
         NotificationKind.MEETING_CONFIRMED,
-        f"{scheduling.topic} 회의가 확정됐습니다. {_왜조정(rounds_ran)}",
+        f"{scheduling.topic} 일정이 확정됐어요. 판단 에이전트가 정했어요.",
     )
     record(
         db,
         scheduling.room_id,
-        f"{scheduling.topic} 회의를 {_때(candidate)}으로 정했어요",
+        f"{scheduling.topic} 확정 · {_때(candidate)}",
         _왜조정(rounds_ran),
     )
     db.commit()
