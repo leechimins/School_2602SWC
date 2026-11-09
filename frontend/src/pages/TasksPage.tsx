@@ -7,7 +7,7 @@ import Avatar from '../components/Avatar.tsx'
 import EmptyState from '../components/EmptyState.tsx'
 import Icon, { type IconName } from '../components/Icon.tsx'
 import RetryBox from '../components/RetryBox.tsx'
-import Screen from '../components/Screen.tsx'
+import Screen, { type BandStat } from '../components/Screen.tsx'
 import TaskEditor from '../components/TaskEditor.tsx'
 import TaskRow from '../components/TaskRow.tsx'
 import { useApi } from '../hooks/useApi.ts'
@@ -32,6 +32,7 @@ export default function TasksPage() {
   const room = useApi(() => getRoom(user.roomId), [user.roomId, user.id])
   const members = room.status === 'ready' ? room.data.members : []
   const [adding, setAdding] = useState(false)
+  const [filter, setFilter] = useState<Filter>('전체')
 
   const mine = (
     <Link to={PATHS.myTasks} className={`link ${styles.aux}`}>
@@ -55,17 +56,37 @@ export default function TasksPage() {
     </div>
   )
 
+  // 요약 칸: 상태별 개수. 누르면 그 상태로 거르고, 한 번 더 누르면 전체로
+  const count = (st: TaskStatus) => (res.status === 'ready' ? res.data.tasks.filter((t) => t.status === st).length : 0)
+  const statOf = (st: TaskStatus, tint: BandStat['tint']): BandStat => ({
+    label: st,
+    value: count(st),
+    tint,
+    pressed: filter === st,
+    onClick: () => setFilter((f) => (f === st ? '전체' : st)),
+  })
+  const stats = res.status === 'ready' ? [statOf('진행 중', 'blue'), statOf('막힘', 'pink'), statOf('완료', 'mint')] : []
+
   return (
-    <Screen title="할 일" aux={mine} dock={dock}>
+    <Screen title="할 일" aux={mine} dock={dock} band={{ sub: '확정된 할 일을 사람별로 모아 봐요', stats }}>
       {res.status === 'error' && <RetryBox message={res.message} onRetry={res.reload} />}
-      {res.status === 'ready' && <TeamTaskList data={res.data} members={members} addCard={addCard} />}
+      {res.status === 'ready' && (
+        <TeamTaskList data={res.data} members={members} addCard={addCard} filter={filter} setFilter={setFilter} />
+      )}
     </Screen>
   )
 }
 
-function TeamTaskList({ data, members, addCard }: { data: TeamTasks; members: Member[]; addCard: ReactNode }) {
+type ListProps = {
+  data: TeamTasks
+  members: Member[]
+  addCard: ReactNode
+  filter: Filter
+  setFilter: (f: Filter) => void
+}
+
+function TeamTaskList({ data, members, addCard, filter, setFilter }: ListProps) {
   const user = useCurrentUser()
-  const [filter, setFilter] = useState<Filter>('전체')
   const [editingId, setEditingId] = useState<Id | null>(null)
   const [folded, setFolded] = useState<ReadonlySet<string>>(new Set())
   const [showLoad, setShowLoad] = useState(false)
@@ -170,6 +191,9 @@ function TeamTaskList({ data, members, addCard }: { data: TeamTasks; members: Me
             <button key={f} type="button" aria-pressed={filter === f} data-tone={f} onClick={() => setFilter(f)}>
               {icon && <Icon name={icon} small />}
               {f}
+              <span className={`${styles.chipN} num`}>
+                {f === '전체' ? data.tasks.length : data.tasks.filter((t) => t.status === f).length}
+              </span>
             </button>
           )
         })}

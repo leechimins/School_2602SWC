@@ -31,7 +31,8 @@ import type { Home } from '../types/home.ts'
 import type { Task } from '../types/task.ts'
 import styles from './HomePage.module.css'
 
-// 홈(11/9 TTAK): 머리(방 이름 · 오늘 · 마감 디데이) → 마감 카드 → 다음 회의 → 새 회의 잡기(팀장) → 내 할 일.
+// 홈(11/9 TTAK): 머리(왼쪽 캐릭터 · 오른쪽 방 이름 · 오늘 · 마감 디데이) → 마감 카드 → 새 회의 잡기(팀장) → 다음 회의 → 내 할 일.
+// 새 회의 잡기(진한 그라데이션)를 다음 회의 위에 둔다 — 다음 회의 버튼과 붙으면 진한 보라가 몰려 보인다.
 // 앱에서 머리(보라 그라데이션 + 캐릭터)는 홈에만 붙인다.
 // "먼저 챙길 것"은 홈에 따로 두지 않고 종의 숫자와 할 일 옆 늦음·막힘 뱃지로 알린다
 export default function HomePage() {
@@ -57,7 +58,6 @@ export default function HomePage() {
       {home.status === 'ready' && (
         <>
           <PeriodCard startDate={home.data.startDate} dueDate={home.data.dueDate} today={home.data.today} />
-          <NextMeeting home={home.data} />
           {home.data.canStartScheduling && (
             <Link to={PATHS.schedulingNew} className={styles.newMeeting}>
               <span className={styles.newIcon} aria-hidden="true">
@@ -72,6 +72,7 @@ export default function HomePage() {
               </span>
             </Link>
           )}
+          <NextMeeting home={home.data} />
           <MyTasks tasks={home.data.myTasks} />
         </>
       )}
@@ -83,7 +84,7 @@ export default function HomePage() {
 function CardHead({ icon, title, right }: { icon: 'calendar' | 'tasks'; title: string; right?: ReactNode }) {
   return (
     <div className={styles.cardHead}>
-      <span className={styles.headIcon} aria-hidden="true">
+      <span className={styles.headIcon} data-tint={icon === 'calendar' ? 'blue' : 'mint'} aria-hidden="true">
         <Icon name={icon} small />
       </span>
       <h2>{title}</h2>
@@ -182,7 +183,7 @@ function NextMeeting({ home }: { home: Home }) {
             <p className="meta num">{formatRange(c.windowStart, c.windowEnd)} 사이 · 에이전트끼리 시간을 맞추는 중</p>
           </div>
         </div>
-        <Link to={pathTo.scheduling(c.id)} className={`btn primary block ${styles.wide}`}>
+        <Link to={pathTo.scheduling(c.id)} className={`btn block ${styles.wide}`}>
           조율 과정 보기
         </Link>
       </section>

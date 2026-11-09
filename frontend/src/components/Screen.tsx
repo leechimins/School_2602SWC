@@ -6,8 +6,23 @@ import styles from './Screen.module.css'
 type Hero = {
   /** 큰 제목 아래 한 줄 설명 */
   sub?: string
-  /** 큰 제목 왼쪽 아이콘 (회의 조율의 달력 등) */
+  /** 큰 제목 왼쪽 아이콘 */
   icon?: ReactNode
+}
+
+/** 띠 머리 아래 요약 칸 하나: 숫자 · 이름 · 보조 색. onClick이 있으면 눌린다(할 일 필터) */
+export type BandStat = {
+  label: string
+  value: number
+  tint: 'blue' | 'pink' | 'mint' | 'yellow' | 'violet'
+  onClick?: () => void
+  pressed?: boolean
+}
+
+type Band = {
+  sub?: string
+  /** 비어 있으면(불러오는 중) 칸을 그리지 않는다 */
+  stats?: BandStat[]
 }
 
 type Props = {
@@ -19,15 +34,17 @@ type Props = {
   /** 탭 바로 위에 붙는 하단 고정 영역 (주요 행동 버튼) */
   dock?: ReactNode
   /**
-   * TTAK 머리: 보라 그라데이션 + 로고 + 큰 제목 + 오른쪽에 걸친 캐릭터(11/9 시안).
-   * 있으면 제목줄 대신 이 머리가 본문 맨 위에 붙어 함께 스크롤되고, 첫 묶음(.sec)이 캐릭터 손 아래로 올라온다.
+   * TTAK 머리(홈만): 보라 그라데이션 + 로고 + 왼쪽 캐릭터 + 오른쪽 큰 제목.
+   * 본문 맨 위에 붙어 함께 스크롤되고, 첫 묶음(.sec)이 머리 위로 살짝 올라온다.
    */
   hero?: Hero
+  /** 띠 머리(일정·할 일): 연한 그라데이션 + 큰 제목 + 설명 + 요약 칸. 캐릭터·로고는 없다 */
+  band?: Band
   children: ReactNode
 }
 
-// 화면 한 장의 틀: 상단 제목줄(또는 TTAK 머리) → 스크롤되는 본문 → 하단 고정 영역
-export default function Screen({ title, backTo, aux, dock, hero, children }: Props) {
+// 화면 한 장의 틀: 상단 제목줄(또는 TTAK 머리·띠 머리) → 스크롤되는 본문 → 하단 고정 영역
+export default function Screen({ title, backTo, aux, dock, hero, band, children }: Props) {
   const back = backTo && (
     <Link to={backTo} className={styles.back} aria-label="뒤로">
       <Icon name="back" />
@@ -60,6 +77,50 @@ export default function Screen({ title, backTo, aux, dock, hero, children }: Pro
     )
   }
 
+  if (band) {
+    const stats = band.stats ?? []
+    return (
+      <div className={`${styles.screen} ${styles.heroScreen}`}>
+        <main className={styles.body}>
+          <header className={styles.band}>
+            <div className={styles.bandTop}>
+              {back}
+              <div className={styles.bandText}>
+                <h1 className={styles.bandTitle}>{title}</h1>
+                {band.sub && <p className={styles.bandSub}>{band.sub}</p>}
+              </div>
+              {aux && <span className={styles.bandAux}>{aux}</span>}
+            </div>
+          </header>
+          {stats.length > 0 && (
+            <div className={styles.stats}>
+              {stats.map((st) =>
+                st.onClick ? (
+                  <button
+                    key={st.label}
+                    type="button"
+                    className={styles.stat}
+                    data-tint={st.tint}
+                    aria-pressed={st.pressed ?? false}
+                    onClick={st.onClick}
+                  >
+                    <StatBody stat={st} />
+                  </button>
+                ) : (
+                  <div key={st.label} className={styles.stat} data-tint={st.tint}>
+                    <StatBody stat={st} />
+                  </div>
+                ),
+              )}
+            </div>
+          )}
+          <div className={styles.bandBody}>{children}</div>
+        </main>
+        {dock && <div className={styles.dock}>{dock}</div>}
+      </div>
+    )
+  }
+
   return (
     <div className={styles.screen}>
       <header className={styles.top}>
@@ -70,5 +131,17 @@ export default function Screen({ title, backTo, aux, dock, hero, children }: Pro
       <main className={styles.body}>{children}</main>
       {dock && <div className={styles.dock}>{dock}</div>}
     </div>
+  )
+}
+
+function StatBody({ stat }: { stat: BandStat }) {
+  return (
+    <>
+      <span className={styles.statLabel}>
+        <i className={styles.statDot} aria-hidden="true" />
+        {stat.label}
+      </span>
+      <b className={`${styles.statValue} num`}>{stat.value}</b>
+    </>
   )
 }

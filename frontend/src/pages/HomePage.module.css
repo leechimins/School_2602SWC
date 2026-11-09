@@ -63,11 +63,11 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 9px;
-  background: var(--point-soft);
-  color: var(--point);
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  background: var(--tc-soft, var(--point-soft));
+  color: var(--tc, var(--point));
 }
 
 .headRight {
@@ -183,13 +183,13 @@
 }
 
 .summary .sumLate {
-  background: color-mix(in srgb, var(--danger) 12%, var(--white));
-  color: var(--danger);
+  background: var(--tint-pink-soft);
+  color: var(--tint-pink);
 }
 
 .summary .sumToday {
-  background: var(--point-soft);
-  color: var(--point-ink);
+  background: var(--tint-blue-soft);
+  color: var(--tint-blue);
 }
 
 @media (prefers-reduced-motion: reduce) {

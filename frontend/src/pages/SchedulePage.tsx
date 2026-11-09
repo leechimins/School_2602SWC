@@ -10,7 +10,7 @@ import ConfirmSheet from '../components/ConfirmSheet.tsx'
 import DateBlock from '../components/DateBlock.tsx'
 import Icon, { type IconName } from '../components/Icon.tsx'
 import RetryBox from '../components/RetryBox.tsx'
-import Screen from '../components/Screen.tsx'
+import Screen, { type BandStat } from '../components/Screen.tsx'
 import { useApi } from '../hooks/useApi.ts'
 import { useClock } from '../hooks/useClock.ts'
 import { useCurrentUser } from '../hooks/useCurrentUser.ts'
@@ -27,10 +27,10 @@ import type { MeetingBrief, Schedule } from '../types/meeting.ts'
 import styles from './SchedulePage.module.css'
 
 // 섹션 제목(카드 밖): 아이콘 + 제목 + 개수
-function SecHead({ icon, title, count }: { icon: IconName; title: string; count?: number }) {
+function SecHead({ icon, title, count, tint }: { icon: IconName; title: string; count?: number; tint: string }) {
   return (
     <div className={styles.secHead}>
-      <span className={styles.secIcon} aria-hidden="true">
+      <span className={styles.secIcon} data-tint={tint} aria-hidden="true">
         <Icon name={icon} small />
       </span>
       <h2>{title}</h2>
@@ -53,8 +53,18 @@ export default function SchedulePage() {
     </Link>
   )
 
+  // 요약 칸: 섹션 개수와 같은 데이터에서 센다
+  const stats: BandStat[] =
+    res.status === 'ready'
+      ? [
+          { label: '잡힌 회의', value: res.data.upcoming.length, tint: 'blue' },
+          { label: '조율 중', value: res.data.coordinating.length, tint: 'violet' },
+          { label: '지난 회의', value: res.data.past.length, tint: 'mint' },
+        ]
+      : []
+
   return (
-    <Screen title="일정" aux={newMeeting}>
+    <Screen title="일정" aux={newMeeting} band={{ sub: '회의 잡기부터 회의록까지 한곳에서 봐요', stats }}>
       {res.status === 'error' && <RetryBox message={res.message} onRetry={res.reload} />}
       {res.status === 'ready' && (
         <ScheduleBody
@@ -81,7 +91,7 @@ function ScheduleBody({ schedule, canStartScheduling, total }: BodyProps) {
 
       {coordinating.length > 0 && (
         <>
-          <SecHead icon="progress" title="조율 중인 회의" count={coordinating.length} />
+          <SecHead icon="progress" title="조율 중인 회의" count={coordinating.length} tint="violet" />
           <section className="sec">
             {coordinating.map((c) => (
               <Link key={c.id} to={pathTo.scheduling(c.id)} className={styles.row}>
@@ -97,7 +107,7 @@ function ScheduleBody({ schedule, canStartScheduling, total }: BodyProps) {
         </>
       )}
 
-      <SecHead icon="calendar" title="잡힌 회의" count={upcoming.length} />
+      <SecHead icon="calendar" title="잡힌 회의" count={upcoming.length} tint="blue" />
       <section className="sec">
         {upcoming.length === 0 ? (
           <div className={styles.empty}>
@@ -112,7 +122,7 @@ function ScheduleBody({ schedule, canStartScheduling, total }: BodyProps) {
         )}
       </section>
 
-      <SecHead icon="tasks" title="지난 회의 · 회의록" count={past.length} />
+      <SecHead icon="tasks" title="지난 회의 · 회의록" count={past.length} tint="mint" />
       <section className="sec">
         {past.length === 0 ? (
           <p className="meta">아직 지난 회의가 없어요. 회의를 기록하면 요약과 할 일 제안이 여기에 쌓여요.</p>

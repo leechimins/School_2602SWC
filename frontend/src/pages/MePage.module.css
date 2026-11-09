@@ -70,9 +70,9 @@
   justify-content: center;
   width: 28px;
   height: 28px;
-  border-radius: 9px;
-  background: var(--point-soft);
-  color: var(--point);
+  border-radius: 10px;
+  background: var(--tc-soft, var(--point-soft));
+  color: var(--tc, var(--point));
 }
 
 .secRight {

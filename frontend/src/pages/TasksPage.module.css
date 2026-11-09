@@ -173,15 +173,15 @@
 }
 
 .chips button[data-tone='진행 중'] :global(svg) {
-  color: var(--point);
+  color: var(--tint-blue);
 }
 
 .chips button[data-tone='막힘'] :global(svg) {
-  color: var(--danger);
+  color: var(--tint-pink);
 }
 
 .chips button[data-tone='완료'] :global(svg) {
-  color: var(--ok);
+  color: var(--tint-mint);
 }
 
 .chips button[aria-pressed='true'] {
@@ -258,4 +258,16 @@
 
 .adding {
   margin: 10px 12px 0;
+}
+
+/* 필터 칩 안 개수 */
+.chipN {
+  margin-left: 2px;
+  opacity: 0.7;
+  font-weight: 700;
+}
+
+/* 진행률 카드는 요약 칸 아래 */
+.progress {
+  margin-top: 10px !important;
 }

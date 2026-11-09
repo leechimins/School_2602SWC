@@ -21,7 +21,10 @@
 
 .dday {
   display: block;
-  color: var(--point-ink);
+  background: var(--point-text-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
   font-size: 32px;
   font-weight: 800;
   line-height: 1.15;

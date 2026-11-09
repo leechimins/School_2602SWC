@@ -123,10 +123,12 @@ export default function MePage() {
 }
 
 // 카드 제목 줄: 아이콘 + 제목 (+ 오른쪽)
+const ICON_TINT: Partial<Record<IconName, string>> = { link: 'blue', calendar: 'mint', heart: 'pink' }
+
 function SecTitle({ icon, title, right }: { icon: IconName; title: string; right?: ReactNode }) {
   return (
     <div className={styles.secTitle}>
-      <span className={styles.secIcon} aria-hidden="true">
+      <span className={styles.secIcon} data-tint={ICON_TINT[icon]} aria-hidden="true">
         <Icon name={icon} small />
       </span>
       <h2>{title}</h2>
