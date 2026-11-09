@@ -1,10 +1,33 @@
 .row {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: 44px 1fr auto;
   align-items: center;
-  gap: 10px;
-  padding: 8px 0;
+  gap: 12px;
+  padding: 12px 0;
   border-bottom: 1px solid var(--line);
+}
+
+/* 오른쪽 버튼이 없는 줄(에브리타임): 글이 끝까지 */
+.wide {
+  grid-column: 2 / -1;
+}
+
+/* 줄 왼쪽 아이콘 칸 */
+.icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: start;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: var(--point-soft);
+  color: var(--point);
+}
+
+.icon[data-tone='blue'] {
+  background: #e7efff;
+  color: #3f74e8;
 }
 
 .row:first-child {

@@ -4,68 +4,7 @@
   padding: 0;
 }
 
-/* ── 보라 머리 ── */
-.hero {
-  position: relative;
-  padding: 16px 0 54px;
-  overflow: hidden;
-  background:
-    url(/splash/bg.webp) center 30% / cover no-repeat,
-    linear-gradient(180deg, #7c78f0, #9b97f6);
-  color: var(--white);
-}
-
-.topBar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 var(--gutter) 0 calc(var(--gutter) + 2px);
-}
-
-.logo {
-  width: 96px;
-  height: auto;
-  filter: drop-shadow(0 2px 6px rgb(60 50 160 / 0.25));
-}
-
-.actions {
-  display: flex;
-  gap: 10px;
-}
-
-/* 반투명 흰 둥근 버튼 */
-.round {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 46px;
-  height: 46px;
-  border: 1px solid rgb(255 255 255 / 0.45);
-  border-radius: 16px;
-  background: rgb(255 255 255 / 0.22);
-  backdrop-filter: blur(6px);
-  color: var(--white);
-}
-
-.dot {
-  position: absolute;
-  top: 9px;
-  right: 10px;
-  width: 9px;
-  height: 9px;
-  border: 2px solid var(--white);
-  border-radius: 50%;
-  background: var(--pink);
-}
-
-.greet {
-  position: relative;
-  z-index: 1;
-  max-width: 64%;
-  padding: 22px 0 0 calc(var(--gutter) + 6px);
-}
-
+/* ── 인사말 (BrandHero 머리 안) ── */
 .hi {
   font-size: 15px;
   opacity: 0.85;
@@ -97,44 +36,6 @@
   margin-top: 10px;
   font-size: 14px;
   opacity: 0.9;
-}
-
-/* 캐릭터: 오른쪽에서 주간 달력 카드 위에 손을 올린다. 캐릭터(z 2)가 카드(.cards, z 1)보다 위에 그려지고,
-   그림 맨 아래 보라 띠(원래 그림의 달력 윗부분)는 잘라 손만 카드 모서리에 걸친다.
-   카드는 머리 아래 36px을 덮는다 → 잘린 아래끝이 카드 윗변보다 14px 아래로 내려오게 둔다 */
-.peek {
-  position: absolute;
-  right: 6px;
-  bottom: 10px;
-  z-index: 2;
-  width: 46%;
-  max-width: 200px;
-  height: auto;
-  clip-path: inset(0 0 7% 0);
-  filter: drop-shadow(0 10px 16px rgb(60 50 160 / 0.25));
-  animation: bob 3.6s cubic-bezier(0.45, 0, 0.55, 1) infinite;
-}
-
-@keyframes bob {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-4px);
-  }
-}
-
-/* 카드 묶음: 머리 위로 올라와 캐릭터 아래쪽을 덮는다 */
-.cards {
-  position: relative;
-  z-index: 1;
-  margin-top: -36px;
-  padding-bottom: 20px;
-}
-
-.cards > :global(.sec):first-child {
-  margin-top: 0;
 }
 
 /* ── 주간 달력 ── */
@@ -398,8 +299,3 @@
   transform: rotate(-6deg);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .peek {
-    animation: none;
-  }
-}

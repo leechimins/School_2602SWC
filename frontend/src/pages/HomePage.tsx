@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { getHome } from '../api/rooms.ts'
 import { getSchedule } from '../api/scheduling.ts'
 import { changeTaskStatus } from '../api/tasks.ts'
+import BrandHero from '../components/BrandHero.tsx'
 import Icon from '../components/Icon.tsx'
 import RetryBox from '../components/RetryBox.tsx'
 import Screen from '../components/Screen.tsx'
@@ -37,39 +38,28 @@ export default function HomePage() {
 function HomeBody({ home, name, meetings }: { home: Home; name: string; meetings: MeetingBrief[] }) {
   return (
     <>
-      <header className={styles.hero}>
-        <div className={styles.topBar}>
-          <img className={styles.logo} src="/splash/logo.webp" alt="TTAK" />
-          <div className={styles.actions}>
-            <Link to={PATHS.notifications} className={styles.round} aria-label={`알림, 안 읽은 것 ${home.unreadCount}개`}>
-              <Icon name="bell" />
-              {home.unreadCount > 0 && <i className={styles.dot} aria-hidden="true" />}
-            </Link>
-            <Link to={PATHS.me} className={styles.round} aria-label="내 정보">
-              <Icon name="person" />
-            </Link>
-          </div>
-        </div>
-        <div className={styles.greet}>
-          <p className={styles.hi}>{name ? `${name}님,` : '안녕하세요,'}</p>
-          <h1 className={styles.hello}>
-            오늘도
-            <br />
-            딱 맞게, <b>TTAK!</b>
-            <span className={styles.spark} aria-hidden="true">
-              ✦
-            </span>
-          </h1>
-          <p className={styles.sub}>계획한 일, 하나씩 함께 끝내봐요!</p>
-        </div>
-        <img className={styles.peek} src="/splash/peek.webp" alt="" aria-hidden="true" />
-      </header>
-
-      <div className={styles.cards}>
+      <BrandHero
+        unread={home.unreadCount}
+        profileButton
+        head={
+          <>
+            <p className={styles.hi}>{name ? `${name}님,` : '안녕하세요,'}</p>
+            <h1 className={styles.hello}>
+              오늘도
+              <br />
+              딱 맞게, <b>TTAK!</b>
+              <span className={styles.spark} aria-hidden="true">
+                ✦
+              </span>
+            </h1>
+            <p className={styles.sub}>계획한 일, 하나씩 함께 끝내봐요!</p>
+          </>
+        }
+      >
         <WeekCard home={home} meetings={meetings} />
         <TodayTasks tasks={home.myTasks} />
         <DeadlineCard home={home} />
-      </div>
+      </BrandHero>
     </>
   )
 }

@@ -1,72 +1,198 @@
+import { useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { isRealServer } from '../api/client.ts'
-import { getRoom } from '../api/rooms.ts'
+import { isRealServer, messageOf } from '../api/client.ts'
+import { getMyWeek, getPreferences, savePreferences } from '../api/me.ts'
+import { getHome, getRoom } from '../api/rooms.ts'
 import { signOut } from '../api/session.ts'
+import AgentQuote from '../components/AgentQuote.tsx'
 import Avatar from '../components/Avatar.tsx'
+import Badge from '../components/Badge.tsx'
+import BrandHero from '../components/BrandHero.tsx'
 import Icon, { type IconName } from '../components/Icon.tsx'
+import PrefForm from '../components/PrefForm.tsx'
+import RetryBox from '../components/RetryBox.tsx'
+import ScheduleForm from '../components/ScheduleForm.tsx'
+import ScheduleLinks from '../components/ScheduleLinks.tsx'
 import Screen from '../components/Screen.tsx'
+import Segmented from '../components/Segmented.tsx'
+import WeekGrid from '../components/WeekGrid.tsx'
 import { useApi } from '../hooks/useApi.ts'
+import { useClock } from '../hooks/useClock.ts'
 import { useCurrentUser } from '../hooks/useCurrentUser.ts'
+import { formatRange, toIsoDate } from '../lib/date.ts'
 import { PATHS } from '../lib/paths.ts'
+import type { Preferences } from '../types/me.ts'
+import form from './Form.module.css'
 import styles from './MePage.module.css'
 
-const MENU: { to: string; icon: IconName; label: string }[] = [
-  { to: PATHS.mePrefs, icon: 'heart', label: '내 조건 / 선호 설정' },
-  { to: PATHS.meSchedule, icon: 'calendar', label: '시간표 연동' },
-  { to: PATHS.team, icon: 'person', label: '팀 보기' },
-]
+const WEEKS = ['이번 주', '다음 주'] as const
 
-// 마이 탭(11/9 시안): 프로필 → 메뉴(내 조건 · 시간표 연동 · 팀) → 로그아웃. 내용은 각 하위 화면에 있다
+// 마이 탭(11/9 시안): 보라 머리(홈과 같은 부품) → 프로필 → 내 에이전트가 할 말 → 내 일정 가져오기
+// → 내 시간(주간 시간표) → 내가 좋아하는 방식(조건 고치기) → 로그아웃. 한 화면에 다 있다
 export default function MePage() {
   const user = useCurrentUser()
+  const now = useClock()
   const navigate = useNavigate()
-  const room = useApi(() => getRoom(user.roomId), [user.roomId, user.id])
+  const [week, setWeek] = useState<(typeof WEEKS)[number]>('이번 주')
+  const [adding, setAdding] = useState(false)
+  const [notice, setNotice] = useState<string | null>(null)
 
+  const anyDay = toIsoDate(week === '이번 주' ? now : now.add(7, 'day'))
+  const home = useApi(() => getHome(user.roomId), [user.roomId, user.id]) // 종의 안 읽은 수
+  const room = useApi(() => getRoom(user.roomId), [user.roomId, user.id])
+  const prefs = useApi(getPreferences, [user.id])
+  const thisWeek = useApi(() => getMyWeek(user.roomId, toIsoDate(now)), [user.roomId, user.id, toIsoDate(now)])
+  const shown = useApi(() => getMyWeek(user.roomId, anyDay), [user.roomId, user.id, anyDay])
+
+  const openAdd = () => {
+    setAdding(true)
+    setNotice(null)
+  }
   const logout = async () => {
     await signOut()
     navigate(PATHS.login, { replace: true })
   }
 
   return (
-    <Screen title="마이" band={{ sub: '내 정보와 팀 활동을 관리해요.' }}>
-      <Link to={PATHS.team} className={`sec ${styles.profile}`}>
-        <span className={styles.bigAvatar}>
-          <Avatar name={user.name} size="large" />
-        </span>
-        <span className={styles.who}>
-          <b className={styles.name}>{user.name}</b>
-          <span className="meta">
-            {room.status === 'ready' ? `${room.data.name} · ` : ''}
-            {user.isLeader ? '팀장' : '팀원'}
+    <Screen title="마이" bare>
+      <BrandHero
+        unread={home.status === 'ready' ? home.data.unreadCount : 0}
+        head={
+          <>
+            <h1 className={styles.title}>마이</h1>
+            <p className={styles.sub}>내 정보와 팀 활동을 관리해요</p>
+          </>
+        }
+      >
+        {/* 프로필: 큰 아바타 | 이름 · 팀장 · 방 이름 | 팀 보기 */}
+        <section className={`sec ${styles.profile}`}>
+          <span className={styles.bigAvatar}>
+            <Avatar name={user.name} size="large" />
           </span>
-        </span>
-        <span className={styles.chev} aria-hidden="true">
-          <Icon name="back" small />
-        </span>
-      </Link>
-
-      <nav className={`sec ${styles.menu}`} aria-label="마이 메뉴">
-        {MENU.map((item) => (
-          <Link key={item.to} to={item.to} className={styles.item}>
-            <span className={styles.itemIcon} data-tint={item.icon === 'heart' ? 'coral' : undefined} aria-hidden="true">
-              <Icon name={item.icon} />
+          <span className={styles.who}>
+            <span className={styles.nameLine}>
+              <b className={styles.name}>{user.name}</b>
+              {user.isLeader && <Badge tone="here">팀장</Badge>}
             </span>
-            <span className={styles.itemLabel}>{item.label}</span>
-            <span className={styles.chev} aria-hidden="true">
-              <Icon name="back" small />
-            </span>
+            {room.status === 'ready' && <span className="meta">{room.data.name}</span>}
+          </span>
+          <Link to={PATHS.team} className={styles.team}>
+            팀 보기 ›
           </Link>
-        ))}
-      </nav>
+        </section>
 
-      {/* 목 모드에는 로그인이 없어서 숨긴다 */}
-      {isRealServer() && (
-        <div className={styles.logout}>
-          <button type="button" className="btn quiet" onClick={logout}>
-            로그아웃
+        {prefs.status === 'error' && <RetryBox message={prefs.message} onRetry={prefs.reload} />}
+        {prefs.status === 'ready' && (
+          <section className={`sec ${styles.quoteCard}`}>
+            <AgentQuote name={user.name} prefs={prefs.data} />
+          </section>
+        )}
+
+        <section className="sec">
+          <SecTitle icon="link" title="내 일정 가져오기" />
+          {thisWeek.status === 'error' && <RetryBox message={thisWeek.message} onRetry={thisWeek.reload} />}
+          {thisWeek.status === 'ready' && <ScheduleLinks blocks={thisWeek.data.blocks} onAddManual={openAdd} />}
+        </section>
+
+        <section className="sec">
+          <SecTitle
+            icon="calendar"
+            title="내 시간"
+            right={shown.status === 'ready' && <span className="meta num">{formatRange(shown.data.weekStart, shown.data.weekEnd)}</span>}
+          />
+          <Segmented label="주" options={WEEKS} value={week} onChange={setWeek} />
+          {shown.status === 'error' && <RetryBox message={shown.message} onRetry={shown.reload} />}
+          {shown.status === 'ready' && <WeekGrid blocks={shown.data.blocks} />}
+          {notice && (
+            <p className={`meta ${styles.notice}`} role="status">
+              {notice}
+            </p>
+          )}
+          {adding ? (
+            <ScheduleForm
+              onCancel={() => setAdding(false)}
+              onSaved={(message) => {
+                setAdding(false)
+                setNotice(message)
+              }}
+            />
+          ) : (
+            <button type="button" className="btn small block" onClick={openAdd}>
+              + 일정 추가 (수업 · 알바 · 약속 같은 개인 일정)
+            </button>
+          )}
+        </section>
+
+        <section className="sec">
+          <SecTitle icon="heart" title="내가 좋아하는 방식" tint="coral" />
+          {prefs.status === 'ready' && <PrefEditor key={JSON.stringify(prefs.data)} initial={prefs.data} />}
+        </section>
+
+        {/* 목 모드에는 로그인이 없어서 숨긴다 */}
+        {isRealServer() && (
+          <div className={styles.logout}>
+            <button type="button" className="btn quiet" onClick={logout}>
+              로그아웃
+            </button>
+          </div>
+        )}
+      </BrandHero>
+    </Screen>
+  )
+}
+
+// 카드 제목 줄: 진한 색 사각 아이콘 + 제목 (+ 오른쪽)
+function SecTitle({ icon, title, right, tint }: { icon: IconName; title: string; right?: ReactNode; tint?: string }) {
+  return (
+    <div className={styles.secTitle}>
+      <span className={styles.secIcon} data-tint={tint} aria-hidden="true">
+        <Icon name={icon} />
+      </span>
+      <h2>{title}</h2>
+      {right && <span className={styles.secRight}>{right}</span>}
+    </div>
+  )
+}
+
+// 조건 고치기. 바꾸면 저장 버튼이 생기고, 저장하면 다음 조율부터 이 조건으로 말한다
+function PrefEditor({ initial }: { initial: Preferences }) {
+  const [draft, setDraft] = useState(initial)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const changed = JSON.stringify(draft) !== JSON.stringify(initial)
+
+  const save = async () => {
+    if (draft.fromHour !== null && draft.toHour !== null && draft.fromHour >= draft.toHour) {
+      return setError('끝나는 시각이 시작보다 늦어야 해요.')
+    }
+    setSaving(true)
+    setError(null)
+    try {
+      await savePreferences(draft, 'me') // 저장되면 새 값으로 다시 불러와 이 칸이 새로 그려진다
+    } catch (e) {
+      setError(messageOf(e))
+      setSaving(false)
+    }
+  }
+
+  return (
+    <>
+      <PrefForm value={draft} onChange={setDraft} />
+      {error && (
+        <p className={form.error} role="alert">
+          {error}
+        </p>
+      )}
+      {changed && (
+        <div className={styles.act}>
+          <button type="button" className="btn small quiet" onClick={() => setDraft(initial)}>
+            취소
+          </button>
+          <button type="button" className="btn small primary" disabled={saving} onClick={save}>
+            {saving ? '저장하는 중…' : '저장'}
           </button>
         </div>
       )}
-    </Screen>
+    </>
   )
 }

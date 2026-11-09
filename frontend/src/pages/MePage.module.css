@@ -1,84 +1,110 @@
-/* 마이 탭과 하위 화면(내 조건 · 시간표 연동) (11/9 시안) */
+/* 마이 (11/9 시안: 보라 머리 · 프로필 · 내 에이전트 말 · 일정 가져오기 · 내 시간 · 좋아하는 방식) */
 
-/* 프로필 카드: 큰 아바타 | 이름 · 방 · 역할 | › */
+/* 머리 글: 큰 흰 제목 + 한 줄 */
+.title {
+  margin: 6px 0 0;
+  font-size: 34px;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  text-shadow: 0 2px 10px rgb(60 50 160 / 0.25);
+}
+
+.sub {
+  margin-top: 6px;
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+/* 프로필 카드: 큰 아바타 | 구분선 | 이름·방 | 팀 보기 */
 .profile {
   display: flex;
   align-items: center;
   gap: 16px;
   padding: 20px !important;
-  color: inherit;
-  text-decoration: none;
+}
+
+.bigAvatar {
+  flex: none;
+  padding-right: 16px;
+  border-right: 1px solid var(--line);
 }
 
 .bigAvatar > span {
-  width: 60px;
-  height: 60px;
-  font-size: 22px;
+  width: 64px;
+  height: 64px;
+  font-size: 24px;
 }
 
 .who {
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
   min-width: 0;
+}
+
+.nameLine {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .name {
   color: var(--strong);
-  font-size: 19px;
+  font-size: 20px;
   font-weight: 800;
 }
 
-/* 메뉴: 아이콘 · 글 · › 한 줄씩 */
-.menu {
-  padding-top: 4px !important;
-  padding-bottom: 4px !important;
-}
-
-.item {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  min-height: 58px;
-  border-bottom: 1px solid var(--line);
-  color: var(--text);
+.team {
+  flex: none;
+  padding: 8px 14px;
+  border-radius: 99px;
+  background: var(--point-soft);
+  color: var(--point-ink);
+  font-size: 13px;
+  font-weight: 800;
   text-decoration: none;
 }
 
-.item:last-child {
-  border-bottom: 0;
+/* 내 에이전트 말: 바깥 카드는 옅은 베이지로, 안의 말풍선이 그대로 보이게 */
+.quoteCard {
+  padding: 14px 12px !important;
+  background: color-mix(in srgb, var(--beige) 45%, var(--white)) !important;
 }
 
-.itemIcon {
-  display: inline-flex;
-  color: var(--tc, var(--strong));
+.quoteCard > :first-child {
+  margin: 0;
 }
 
-.itemLabel {
-  flex: 1;
-  font-size: 15.5px;
-  font-weight: 700;
+/* 카드 제목 줄 */
+.secTitle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
 }
 
-/* 뒤로 아이콘을 뒤집어 › 로 */
-.chev {
-  flex: none;
-  color: var(--french-gray);
-  transform: scaleX(-1);
-}
-
-.logout {
-  margin-top: 18px;
-  text-align: center;
-}
-
-/* 하위 화면 카드 제목 */
-.cardTitle {
-  margin: 0 0 10px !important;
+.secTitle h2 {
+  margin: 0 !important;
   color: var(--strong);
-  font-size: 16px !important;
+  font-size: 18px !important;
   font-weight: 800;
+}
+
+.secIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 13px;
+  background: var(--tc, var(--point));
+  box-shadow: 0 4px 10px color-mix(in srgb, var(--tc, var(--point)) 35%, transparent);
+  color: var(--white);
+}
+
+.secRight {
+  margin-left: auto;
 }
 
 .notice {
@@ -90,4 +116,9 @@
   justify-content: flex-end;
   gap: 6px;
   margin-top: 10px;
+}
+
+.logout {
+  margin-top: 18px;
+  text-align: center;
 }

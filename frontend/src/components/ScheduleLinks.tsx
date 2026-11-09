@@ -3,6 +3,7 @@ import { messageOf } from '../api/client.ts'
 import { connectEverytime, connectGoogle } from '../api/me.ts'
 import { WEEKDAYS, type WeekBlock } from '../types/me.ts'
 import Badge from './Badge.tsx'
+import Icon, { type IconName } from './Icon.tsx'
 import styles from './ScheduleLinks.module.css'
 
 type Props = {
@@ -48,7 +49,8 @@ export default function ScheduleLinks({ blocks, onAddManual }: Props) {
   return (
     <>
       <div className={styles.row}>
-        <div>
+        <RowIcon name="calendar" />
+        <div className={styles.wide}>
           <p className="strong">
             에브리타임 시간표 {classCount > 0 && <Badge tone="ok">가져옴</Badge>}
           </p>
@@ -74,6 +76,7 @@ export default function ScheduleLinks({ blocks, onAddManual }: Props) {
         </div>
       </div>
       <div className={styles.row}>
+        <RowIcon name="calendar" tone="blue" />
         <div>
           <p className="strong">구글 캘린더</p>
           <p className="meta">{googleCount > 0 ? `개인 약속 ${googleCount}개를 가져왔어요` : '개인 약속 · 읽기 권한만 받아요'}</p>
@@ -92,6 +95,7 @@ export default function ScheduleLinks({ blocks, onAddManual }: Props) {
         )}
       </div>
       <div className={styles.row}>
+        <RowIcon name="pencil" />
         <div>
           <p className="strong">직접 입력</p>
           <p className="meta">{manualText || '알바 · 반복 같은 개인 일정'}</p>
@@ -104,5 +108,14 @@ export default function ScheduleLinks({ blocks, onAddManual }: Props) {
         팀원에게는 <b>바쁨 / 비어 있음</b>만 보여요. 약속 이름은 아무도 못 봐요.
       </p>
     </>
+  )
+}
+
+// 줄 왼쪽 둥근 사각 아이콘 칸 (11/9 시안)
+function RowIcon({ name, tone }: { name: IconName; tone?: 'blue' }) {
+  return (
+    <span className={styles.icon} data-tone={tone} aria-hidden="true">
+      <Icon name={name} />
+    </span>
   )
 }
