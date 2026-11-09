@@ -59,10 +59,7 @@ export default function MePage() {
         unread={home.status === 'ready' ? home.data.unreadCount : 0}
         character={false}
         head={
-          <>
-            <h1 className={styles.title}>마이</h1>
-            <p className={styles.sub}>내 정보와 팀 활동을 관리해요</p>
-          </>
+          <h1 className={styles.sub}>내 정보와 팀 활동을 관리해요</h1>
         }
       >
         {/* 프로필: 큰 아바타 | 이름 · 팀장 · 방 이름 | 팀 보기 */}

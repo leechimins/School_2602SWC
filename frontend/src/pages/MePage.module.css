@@ -1,18 +1,13 @@
 /* 마이 (11/9 시안: 보라 머리 · 프로필 · 내 에이전트 말 · 일정 가져오기 · 내 시간 · 좋아하는 방식) */
 
-/* 머리 글: 큰 흰 제목 + 한 줄 */
-.title {
-  margin: 6px 0 0;
-  font-size: 34px;
-  font-weight: 900;
-  letter-spacing: -0.03em;
-  text-shadow: 0 2px 10px rgb(60 50 160 / 0.25);
-}
-
+/* 머리 글: 한 줄 (큰 제목 없이) */
 .sub {
-  margin-top: 6px;
-  font-size: 14px;
-  opacity: 0.9;
+  margin: 14px 0 0;
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.35;
+  letter-spacing: -0.02em;
+  text-shadow: 0 2px 10px rgb(60 50 160 / 0.25);
 }
 
 /* 프로필 카드: 큰 아바타 | 구분선 | 이름·방 | 팀 보기 */

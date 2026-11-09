@@ -1,7 +1,7 @@
 /* TTAK 보라 머리 (홈 · 마이 공통) */
 .hero {
   position: relative;
-  min-height: 210px; /* 글이 없어도 캐릭터가 들어갈 높이 */
+
   padding: 16px 0 54px;
   overflow: hidden;
   background:
@@ -104,3 +104,14 @@
 }
 
 
+
+/* 캐릭터가 있을 때만: 글이 없어도 캐릭터가 들어갈 높이.
+   캐릭터 위끝(236 - 11 - 140 = 85px)이 알림 버튼 아래끝(62px)보다 아래에 오게. 글은 캐릭터 왼쪽으로 좁힌다 */
+.withChar {
+  min-height: 236px;
+}
+
+.hero:not(.withChar) .text {
+  max-width: none;
+  padding-right: var(--gutter);
+}

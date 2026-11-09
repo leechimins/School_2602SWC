@@ -24,7 +24,7 @@ type Props = {
 export default function BrandHero({ head, unread, profileButton = false, logo = true, character = true, children }: Props) {
   return (
     <>
-      <header className={styles.hero}>
+      <header className={`${styles.hero} ${character ? styles.withChar : ''}`}>
         <div className={styles.topBar}>
           {logo && <img className={styles.logo} src="/splash/logo.webp" alt="TTAK" />}
           <div className={styles.actions}>
@@ -43,7 +43,7 @@ export default function BrandHero({ head, unread, profileButton = false, logo = 
         {character && (
           <>
             {/* 두 겹: 몸 전체는 카드 뒤(z 0), 손만 카드 앞(z 2) → 카드 윗변을 두 손으로 잡은 모양 */}
-            <img className={styles.peek} src="/splash/peek.webp" alt="" aria-hidden="true" />
+            <img className={styles.peek} src="/splash/peek-plain.webp" alt="" aria-hidden="true" />
             <img className={`${styles.peek} ${styles.hands}`} src="/splash/peek-hands.webp" alt="" aria-hidden="true" />
           </>
         )}

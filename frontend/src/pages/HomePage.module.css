@@ -215,7 +215,7 @@
 .deadline {
   position: relative;
   display: grid;
-  grid-template-columns: auto 1fr 76px;
+  grid-template-columns: auto 1fr;
   align-items: center;
   gap: 14px;
   overflow: hidden;
@@ -259,9 +259,4 @@
   background: linear-gradient(90deg, #b9a8f8, #d9a0f0 70%, var(--pink-light));
 }
 
-.cal {
-  width: 76px;
-  height: auto;
-  transform: rotate(-6deg);
-}
 

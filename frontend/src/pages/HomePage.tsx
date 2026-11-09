@@ -138,7 +138,7 @@ function TodayTasks({ tasks }: { tasks: Task[] }) {
   )
 }
 
-// 마감 디데이(시안의 "이번 주 진행률" 자리): 디데이 + 기간 막대 + 달력 그림
+// 마감 디데이(시안의 "이번 주 진행률" 자리): 디데이 + 기간 막대
 function DeadlineCard({ home }: { home: Home }) {
   const { total, passed, left } = periodOf(home.startDate, home.dueDate, home.today)
   const percent = Math.round((passed / total) * 100)
@@ -154,7 +154,6 @@ function DeadlineCard({ home }: { home: Home }) {
         </span>
         <span className="meta num">기간 {percent}% 지남</span>
       </div>
-      <img className={styles.cal} src="/splash/calendar.webp" alt="" aria-hidden="true" />
     </section>
   )
 }
