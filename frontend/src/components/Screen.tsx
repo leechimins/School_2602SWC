@@ -38,18 +38,31 @@ type Props = {
    * 본문 맨 위에 붙어 함께 스크롤되고, 첫 묶음(.sec)이 머리 위로 살짝 올라온다.
    */
   hero?: Hero
-  /** 띠 머리(일정·할 일): 연한 그라데이션 + 큰 제목 + 설명 + 요약 칸. 캐릭터·로고는 없다 */
+  /** 큰 제목 머리(회의·할 일·마이, 11/9 시안): 큰 제목 + 회색 한 줄 설명 + 오른쪽 둥근 버튼 */
   band?: Band
+  /** 머리 없이 본문만(홈: 본문이 직접 로고·인사를 그린다) */
+  bare?: boolean
   children: ReactNode
 }
 
 // 화면 한 장의 틀: 상단 제목줄(또는 TTAK 머리·띠 머리) → 스크롤되는 본문 → 하단 고정 영역
-export default function Screen({ title, backTo, aux, dock, hero, band, children }: Props) {
+export default function Screen({ title, backTo, aux, dock, hero, band, bare = false, children }: Props) {
   const back = backTo && (
     <Link to={backTo} className={styles.back} aria-label="뒤로">
       <Icon name="back" />
     </Link>
   )
+
+  if (bare) {
+    return (
+      <div className={`${styles.screen} ${styles.heroScreen}`}>
+        <main className={styles.body} aria-label={title}>
+          {children}
+        </main>
+        {dock && <div className={styles.dock}>{dock}</div>}
+      </div>
+    )
+  }
 
   if (hero) {
     return (

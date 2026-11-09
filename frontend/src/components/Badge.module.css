@@ -18,7 +18,7 @@
 
 .ok {
   color: var(--ok);
-  background: color-mix(in srgb, var(--ok) 12%, var(--white));
+  background: var(--ok-soft);
 }
 
 .warn {

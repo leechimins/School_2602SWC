@@ -1,39 +1,49 @@
-/* 디자인 토큰. 처음 값은 디자인 시안10(docs/mockup/index.html)이고, 11/9에 TTAK 브랜드 시안(보라)으로 바꿨다.
-   색은 연보라 바탕 + 포인트 보라빛 파랑 1색 + AI 노랑 1색 + 완료 초록 + 보조 색 넷(--tint-*, 카드 아이콘·요약 칸에만).
+/* 디자인 토큰. 처음 값은 디자인 시안10(docs/mockup/index.html)이고, 11/9에 TTAK 시안(페리윙클)으로 바꿨다.
+   역할: 포인트(페리윙클 보라) = 누를 것 · 진남보라 = 큰 제목·숫자 · 연회색 보라 = 꺼진 것·테두리
+        베이지 = AI 제안·하이라이트 바탕 · 초록 = 완료·좋음. 경고(막힘·늦음·알림 점)만 빨강.
+   캐릭터·스플래시 그림의 페리윙클과 같은 계열이라 화면과 그림이 이어진다.
    컴포넌트 CSS는 이 변수만 쓰고 색 값을 직접 적지 않는다. */
 :root {
   color-scheme: light;
   --font: "Pretendard Variable", Pretendard, -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
 
   /* 테마: 포인트(주요 행동·확정) · 보조(AI 제안·판단 에이전트) */
-  --point: #5c66ec;
+  --delft: #2d2a5e; /* 진남보라: 제목·숫자 */
+  --amethyst: #6e6ae8; /* 페리윙클 보라: 포인트 */
+  --french-gray: #b6b8d0;
+  --beige: #ebeed5;
+  --olivine: #9fd3bc;
+
+  --point: var(--amethyst);
   --on-point: #ffffff;
-  --point-ink: #434cd6;
-  --sub: #e8b730;
-  --sub-ink: #7f6418;
+  --point-ink: #5450d6;
+  --strong: var(--delft); /* 큰 제목·디데이·숫자 강조 */
+  --sub: #c4cc8a; /* AI 제안 테두리: Beige를 진하게 */
+  --sub-ink: #6b7330;
 
   /* 면·글자 */
   --white: #ffffff;
-  --page: #f3f4ff;
+  --page: #f2f2fb;
   --card: #ffffff;
-  --text: #1d1f3a;
+  --text: #26244a;
   --frame: #e9e9e6; /* 휴대폰 폭보다 넓은 화면의 양옆 */
 
   /* 상태: 뱃지·알림 카드에만 쓴다. 장식 금지 */
-  --ok: #2e9d5b; /* 완료 */
+  --ok: #2f9a72; /* 완료 */
+  --ok-soft: color-mix(in srgb, var(--olivine) 40%, var(--white));
   --warn: #b8690f;
-  --danger: #e5383b;
+  --danger: #ff5a5f;
 
   /* 파생색: 글자색·포인트색을 바탕과 섞어 만든다 */
   --soft: color-mix(in srgb, var(--text) 5%, var(--card));
   --line: color-mix(in srgb, var(--text) 10%, var(--page));
-  --muted: color-mix(in srgb, var(--text) 62%, var(--page));
+  --muted: #787a99;
   --bubble: color-mix(in srgb, var(--text) 7%, var(--page));
-  --point-soft: color-mix(in srgb, var(--point) 12%, var(--card));
-  --sub-soft: color-mix(in srgb, var(--sub) 18%, var(--card));
-  --sub-wash: color-mix(in srgb, var(--sub) 7%, var(--card));
-  --tab-idle: #9a9cb8;
-  --check-idle: #c7c7cc;
+  --point-soft: color-mix(in srgb, var(--point) 13%, var(--card));
+  --sub-soft: var(--beige);
+  --sub-wash: color-mix(in srgb, var(--beige) 60%, var(--card));
+  --tab-idle: var(--french-gray);
+  --check-idle: var(--french-gray);
   --check-off: #e2e2e6;
 
   /* 글자 크기 */
@@ -55,7 +65,7 @@
   --r: 12px; /* 버튼 */
   --r-l: 20px; /* 묶음(카드) */
   --r-badge: 99px;
-  --shadow-card: 0 6px 20px rgb(84 90 220 / 0.1);
+  --shadow-card: 0 8px 24px rgb(92 88 200 / 0.08), 0 1px 2px rgb(92 88 200 / 0.04);
   --app-width: 430px;
   --gutter: 16px; /* 화면 좌우 여백: 카드 바깥 */
   --gap-card: 14px; /* 카드와 카드 사이 */
@@ -64,25 +74,25 @@
   /* 브랜드(TTAK): 스플래시와 화면 머리(hero). 배경 그림(public/splash/bg.webp)의 가운데 색 */
   --brand: #7580e6;
   --brand-top: #aeb3f5;
-  --brand-grad: linear-gradient(180deg, #5f6cf1 0%, #7f78f4 45%, #a99ff8 78%, var(--page) 100%);
-  --point-grad: linear-gradient(135deg, #6a74f2, #8b6cf3);
-  --point-text-grad: linear-gradient(135deg, #4a6cf7, #8b5cf6);
+  --brand-grad: linear-gradient(180deg, #e6e5ff 0%, var(--page) 100%);
+  --point-grad: linear-gradient(120deg, #8c88f8 0%, #6c63ea 100%);
+  --point-text-grad: linear-gradient(135deg, var(--amethyst), var(--delft));
 
-  /* 강조색(코랄 분홍): 캐릭터 볼·효과선에서. "지금 챙길 것"에만 아껴 쓴다 — 디데이, 남은 시간, 안 읽은 수, 오늘 */
-  --accent: #ff5c84;
-  --accent-soft: #ffe7ee;
+  /* "지금 챙길 것"(디데이·남은 시간·오늘): Delft Blue로 진하게. 알림 점만 경고 빨강 */
+  --accent: var(--delft);
+  --accent-soft: color-mix(in srgb, var(--amethyst) 14%, var(--white));
 
-  /* 보조 색: 캐릭터 그림(볼 분홍·효과선)에서 뽑았다. 카드 아이콘과 요약 칸에만 쓴다(장식 금지) */
-  --tint-blue: #4a7cf7;
-  --tint-blue-soft: #e8efff;
-  --tint-pink: #f2668b;
-  --tint-pink-soft: #ffe9ef;
-  --tint-mint: #1fa77c;
-  --tint-mint-soft: #e1f6ee;
-  --tint-yellow: #d99a00;
-  --tint-yellow-soft: #fff3d4;
-  --tint-violet: #7c5cf0;
-  --tint-violet-soft: #efeaff;
+  /* 보조 색: 팔레트에서. 카드 아이콘·요약에만 쓴다(장식 금지) */
+  --tint-blue: var(--amethyst);
+  --tint-blue-soft: color-mix(in srgb, var(--amethyst) 14%, var(--white));
+  --tint-violet: var(--delft);
+  --tint-violet-soft: color-mix(in srgb, var(--delft) 10%, var(--white));
+  --tint-mint: #2f9a72;
+  --tint-mint-soft: color-mix(in srgb, var(--olivine) 35%, var(--white));
+  --tint-yellow: #8a9140;
+  --tint-yellow-soft: var(--beige);
+  --tint-pink: var(--danger);
+  --tint-pink-soft: color-mix(in srgb, var(--danger) 10%, var(--white));
 }
 
 /* 색 이름표: data-tint를 단 요소는 --tc(진한) · --tc-soft(바탕)을 쓴다 */

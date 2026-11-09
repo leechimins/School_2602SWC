@@ -58,7 +58,7 @@
 .chips {
   display: flex;
   gap: 8px;
-  padding: 20px var(--gutter) 4px;
+  padding: 16px var(--gutter) 4px;
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -244,12 +244,13 @@
 
 /* 하단 "할 일 추가하기": 큰 보라 그라데이션 버튼 */
 .addBtn {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  width: 100%;
-  min-height: 54px;
+  width: calc(100% - var(--gutter) * 2);
+  margin: 20px var(--gutter) 8px;
+  min-height: 56px;
   border-radius: 99px;
   background: var(--point-grad);
   box-shadow: 0 6px 16px color-mix(in srgb, var(--point) 35%, transparent);

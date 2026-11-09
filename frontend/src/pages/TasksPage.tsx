@@ -7,7 +7,7 @@ import Avatar from '../components/Avatar.tsx'
 import EmptyState from '../components/EmptyState.tsx'
 import Icon, { type IconName } from '../components/Icon.tsx'
 import RetryBox from '../components/RetryBox.tsx'
-import Screen, { type BandStat } from '../components/Screen.tsx'
+import Screen from '../components/Screen.tsx'
 import TaskEditor from '../components/TaskEditor.tsx'
 import TaskRow from '../components/TaskRow.tsx'
 import { useApi } from '../hooks/useApi.ts'
@@ -23,8 +23,8 @@ type Filter = (typeof FILTERS)[number]
 
 const FILTER_ICON: Partial<Record<Filter, IconName>> = { '진행 중': 'progress', 막힘: 'alert', 완료: 'check' }
 
-// 할 일 탭(팀 할 일, 11/9 TTAK 시안): 확정된 것만.
-// 전체 진행률 → 확정 전 제안 안내 → 상태 필터 → 사람별 묶음(접기) → 하단 "할 일 추가하기".
+// 할 일 탭(팀 할 일, 11/9 시안): 확정된 것만.
+// 상태 칩(개수) → 확정 전 제안 안내 → 사람별 묶음(접기) → 목록 끝 "할 일 추가하기".
 // "담당자 없음" 묶음은 회의 직후에 가장 크고, 정상인 상태라 오류색을 쓰지 않는다.
 export default function TasksPage() {
   const user = useCurrentUser()
@@ -35,16 +35,12 @@ export default function TasksPage() {
   const [filter, setFilter] = useState<Filter>('전체')
 
   const mine = (
-    <Link to={PATHS.myTasks} className={`link ${styles.aux}`}>
+    <Link to={PATHS.myTasks} className="link">
       내 할 일
     </Link>
   )
-  const dock = (
-    <button type="button" className={`btn primary ${styles.addBtn}`} onClick={() => setAdding(true)}>
-      <Icon name="plus" /> 할 일 추가하기
-    </button>
-  )
-  const addCard = adding && (
+  // 목록 끝: 큰 "할 일 추가하기" 버튼 → 누르면 그 자리에 추가 카드
+  const addArea = adding ? (
     <div className={styles.adding}>
       <AddTaskCard
         label="+ 할 일 추가"
@@ -54,24 +50,17 @@ export default function TasksPage() {
         onAdd={(input) => addTask(user.roomId, input)}
       />
     </div>
+  ) : (
+    <button type="button" className={`btn primary ${styles.addBtn}`} onClick={() => setAdding(true)}>
+      <Icon name="plus" /> 할 일 추가하기
+    </button>
   )
 
-  // 요약 칸: 상태별 개수. 누르면 그 상태로 거르고, 한 번 더 누르면 전체로
-  const count = (st: TaskStatus) => (res.status === 'ready' ? res.data.tasks.filter((t) => t.status === st).length : 0)
-  const statOf = (st: TaskStatus, tint: BandStat['tint']): BandStat => ({
-    label: st,
-    value: count(st),
-    tint,
-    pressed: filter === st,
-    onClick: () => setFilter((f) => (f === st ? '전체' : st)),
-  })
-  const stats = res.status === 'ready' ? [statOf('진행 중', 'blue'), statOf('막힘', 'pink'), statOf('완료', 'mint')] : []
-
   return (
-    <Screen title="할 일" aux={mine} dock={dock} band={{ stats }}>
+    <Screen title="할 일" aux={mine} band={{ sub: '팀의 할 일을 한눈에 관리해요.' }}>
       {res.status === 'error' && <RetryBox message={res.message} onRetry={res.reload} />}
       {res.status === 'ready' && (
-        <TeamTaskList data={res.data} members={members} addCard={addCard} filter={filter} setFilter={setFilter} />
+        <TeamTaskList data={res.data} members={members} addArea={addArea} filter={filter} setFilter={setFilter} />
       )}
     </Screen>
   )
@@ -80,16 +69,15 @@ export default function TasksPage() {
 type ListProps = {
   data: TeamTasks
   members: Member[]
-  addCard: ReactNode
+  addArea: ReactNode
   filter: Filter
   setFilter: (f: Filter) => void
 }
 
-function TeamTaskList({ data, members, addCard, filter, setFilter }: ListProps) {
+function TeamTaskList({ data, members, addArea, filter, setFilter }: ListProps) {
   const user = useCurrentUser()
   const [editingId, setEditingId] = useState<Id | null>(null)
   const [folded, setFolded] = useState<ReadonlySet<string>>(new Set())
-  const [showLoad, setShowLoad] = useState(false)
 
   if (data.tasks.length === 0) {
     return (
@@ -101,14 +89,11 @@ function TeamTaskList({ data, members, addCard, filter, setFilter }: ListProps) 
             action={{ label: '일정으로 가기', to: PATHS.schedule }}
           />
         </section>
-        {addCard}
+        {addArea}
       </>
     )
   }
 
-  const doneCount = data.tasks.filter((t) => t.status === '완료').length
-  const percent = Math.round((doneCount / data.tasks.length) * 100)
-  const max = Math.max(1, ...data.counts.map((c) => c.remaining))
   const list = data.tasks
     .filter((t) => filter === '전체' || t.status === filter)
     .sort((a, b) => Number(a.status === '완료') - Number(b.status === '완료')) // 기한 순(서버 정렬)은 유지하고 완료만 아래로
@@ -145,45 +130,6 @@ function TeamTaskList({ data, members, addCard, filter, setFilter }: ListProps) 
 
   return (
     <>
-      {/* 전체 진행률: 완료 / 전체. 사람별 남은 개수는 눌러서 펼친다 */}
-      <section className={`sec ${styles.progress}`}>
-        <div className={styles.progressRow}>
-          <div>
-            <p className={styles.progressLabel}>전체 진행률</p>
-            <b className={`${styles.percent} num`}>{percent}%</b>
-          </div>
-          <span className={styles.bigBar} role="img" aria-label={`전체 ${data.tasks.length}개 중 ${doneCount}개 완료`}>
-            <i style={{ width: `${percent}%` }} />
-          </span>
-          <span className={`${styles.count} num`}>
-            {doneCount} / {data.tasks.length}개
-          </span>
-        </div>
-        <button type="button" className={styles.loadToggle} aria-expanded={showLoad} onClick={() => setShowLoad((v) => !v)}>
-          사람별 남은 할 일 <Icon name="chevron" small />
-        </button>
-        {showLoad &&
-          data.counts.map((c) => (
-            <div key={c.userId} className={styles.load}>
-              <span>{c.name}</span>
-              <span className={styles.bar}>
-                <i style={{ width: `${Math.round((c.remaining / max) * 100)}%` }} />
-              </span>
-              <span className="meta num">{c.remaining}개</span>
-            </div>
-          ))}
-      </section>
-      {data.suggestionCount > 0 && (
-        <div className={styles.hint}>
-          <span>
-            회의록에 확정 전 할 일 제안 <b className="num">{data.suggestionCount}</b>개가 있어요. 확정하면 여기에 들어와요.
-          </span>
-          <Link to={PATHS.schedule} className="link">
-            일정
-          </Link>
-        </div>
-      )}
-      {addCard}
       <div className={styles.chips} role="group" aria-label="상태로 거르기">
         {FILTERS.map((f) => {
           const icon = FILTER_ICON[f]
@@ -198,6 +144,16 @@ function TeamTaskList({ data, members, addCard, filter, setFilter }: ListProps) 
           )
         })}
       </div>
+      {data.suggestionCount > 0 && (
+        <div className={styles.hint}>
+          <span>
+            회의록에 확정 전 할 일 제안 <b className="num">{data.suggestionCount}</b>개가 있어요. 확정하면 여기에 들어와요.
+          </span>
+          <Link to={PATHS.schedule} className="link">
+            일정
+          </Link>
+        </div>
+      )}
       {groups.map((g) => {
         const key = g.id ?? 'none'
         const open = !folded.has(key)
@@ -228,6 +184,7 @@ function TeamTaskList({ data, members, addCard, filter, setFilter }: ListProps) 
           <EmptyState title="조건에 맞는 할 일이 없어요" action={{ label: '전체 보기', onClick: () => setFilter('전체') }} />
         </section>
       )}
+      {addArea}
     </>
   )
 }

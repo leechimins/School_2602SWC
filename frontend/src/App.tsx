@@ -9,6 +9,8 @@ import { PATHS } from './lib/paths.ts'
 import HomePage from './pages/HomePage.tsx'
 import MeetingPage from './pages/MeetingPage.tsx'
 import MePage from './pages/MePage.tsx'
+import MePrefsPage from './pages/MePrefsPage.tsx'
+import MeSchedulePage from './pages/MeSchedulePage.tsx'
 import MyTasksPage from './pages/MyTasksPage.tsx'
 import NotificationsPage from './pages/NotificationsPage.tsx'
 import OnboardingPage from './pages/OnboardingPage.tsx'
@@ -61,6 +63,8 @@ export default function App() {
         <Route path={PATHS.myTasks} element={<MyTasksPage />} />
         {/* 나 탭 */}
         <Route path={PATHS.me} element={<MePage />} />
+        <Route path={PATHS.mePrefs} element={<MePrefsPage />} />
+        <Route path={PATHS.meSchedule} element={<MeSchedulePage />} />
         <Route path={PATHS.team} element={<TeamPage />} />
       </Route>
       {/* 처음 화면: 하단 탭 없이 휴대폰 폭 틀만 */}

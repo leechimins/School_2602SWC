@@ -1,9 +1,9 @@
 .tabs {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  padding: 2px 6px env(safe-area-inset-bottom);
+  padding: 4px 10px calc(4px + env(safe-area-inset-bottom));
   background: var(--card);
-  border-top: 1px solid var(--line);
+  box-shadow: 0 -4px 18px rgb(65 56 107 / 0.06);
 }
 
 .tab {
@@ -29,8 +29,15 @@
 .tab[aria-current='page']::before {
   content: '';
   position: absolute;
-  inset: 5px 8px;
+  inset: 4px 10px;
   z-index: -1;
-  border-radius: 10px;
+  border-radius: 16px;
   background: var(--point-soft);
+}
+
+/* 켜진 탭 아이콘은 채운 모양처럼: 선 + 옅은 채움 */
+.tab[aria-current='page'] :global(svg.i) {
+  fill: currentColor;
+  fill-opacity: 0.22;
+  stroke-width: 2;
 }

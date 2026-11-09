@@ -1,79 +1,242 @@
+/* 홈 (11/9 시안) */
 .list {
   margin: 0;
   padding: 0;
 }
 
-/* 알림 종의 안 읽은 수 */
-.count {
-  position: absolute;
-  top: 4px;
-  left: 24px;
-  min-width: 17px;
-  padding: 0 5px;
+/* 윗줄: 로고 | 방 이름 알약 | 알림 */
+.topBar {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 18px var(--gutter) 0 calc(var(--gutter) + 4px);
+}
+
+.logo {
+  width: 74px;
+  height: auto;
+}
+
+.roomPill {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: 6px;
+  max-width: 100%;
+  min-height: 36px;
+  padding: 0 14px;
   border-radius: 99px;
-  background: var(--accent);
-  box-shadow: 0 0 0 2px var(--white);
-  color: var(--white);
-  font-size: var(--fs-tab);
+  background: var(--card);
+  box-shadow: var(--shadow-card);
+  color: var(--strong);
+  font-size: 13px;
   font-weight: 700;
-  line-height: 17px;
+  text-decoration: none;
 }
 
-/* 다음 회의(확정·확정 대기): 날짜 칸 | 주제·시간·시작까지 남은 시간, 아래에 응답 현황 + 조율 결과 버튼 */
-.meet {
+.roomPill span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.roomPill :global(svg.i) {
+  color: var(--point);
+}
+
+.bell {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--card);
+  box-shadow: var(--shadow-card);
+  color: var(--strong);
+}
+
+.dot {
+  position: absolute;
+  top: 9px;
+  right: 10px;
+  width: 9px;
+  height: 9px;
+  border: 2px solid var(--card);
+  border-radius: 50%;
+  background: var(--danger);
+}
+
+/* 인사: 큰 글 + 오른쪽 캐릭터 */
+.greet {
+  position: relative;
   display: flex;
-  gap: 12px;
-  align-items: flex-start;
-  margin-top: 6px;
+  align-items: flex-end;
+  justify-content: space-between;
+  min-height: 150px;
+  padding: 22px var(--gutter) 0 calc(var(--gutter) + 6px);
 }
 
-.meetBody {
-  flex: 1;
-  min-width: 0;
+.hello {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  padding-bottom: 18px;
+  color: var(--text);
+  font-size: 25px;
+  font-weight: 700;
+  line-height: 1.38;
+  letter-spacing: -0.03em;
 }
 
-.tick {
-  margin-top: 4px;
-  color: var(--point-ink);
-  font-size: 12.5px;
-  font-weight: 600;
+.hello b {
+  color: var(--point);
+  font-weight: 900;
 }
 
-.meetFoot {
-  margin-top: 10px;
+.peek {
+  flex: none;
+  width: 40%;
+  max-width: 160px;
+  height: auto;
+  margin: 0 -4px -6px 0;
+  filter: drop-shadow(0 12px 18px rgb(92 88 200 / 0.18));
+  animation: bob 3.6s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+@keyframes bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+/* 마감 디데이 */
+.dday {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 18px;
+  margin-top: 0 !important;
+  padding: 20px !important;
+}
+
+.ddayLabel {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.ddayNum {
+  display: block;
+  color: var(--point);
+  font-size: 36px;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.ddayRight {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
   gap: 8px;
 }
 
-/* ── 11/9 TTAK ─────────────────────────────── */
+.bar {
+  width: 100%;
+  height: 12px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--french-gray) 35%, var(--white));
+}
 
-/* 카드 제목 줄: 아이콘 + 제목 + 오른쪽 */
+.bar > i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--point-grad);
+}
+
+/* 다음 회의 | 내 할 일 두 칸 */
+.tiles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: var(--gap-card) var(--gutter) 0;
+}
+
+.tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-height: 132px;
+  padding: 18px 30px 16px 18px;
+  border-radius: var(--r-l);
+  background: var(--card);
+  box-shadow: var(--shadow-card);
+  color: var(--text);
+  text-decoration: none;
+}
+
+.tileIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin-bottom: 10px;
+  border-radius: 10px;
+  background: var(--tc, var(--point));
+  color: var(--white);
+}
+
+.tileTitle {
+  color: var(--strong);
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.tileSub {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 뒤로 아이콘을 뒤집어 오른쪽 화살표로 */
+.chev {
+  position: absolute;
+  right: 12px;
+  bottom: 18px;
+  color: var(--french-gray);
+  transform: scaleX(-1);
+}
+
+/* 오늘 챙길 일 */
 .cardHead {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 14px;
+  justify-content: space-between;
+  margin-bottom: 4px;
 }
 
 .cardHead h2 {
   margin: 0 !important;
+  color: var(--strong);
   font-size: 16px !important;
   font-weight: 800;
-}
-
-.headIcon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 10px;
-  background: var(--tc, var(--point));
-  box-shadow: 0 3px 8px color-mix(in srgb, var(--tc, var(--point)) 35%, transparent);
-  color: var(--white);
-}
-
-.headRight {
-  margin-left: auto;
 }
 
 .more {
@@ -83,121 +246,8 @@
   text-decoration: none;
 }
 
-.topic {
-  font-size: 16px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-}
-
-.tick {
-  display: inline-block;
-  margin-top: 8px;
-  padding: 3px 10px;
-  border-radius: 99px;
-  background: var(--accent-soft);
-  color: var(--accent);
-  font-weight: 700;
-}
-
-.wide {
-  min-height: 44px;
-  border-radius: 99px;
-}
-
-/* 조율 중: 날짜 칸 자리에 도는 점 고리 */
-.spin {
-  flex: none;
-  width: 52px;
-  height: 52px;
-  border-radius: 14px;
-  background:
-    radial-gradient(circle, var(--point-soft) 0 13px, transparent 14px),
-    conic-gradient(var(--point) 0 15%, transparent 15% 25%, var(--point) 25% 40%, transparent 40% 50%, color-mix(in srgb, var(--point) 50%, transparent) 50% 65%, transparent 65% 75%, color-mix(in srgb, var(--point) 25%, transparent) 75% 90%, transparent 90%);
-  mask: radial-gradient(circle, #000 20px, transparent 21px);
-  animation: spin 1.6s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* 새 회의 잡기(팀장만): 그라데이션 카드 */
-.newMeeting {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: var(--gap-card) var(--gutter) 0;
-  padding: 16px;
-  border-radius: var(--r-l);
-  background: var(--point-grad);
-  box-shadow: 0 8px 18px color-mix(in srgb, var(--point) 30%, transparent);
-  color: var(--on-point);
-  text-decoration: none;
-}
-
-.newIcon {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 14px;
-  background: rgb(255 255 255 / 0.95);
-  color: var(--point);
-}
-
-.newText {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.newText b {
-  font-size: 16px;
-}
-
-.newText span {
-  font-size: 12.5px;
-  opacity: 0.92;
-}
-
-.chev {
-  flex: none;
-  transform: scaleX(-1);
-}
-
-/* 내 할 일 요약 칩 */
-.summary {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 4px;
-}
-
-.summary span {
-  padding: 3px 10px;
-  border-radius: 99px;
-  background: var(--soft);
-  font-size: 12.5px;
-  font-weight: 600;
-}
-
-.summary .sumLate {
-  background: var(--tint-pink-soft);
-  color: var(--tint-pink);
-}
-
-.summary .sumToday {
-  background: var(--accent-soft);
-  color: var(--accent);
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .spin {
+  .peek {
     animation: none;
   }
 }

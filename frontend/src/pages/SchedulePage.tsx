@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { messageOf } from '../api/client.ts'
 import { canRecordLive, createMeeting } from '../api/records.ts'
@@ -7,154 +7,134 @@ import { getSchedule } from '../api/scheduling.ts'
 import AiMark from '../components/AiMark.tsx'
 import Badge from '../components/Badge.tsx'
 import ConfirmSheet from '../components/ConfirmSheet.tsx'
-import DateBlock from '../components/DateBlock.tsx'
 import Icon, { type IconName } from '../components/Icon.tsx'
 import RetryBox from '../components/RetryBox.tsx'
-import Screen, { type BandStat } from '../components/Screen.tsx'
+import Screen from '../components/Screen.tsx'
 import { useApi } from '../hooks/useApi.ts'
 import { useClock } from '../hooks/useClock.ts'
 import { useCurrentUser } from '../hooks/useCurrentUser.ts'
-import {
-  formatDuration,
-  formatRange,
-  formatTimeRange,
-  isSameDay,
-  minutesBetween,
-} from '../lib/date.ts'
+import { formatDuration, formatMD, formatRange, formatTimeRange, isSameDay, minutesBetween, weekday } from '../lib/date.ts'
 import { answerLine } from '../lib/meeting.ts'
 import { PATHS, pathTo } from '../lib/paths.ts'
 import type { MeetingBrief, Schedule } from '../types/meeting.ts'
 import styles from './SchedulePage.module.css'
 
-// 섹션 제목(카드 밖): 아이콘 + 제목 + 개수
-function SecHead({ icon, title, count, tint }: { icon: IconName; title: string; count?: number; tint: string }) {
-  return (
-    <div className={styles.secHead}>
-      <span className={styles.secIcon} data-tint={tint} aria-hidden="true">
-        <Icon name={icon} small />
-      </span>
-      <h2>{title}</h2>
-      {count !== undefined && <span className={`${styles.secCount} num`}>{count}</span>}
-    </div>
-  )
-}
+/** 11.03 (월) */
+const dayText = (at: string) => `${formatMD(at).replace('/', '.')} (${weekday(at)})`
 
-// 일정 탭: 정해진 회의를 관리하는 화면. 지금 회의 받아적기 → 조율 중 → 잡힌 회의 → 지난 회의(회의록).
-// 홈은 기간과 다음 회의 하나만, 여기서는 지난 것까지 전부를 시간 순으로 본다.
+// 회의 탭(11/9 시안): 새 회의 조율하기(팀장) → 진행 중인 조율 → 확정된 회의 → 지난 회의(회의록).
+// 지금 회의 받아적기는 지난 회의 제목 오른쪽 마이크 버튼으로 연다.
 export default function SchedulePage() {
   const user = useCurrentUser()
   const res = useApi(() => getSchedule(user.roomId), [user.roomId, user.id])
   const room = useApi(() => getRoom(user.roomId), [user.roomId, user.id])
-
   const canStart = room.status === 'ready' && room.data.canStartScheduling
-  const newMeeting = canStart && (
-    <Link to={PATHS.schedulingNew} className={styles.newPill}>
-      <Icon name="plus" small /> 새 회의 잡기
-    </Link>
-  )
-
-  // 요약 칸: 섹션 개수와 같은 데이터에서 센다
-  const stats: BandStat[] =
-    res.status === 'ready'
-      ? [
-          { label: '잡힌 회의', value: res.data.upcoming.length, tint: 'blue' },
-          { label: '조율 중', value: res.data.coordinating.length, tint: 'violet' },
-          { label: '지난 회의', value: res.data.past.length, tint: 'mint' },
-        ]
-      : []
 
   return (
-    <Screen title="일정" aux={newMeeting} band={{ stats }}>
-      {res.status === 'error' && <RetryBox message={res.message} onRetry={res.reload} />}
-      {res.status === 'ready' && (
-        <ScheduleBody
-          schedule={res.data}
-          total={room.status === 'ready' ? room.data.joinedCount : null}
-        />
+    <Screen title="회의" band={{ sub: '팀의 일정을 AI가 딱 맞게 조율해요.' }}>
+      {canStart && (
+        <Link to={PATHS.schedulingNew} className={styles.newBtn}>
+          <Icon name="plus" /> 새 회의 조율하기
+          <span className={styles.spark} aria-hidden="true">
+            ✦
+          </span>
+        </Link>
       )}
+      {res.status === 'error' && <RetryBox message={res.message} onRetry={res.reload} />}
+      {res.status === 'ready' && <ScheduleBody schedule={res.data} total={room.status === 'ready' ? room.data.joinedCount : null} />}
     </Screen>
   )
 }
 
-type BodyProps = { schedule: Schedule; total: number | null }
+// 섹션 제목(카드 밖): 아이콘 + 제목 (+ 오른쪽)
+function SecHead({ icon, title, right }: { icon: IconName; title: string; right?: ReactNode }) {
+  return (
+    <div className={styles.secHead}>
+      <span className={styles.secIcon} aria-hidden="true">
+        <Icon name={icon} small />
+      </span>
+      <h2>{title}</h2>
+      {right && <span className={styles.secRight}>{right}</span>}
+    </div>
+  )
+}
 
-function ScheduleBody({ schedule, total }: BodyProps) {
+function ScheduleBody({ schedule, total }: { schedule: Schedule; total: number | null }) {
   const now = useClock()
   const { coordinating, upcoming, past } = schedule
-  // 오늘 잡힌 확정 회의가 있으면 "지금 회의 받아적기"가 그 회의에 붙는다
+  // 오늘 잡힌 확정 회의가 있으면 그 줄에 "기록 시작"이 붙는다
   const today = upcoming.find((m) => m.status === 'confirmed' && isSameDay(m.startAt, now))
 
   return (
     <>
-      <RecordNow todayMeeting={today ?? null} />
-
       {coordinating.length > 0 && (
         <>
-          <SecHead icon="progress" title="조율 중인 회의" count={coordinating.length} tint="violet" />
-          <section className="sec">
-            {coordinating.map((c) => (
-              <Link key={c.id} to={pathTo.scheduling(c.id)} className={styles.row}>
-                <DateBlock muted />
-                <span className={styles.body}>
-                  <span className="strong">{c.topic}</span>
-                  <span className="meta num">조율 중 · {formatRange(c.windowStart, c.windowEnd)} 사이</span>
-                </span>
-                <Badge>조율 중</Badge>
-              </Link>
-            ))}
-          </section>
+          <SecHead icon="progress" title="진행 중인 조율" />
+          {coordinating.map((c) => (
+            <Link key={c.id} to={pathTo.scheduling(c.id)} className={`sec ${styles.card}`}>
+              <span className={styles.spin} aria-hidden="true" />
+              <span className={styles.body}>
+                <b className={styles.topic}>{c.topic}</b>
+                <span className="meta num">{formatRange(c.windowStart, c.windowEnd)} · 가능 시간 조율 중…</span>
+              </span>
+              <span className={styles.chev} aria-hidden="true">
+                <Icon name="back" small />
+              </span>
+            </Link>
+          ))}
         </>
       )}
 
-      <SecHead icon="calendar" title="잡힌 회의" count={upcoming.length} tint="blue" />
-      <section className="sec">
-        {upcoming.length === 0 ? (
-          <div className={styles.empty}>
-            <img src="/splash/peek.webp" alt="" aria-hidden="true" />
-            <p className="strong">잡힌 회의가 없어요</p>
-          </div>
-        ) : (
-          upcoming.map((m) => <UpcomingRow key={m.id} meeting={m} isToday={m.id === today?.id} total={total} />)
-        )}
-      </section>
+      <SecHead icon="check" title="확정된 회의" />
+      {upcoming.length === 0 ? (
+        <p className={`meta ${styles.none}`}>잡힌 회의가 없어요</p>
+      ) : (
+        upcoming.map((m) => <UpcomingCard key={m.id} meeting={m} isToday={m.id === today?.id} total={total} />)
+      )}
 
-      <SecHead icon="tasks" title="지난 회의 · 회의록" count={past.length} tint="mint" />
-      <section className="sec">
-        {past.length === 0 ? (
-          <p className="meta">아직 지난 회의가 없어요. 회의를 기록하면 요약과 할 일 제안이 여기에 쌓여요.</p>
-        ) : (
-          past.map((m) => (
-            <Link key={m.id} to={pathTo.meeting(m.id)} className={styles.row}>
-              <DateBlock at={m.startAt} muted />
-              <span className={styles.body}>
-                <span className="strong">{m.topic}</span>
-                <span className="meta num">
-                  {formatDuration(minutesBetween(m.startAt, m.endAt))} · {m.mode} · 회의록 열기
-                </span>
+      <SecHead icon="tasks" title="지난 회의 · 회의록" right={<RecordNow todayMeeting={today ?? null} />} />
+      {past.length === 0 ? (
+        <p className={`meta ${styles.none}`}>아직 지난 회의가 없어요</p>
+      ) : (
+        past.map((m) => (
+          <Link key={m.id} to={pathTo.meeting(m.id)} className={`sec ${styles.card}`}>
+            <span className={`${styles.calIcon} ${styles.muted}`} aria-hidden="true">
+              <Icon name="calendar" />
+            </span>
+            <span className={styles.body}>
+              <b className={styles.topic}>{m.topic}</b>
+              <span className="meta num">
+                {dayText(m.startAt)} · {formatDuration(minutesBetween(m.startAt, m.endAt))} · {m.mode}
               </span>
-              {m.suggestionCount > 0 && <AiMark label={`제안 ${m.suggestionCount}개`} />}
-            </Link>
-          ))
-        )}
-      </section>
+            </span>
+            {m.suggestionCount > 0 && <AiMark label={`제안 ${m.suggestionCount}개`} />}
+            <span className={styles.chev} aria-hidden="true">
+              <Icon name="back" small />
+            </span>
+          </Link>
+        ))
+      )}
     </>
   )
 }
 
-// 잡힌 회의 한 줄: 누르면 조율 결과로. 오늘 회의면 오른쪽에 기록 시작
-function UpcomingRow({ meeting: m, isToday, total }: { meeting: MeetingBrief; isToday: boolean; total: number | null }) {
+// 확정된 회의 카드: 누르면 조율 결과로. 오늘 회의면 오른쪽에 기록 시작
+function UpcomingCard({ meeting: m, isToday, total }: { meeting: MeetingBrief; isToday: boolean; total: number | null }) {
   const confirmed = m.status === 'confirmed'
-  const line = answerLine(m, total)
   return (
-    <div className={styles.row}>
+    <div className={`sec ${styles.card}`}>
       <Link to={pathTo.proposal(m.id)} className={styles.main}>
-        <DateBlock at={m.startAt} />
+        <span className={styles.calIcon} aria-hidden="true">
+          <Icon name="calendar" />
+        </span>
         <span className={styles.body}>
-          <span className="strong">{m.topic}</span>
+          <b className={styles.topic}>
+            {m.topic} {!confirmed && <Badge tone="warn">확정 대기</Badge>}
+          </b>
           <span className="meta num">
-            {formatTimeRange(m.startAt, m.endAt)} · {m.mode} · {formatDuration(minutesBetween(m.startAt, m.endAt))}
+            {dayText(m.startAt)} {formatTimeRange(m.startAt, m.endAt).replace('–', ' – ')} · {m.mode}
           </span>
-          <span className="meta">{line}</span>
+          {!confirmed && <span className="meta">{answerLine(m, total)}</span>}
         </span>
       </Link>
       {isToday ? (
@@ -162,22 +142,22 @@ function UpcomingRow({ meeting: m, isToday, total }: { meeting: MeetingBrief; is
           기록 시작
         </Link>
       ) : (
-        <Badge tone={confirmed ? 'ok' : 'warn'}>{confirmed ? '확정' : '확정 대기'}</Badge>
+        <span className={styles.chev} aria-hidden="true">
+          <Icon name="back" small />
+        </span>
       )}
     </div>
   )
 }
 
-// 지금 회의 받아적기(실서버는 기록하기): 오늘 잡힌 회의가 있으면 거기에 붙고, 없으면 주제 한 줄(비워도 됨)만 받고 바로 연다
+// 지금 회의 받아적기(실서버는 기록하기): 오늘 회의가 있으면 거기에 붙고, 없으면 주제 한 줄(비워도 됨)만 받고 바로 연다
 function RecordNow({ todayMeeting }: { todayMeeting: MeetingBrief | null }) {
   const user = useCurrentUser()
   const navigate = useNavigate()
   const [asking, setAsking] = useState(false)
   const [error, setError] = useState('')
   // 실서버는 받아적기가 없어 직접 쓰기만 연다(api/records.ts canRecordLive). 문구도 그에 맞춘다
-  const live = canRecordLive()
-  const label = live ? '지금 회의 받아적기' : '지금 회의 기록하기'
-  const verb = live ? '받아적어요' : '기록해요'
+  const label = canRecordLive() ? '지금 받아적기' : '지금 기록하기'
 
   const open = async (topic: string) => {
     try {
@@ -192,28 +172,15 @@ function RecordNow({ todayMeeting }: { todayMeeting: MeetingBrief | null }) {
     <>
       <button
         type="button"
-        className={styles.recNow}
+        className={styles.recBtn}
         onClick={() => (todayMeeting ? navigate(pathTo.record(todayMeeting.id)) : setAsking(true))}
       >
-        <span className={styles.recIcon}>
-          <Icon name="mic" />
-        </span>
-        <span className={styles.recText}>
-          <b>{label}</b>
-          {todayMeeting && (
-            <span>
-              오늘 {formatTimeRange(todayMeeting.startAt, todayMeeting.endAt)} '{todayMeeting.topic}' 회의를 {verb}
-            </span>
-          )}
-        </span>
-        <span className={styles.recGo} aria-hidden="true">
-          <Icon name="back" />
-        </span>
+        <Icon name="mic" small /> {label}
       </button>
       {error && (
-        <p className={`meta ${styles.error}`} role="alert">
+        <span className={`meta ${styles.error}`} role="alert">
           {error}
-        </p>
+        </span>
       )}
       {asking && (
         <ConfirmSheet

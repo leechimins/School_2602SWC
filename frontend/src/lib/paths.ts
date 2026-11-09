@@ -18,6 +18,8 @@ export const PATHS = {
   myTasks: '/tasks/mine',
   // 나 탭
   me: '/me',
+  mePrefs: '/me/prefs', // 내 조건 / 선호 설정
+  meSchedule: '/me/schedule', // 시간표 연동
   team: '/me/team',
   // 탭 밖 (처음 한 번)
   login: '/login', // 스플래시 + 구글 로그인

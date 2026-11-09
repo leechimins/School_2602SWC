@@ -54,6 +54,11 @@
 /* ── TTAK 머리(hero) ─────────────────────────────── */
 .heroScreen {
   grid-template-rows: 1fr auto;
+  /* 위쪽에 은은한 보라 빛 (시안의 연보라 그라데이션 바탕) */
+  background:
+    radial-gradient(120% 340px at 85% -60px, rgb(140 136 248 / 0.22), transparent 70%),
+    radial-gradient(90% 260px at 0% 0%, rgb(255 255 255 / 0.9), transparent 70%),
+    var(--page);
 }
 
 .hero {
@@ -187,20 +192,17 @@
   }
 }
 
-/* ── 띠 머리(band): 일정·할 일 ─────────────────── */
+/* ── 큰 제목 머리(band): 회의·할 일·마이 (11/9 시안) ─────────────── */
 .band {
-  padding: 12px 0 40px;
-  background:
-    radial-gradient(circle at 88% 0%, rgb(139 108 243 / 0.18) 0 90px, transparent 91px),
-    radial-gradient(circle at 70% 30%, rgb(74 124 247 / 0.12) 0 60px, transparent 61px),
-    linear-gradient(180deg, #dfe5ff 0%, var(--page) 100%);
+  padding: 18px 0 6px;
+  background: transparent;
 }
 
 .bandTop {
   display: flex;
   align-items: flex-start;
   gap: 6px;
-  padding: 10px 12px 0 20px;
+  padding: 14px var(--gutter) 0 calc(var(--gutter) + 6px);
 }
 
 .bandTop > .back {
@@ -214,27 +216,43 @@
 
 .bandTitle {
   margin: 0;
-  font-size: 26px;
+  color: var(--strong);
+  font-size: 28px;
   font-weight: 800;
   letter-spacing: -0.03em;
   line-height: 1.25;
 }
 
 .bandSub {
-  margin-top: 4px;
+  margin-top: 6px;
   color: var(--muted);
-  font-size: 13.5px;
+  font-size: 14px;
 }
 
 .bandAux {
   flex: none;
   display: flex;
   align-items: center;
-  padding-top: 2px;
 }
 
-.bandAux :global(.link) {
+/* 오른쪽 위 둥근 흰 버튼 (알림 종·내 할 일) */
+.bandAux > :global(.icon-btn),
+.bandAux > :global(.link) {
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 99px;
+  background: var(--card);
+  box-shadow: var(--shadow-card);
   color: var(--point-ink);
+  display: inline-flex;
+  align-items: center;
+  font-size: 13px;
+}
+
+.bandAux > :global(.icon-btn) {
+  width: 44px;
+  padding: 0;
+  justify-content: center;
 }
 
 /* 요약 칸: 띠 위로 살짝 올라와 걸친다 */
@@ -243,7 +261,7 @@
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 10px;
-  margin: -22px var(--gutter) 0;
+  margin: 14px var(--gutter) 0;
 }
 
 .stat {

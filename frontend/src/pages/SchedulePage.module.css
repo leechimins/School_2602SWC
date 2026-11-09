@@ -1,144 +1,45 @@
-/* 지금 회의 받아적기: 일정 탭에서 가장 먼저 누를 것 */
-.recNow {
+/* 회의 탭 (11/9 시안) */
+
+/* 새 회의 조율하기(팀장): 가로로 꽉 찬 큰 그라데이션 버튼 */
+.newBtn {
+  position: relative;
   display: flex;
-  align-items: center;
-  gap: 10px;
-  width: calc(100% - 24px);
-  margin: var(--gap-card) var(--gutter) 0;
-  padding: 12px 14px;
-  border: 0;
-  border-radius: var(--r-l);
-  background: var(--point);
-  color: var(--on-point);
-  text-align: left;
-}
-
-.recNow b {
-  display: block;
-  font-size: 15px;
-}
-
-.recNow span span {
-  font-size: 12.5px;
-  opacity: 0.85;
-}
-
-.recIcon {
-  display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
-  flex: none;
-  border-radius: 50%;
-  background: var(--card);
-  color: var(--point);
-}
-
-.error {
-  margin: 6px 18px 0;
-}
-
-.secLink {
-  min-height: 0;
-  font-size: var(--fs-meta);
-}
-
-/* 회의 한 줄: 날짜 칸 | 주제·시간 | 뱃지 또는 버튼 */
-.row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-height: 56px;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--line);
-  color: inherit;
-  text-decoration: none;
-}
-
-.row:last-child {
-  border-bottom: 0;
-}
-
-.main {
-  display: flex;
-  flex: 1;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-  color: inherit;
-  text-decoration: none;
-}
-
-.body {
-  flex: 1;
-  min-width: 0;
-}
-
-.body > span {
-  display: block;
-}
-
-
-/* ── 11/9 TTAK ─────────────────────────────── */
-
-/* 제목줄 오른쪽 "＋ 새 회의 잡기" (팀장) */
-.newPill {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  min-height: 34px;
-  margin-right: 0;
-  padding: 0 14px;
+  gap: 8px;
+  min-height: 60px;
+  margin: 10px var(--gutter) 0;
   border-radius: 99px;
   background: var(--point-grad);
-  box-shadow: 0 4px 10px color-mix(in srgb, var(--point) 30%, transparent);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--point) 35%, transparent);
   color: var(--on-point);
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 17px;
+  font-weight: 800;
   text-decoration: none;
 }
 
-.newPill :global(svg.i) {
+.newBtn :global(svg.i) {
   stroke-width: 2.2;
 }
 
-/* 지금 회의 받아적기: 그라데이션 강조 카드 */
-.recNow {
-  width: calc(100% - var(--gutter) * 2);
-  margin: var(--gap-card) var(--gutter) 0;
-  padding: 18px;
-  background: var(--point-grad);
-  box-shadow: 0 8px 18px color-mix(in srgb, var(--point) 30%, transparent);
+.spark {
+  position: absolute;
+  right: 24px;
+  font-size: 18px;
 }
 
-.recIcon {
-  width: 46px;
-  height: 46px;
-  border-radius: 14px;
-}
-
-.recText {
-  flex: 1;
-  min-width: 0;
-}
-
-.recGo {
-  flex: none;
-  transform: scaleX(-1);
-}
-
-/* 섹션 제목: 아이콘 + 제목 + 개수 */
+/* 섹션 제목: 아이콘 + 글 (+ 오른쪽) */
 .secHead {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin: var(--gap-section) calc(var(--gutter) + 4px) 0;
+  gap: 8px;
+  margin: var(--gap-section) var(--gutter) 0 calc(var(--gutter) + 6px);
 }
 
 .secHead h2 {
   margin: 0;
-  font-size: 15px;
+  color: var(--strong);
+  font-size: 16px;
   font-weight: 800;
 }
 
@@ -146,41 +47,133 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 9px;
-  background: var(--tc, var(--point));
-  box-shadow: 0 3px 8px color-mix(in srgb, var(--tc, var(--point)) 35%, transparent);
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--point);
   color: var(--white);
 }
 
-.secCount {
-  padding: 0 8px;
-  border-radius: 99px;
+.secIcon :global(svg.i) {
+  stroke-width: 2.2;
+}
+
+.secRight {
+  margin-left: auto;
+}
+
+.none {
+  margin: 10px calc(var(--gutter) + 6px) 0;
+}
+
+/* 회의 카드: 아이콘 | 주제·시간 | › */
+.card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 84px;
+  margin-top: 10px !important;
+  color: inherit;
+  text-decoration: none;
+}
+
+.main {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+}
+
+.body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.topic {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  color: var(--strong);
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.calIcon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: var(--point-soft);
+  color: var(--point);
+}
+
+.calIcon :global(svg.i) {
+  width: 26px;
+  height: 26px;
+  stroke-width: 1.8;
+}
+
+.muted {
   background: var(--soft);
   color: var(--muted);
-  font-size: 12px;
+}
+
+/* 조율 중: 도는 고리 */
+.spin {
+  flex: none;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: conic-gradient(var(--point) 0 22%, transparent 22% 30%, var(--point) 30% 52%, transparent 52% 60%, color-mix(in srgb, var(--point) 45%, transparent) 60% 82%, transparent 82% 90%, color-mix(in srgb, var(--point) 20%, transparent) 90%);
+  mask: radial-gradient(circle, transparent 15px, #000 16px);
+  animation: spin 1.6s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.chev {
+  flex: none;
+  color: var(--french-gray);
+  transform: scaleX(-1);
+}
+
+/* 지난 회의 제목 오른쪽: 지금 받아적기 */
+.recBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 99px;
+  background: var(--card);
+  box-shadow: var(--shadow-card);
+  color: var(--point-ink);
+  font-size: 12.5px;
   font-weight: 700;
 }
 
-/* 회의 행: 위아래 여유를 조금 더 */
-.row {
-  min-height: 72px;
-  padding: 14px 0;
+.error {
+  display: block;
+  margin-top: 4px;
 }
 
-/* 잡힌 회의 없음: 작은 캐릭터 + 안내 */
-.empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  padding: 8px 0 4px;
-  text-align: center;
-}
-
-.empty img {
-  width: 72px;
-  height: auto;
-  margin-bottom: 4px;
+@media (prefers-reduced-motion: reduce) {
+  .spin {
+    animation: none;
+  }
 }
