@@ -1,22 +1,27 @@
+/* 고르기: 회색 트랙 안에서 고른 칸만 흰 칩으로 떠오른다 */
 .seg {
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: 1fr;
-  gap: 6px;
+  gap: 3px;
   margin-top: 6px;
+  padding: 3px;
+  border-radius: var(--r-field);
+  background: var(--soft);
 }
 
 .seg button {
-  min-height: 38px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--card);
-  font-size: 13px;
+  min-height: 34px;
+  border: 0;
+  border-radius: 9px;
+  background: none;
+  color: var(--muted);
+  font-size: 14px;
   font-weight: 600;
 }
 
 .seg button[aria-pressed='true'] {
-  border-color: var(--point);
-  background: var(--point);
-  color: var(--on-point);
+  background: var(--card);
+  color: var(--point-ink);
+  box-shadow: 0 1px 2px rgb(40 40 90 / 0.08), 0 2px 8px rgb(60 60 160 / 0.1);
 }

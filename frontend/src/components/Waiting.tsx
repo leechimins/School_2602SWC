@@ -10,8 +10,15 @@ type Props = {
 export default function Waiting({ what, detail }: Props) {
   return (
     <div className={styles.waiting} role="status">
-      <p className={styles.what}>{what}</p>
-      {detail && <p className="meta">{detail}</p>}
+      <span className={styles.dots} aria-hidden="true">
+        <i />
+        <i />
+        <i />
+      </span>
+      <div>
+        <p className={styles.what}>{what}</p>
+        {detail && <p className="meta">{detail}</p>}
+      </div>
     </div>
   )
 }

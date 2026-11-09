@@ -36,6 +36,13 @@
   --tab-idle: #9d9eaa;
   --check-idle: #bcbdc7;
   --check-off: #e2e2ec;
+  /* 시간표 내 일정 회색 3단: 수업 진함 → 구글 → 직접 넣음 연함 */
+  --wk-class: #d2d2da;
+  --wk-class-ink: #34343f;
+  --wk-google: #e1e1e7;
+  --wk-google-ink: #4a4b58;
+  --wk-manual: #eeeef2;
+  --wk-manual-ink: #5a5b68;
 
   /* 글자 크기 */
   --fs-title: 22px; /* 상단 제목줄 */
