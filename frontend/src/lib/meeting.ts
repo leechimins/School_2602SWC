@@ -1,4 +1,4 @@
-import type { MeetingBrief } from '../types/meeting.ts'
+import type { MeetingBrief, MeetingDetail } from '../types/meeting.ts'
 
 /**
  * 잡힌 회의의 응답 현황 한 줄 (홈 다음 회의 · 일정 잡힌 회의 공통)
@@ -14,4 +14,13 @@ export function answerLine(m: MeetingBrief, total: number | null) {
     m.myState ? `내 응답 ${m.myState}` : null,
   ]
   return parts.filter(Boolean).join(' · ')
+}
+
+/**
+ * 참석자 이름. 서버는 회의안에 수락한 사람만 참석자로 준다(minutes/record.py _attendees).
+ * 조율 없이 바로 기록한 회의는 수락한 사람이 없으므로, 받아적은 원문에서 말한 사람을 참석자로 본다.
+ */
+export function attendeeNames(m: MeetingDetail): string[] {
+  if (m.attendees.length > 0) return m.attendees
+  return [...new Set(m.transcript.flatMap((line) => (line.speakerName ? [line.speakerName] : [])))]
 }
