@@ -1,10 +1,8 @@
-/* 전역 .sec(흰 바탕)보다 나중에 읽혀도 이기도록 .sec와 함께 건다 */
+/* 흰 카드. 홈에서는 보라 띠 위에 반쯤 걸친다. 전역 .sec보다 나중에 읽혀도 이기도록 .sec와 함께 건다 */
 :global(.sec).hero {
   display: grid;
   grid-template-columns: auto 1fr;
   align-items: center;
-  border-color: color-mix(in srgb, var(--point) 35%, var(--card));
-  background: color-mix(in srgb, var(--point) 16%, var(--card));
 }
 
 .hero > div:first-child {

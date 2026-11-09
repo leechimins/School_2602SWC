@@ -42,13 +42,27 @@ export default function HomePage() {
     </Link>
   )
   const title = home.status === 'ready' ? home.data.roomName : '홈'
+  // 보라 띠 머리: 로고 한 줄 + 팀 이름 + 종. 솜솜이는 기간 카드 뒤에서 내다보고 손만 카드 위에 걸친다
+  const hero = (
+    <header className={styles.hero}>
+      <div className={styles.heroText}>
+        <img className={styles.logo} src="/brand/logo-white.webp" alt="TTAK" />
+        <h1 className={styles.title}>{title}</h1>
+      </div>
+      {bell}
+      <img className={styles.peek} src="/brand/somsom-peek.webp" alt="" />
+    </header>
+  )
 
   return (
-    <Screen title={title} aux={bell}>
+    <Screen title={title} hero={hero}>
       {home.status === 'error' && <RetryBox message={home.message} onRetry={home.reload} />}
       {home.status === 'ready' && (
         <>
-          <PeriodCard startDate={home.data.startDate} dueDate={home.data.dueDate} today={home.data.today} />
+          <div className={styles.lift}>
+            <img className={styles.hands} src="/brand/somsom-hands.webp" alt="" />
+            <PeriodCard startDate={home.data.startDate} dueDate={home.data.dueDate} today={home.data.today} />
+          </div>
           <NextMeeting home={home.data} />
           {home.data.canStartScheduling && (
             <Link to={PATHS.schedulingNew} className={`sec ${styles.newMeeting}`}>
