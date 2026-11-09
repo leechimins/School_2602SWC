@@ -99,15 +99,18 @@
   opacity: 0.9;
 }
 
-/* 캐릭터: 오른쪽에서 주간 달력 카드 위로 손을 걸친다. 카드(.cards)가 아래쪽을 덮는다 */
+/* 캐릭터: 오른쪽에서 주간 달력 카드 위에 손을 올린다. 캐릭터(z 2)가 카드(.cards, z 1)보다 위에 그려지고,
+   그림 맨 아래 보라 띠(원래 그림의 달력 윗부분)는 잘라 손만 카드 모서리에 걸친다.
+   카드는 머리 아래 36px을 덮는다 → 잘린 아래끝이 카드 윗변보다 14px 아래로 내려오게 둔다 */
 .peek {
   position: absolute;
   right: 6px;
-  bottom: 20px; /* 카드가 머리 아래 36px을 덮는다 → 그림 아래 16px(손끝·달력 띠)만 가려진다 */
-  z-index: 0;
+  bottom: 10px;
+  z-index: 2;
   width: 46%;
   max-width: 200px;
   height: auto;
+  clip-path: inset(0 0 7% 0);
   filter: drop-shadow(0 10px 16px rgb(60 50 160 / 0.25));
   animation: bob 3.6s cubic-bezier(0.45, 0, 0.55, 1) infinite;
 }
