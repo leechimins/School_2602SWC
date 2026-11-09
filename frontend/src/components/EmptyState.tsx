@@ -12,7 +12,7 @@ type Props = {
 export default function EmptyState({ title, description, action }: Props) {
   return (
     <div className={styles.empty}>
-      <img className={styles.art} src="/brand/somsom.webp" alt="" />
+      <img className={styles.art} src="/brand/somsom-face.webp" alt="" />
       <div>
         <p className="strong">{title}</p>
         {description && <p className="meta">{description}</p>}

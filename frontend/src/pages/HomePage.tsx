@@ -42,7 +42,7 @@ export default function HomePage() {
     </Link>
   )
   const title = home.status === 'ready' ? home.data.roomName : '홈'
-  // 보라 띠 머리: 로고 한 줄 + 팀 이름 + 종. 솜솜이는 기간 카드 뒤에서 내다보고 손만 카드 위에 걸친다
+  // 보라 띠 머리: 로고 한 줄 + 팀 이름 + 종. 솜솜이 한 장이 기간 카드 위에 손을 걸친다
   const hero = (
     <header className={styles.hero}>
       <div className={styles.heroText}>
@@ -50,7 +50,6 @@ export default function HomePage() {
         <h1 className={styles.title}>{title}</h1>
       </div>
       {bell}
-      <img className={styles.peek} src="/brand/somsom-peek.webp" alt="" />
     </header>
   )
 
@@ -60,7 +59,7 @@ export default function HomePage() {
       {home.status === 'ready' && (
         <>
           <div className={styles.lift}>
-            <img className={styles.hands} src="/brand/somsom-hands.webp" alt="" />
+            <img className={styles.somsom} src="/brand/somsom-face.webp" alt="" />
             <PeriodCard startDate={home.data.startDate} dueDate={home.data.dueDate} today={home.data.today} />
           </div>
           <NextMeeting home={home.data} />
