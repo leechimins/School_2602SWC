@@ -23,12 +23,15 @@ import TasksPage from './pages/TasksPage.tsx'
 import TeamPage from './pages/TeamPage.tsx'
 
 // 처음 열었으면 스플래시부터, 실서버인데 로그인 안 했으면 로그인부터. 가려던 주소는 state.from에 담아 돌아온다.
-function RequireLogin({ children }: { children: ReactNode }) {
+// needRoom: 탭 화면은 방이 있어야 그릴 수 있다. 방 없이 들어오면 방 번호가 비어 /rooms//… 요청이 실패하고,
+// withMock이 그걸 서버 실패로 보고 목 데이터(지수·민지…)를 보여 준다. 그래서 방 만들기로 먼저 보낸다.
+function RequireLogin({ children, needRoom = false }: { children: ReactNode; needRoom?: boolean }) {
   const location = useLocation()
   const identity = useSyncExternalStore(subscribeIdentity, getIdentity)
   if (!isBooted() || (isRealServer() && !identity)) {
     return <Navigate to={PATHS.login} replace state={{ from: location.pathname + location.search }} />
   }
+  if (needRoom && isRealServer() && !identity?.roomId) return <Navigate to={PATHS.start} replace />
   return children
 }
 
@@ -38,7 +41,7 @@ export default function App() {
     <Routes>
       <Route
         element={
-          <RequireLogin>
+          <RequireLogin needRoom>
             <AppShell />
           </RequireLogin>
         }

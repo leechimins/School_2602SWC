@@ -3,7 +3,7 @@ import { dispatch } from '../mock/store.ts'
 import { buildHome, buildRoom } from '../mock/views.ts'
 import type { Id } from '../types/common.ts'
 import type { Home } from '../types/home.ts'
-import type { Room, RoomInput } from '../types/room.ts'
+import type { InvitePreview, Room, RoomInput } from '../types/room.ts'
 import { request, withMock, withMockWrite } from './client.ts'
 import { toHome, toRoom, type ServerHome, type ServerRoom } from './convert.ts'
 
@@ -37,6 +37,34 @@ export function createRoom(input: RoomInput): Promise<Room> {
       ),
     () => {
       dispatch({ type: 'room/create', input })
+      const { s, viewer } = mockContext()
+      return buildRoom(s, viewer)
+    },
+  )
+}
+
+/** 초대 코드로 방 미리보기. 들어가기 전에 방 이름과 인원을 보여 준다. 코드는 대소문자를 가리지 않는다 */
+export function previewInvite(code: string): Promise<InvitePreview> {
+  return withMock(
+    async () => {
+      const r = await request<{ name: string; member_count: number; joined_count: number }>(
+        `/rooms/by-invite-code/${encodeURIComponent(code)}`,
+      )
+      return { name: r.name, memberCount: r.member_count, joinedCount: r.joined_count }
+    },
+    () => {
+      const { s, viewer } = mockContext()
+      const room = buildRoom(s, viewer)
+      return { name: room.name, memberCount: room.memberCount, joinedCount: room.joinedCount }
+    },
+  )
+}
+
+/** 초대 코드로 팀원이 된다. 이미 팀원이면 409 ALREADY_MEMBER, 정원이 차면 409 ROOM_FULL */
+export function joinRoom(code: string): Promise<Room> {
+  return withMockWrite(
+    async () => toRoom(await request<ServerRoom>('/rooms/join', { method: 'POST', body: { invite_code: code } })),
+    () => {
       const { s, viewer } = mockContext()
       return buildRoom(s, viewer)
     },

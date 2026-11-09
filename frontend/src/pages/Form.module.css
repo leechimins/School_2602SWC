@@ -75,3 +75,17 @@
   font-weight: 800;
   letter-spacing: 0.08em;
 }
+
+/* 방 들어가기: 초대 코드 입력칸. 받은 코드와 같은 모양으로 크게 */
+.label > :global(.field).codeInput {
+  min-height: 52px;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-align: center;
+}
+
+/* 방이 없는 사람의 시작 갈래(초대 코드로 들어가기 | 방 만들기) */
+.ways {
+  margin: 8px 12px 0;
+}
