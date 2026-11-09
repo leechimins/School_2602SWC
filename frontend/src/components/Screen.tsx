@@ -81,7 +81,7 @@ export default function Screen({ title, backTo, aux, dock, hero, band, bare = fa
               </h1>
               {hero.sub && <p className={styles.heroSub}>{hero.sub}</p>}
             </div>
-            <img className={styles.peek} src="/splash/peek.webp" alt="" aria-hidden="true" />
+            <img className={styles.peek} src="/splash/peek-plain.webp" alt="" aria-hidden="true" />
           </header>
           <div className={styles.heroBody}>{children}</div>
         </main>

@@ -138,7 +138,7 @@ function Talk({ scheduling: s, viewerId, isLeader }: TalkProps) {
 
       {status === 'running' && (
         <div className={styles.waitCard}>
-          <img className={styles.waitArt} src="/splash/peek.webp" alt="" aria-hidden="true" />
+          <img className={styles.waitArt} src="/splash/peek-plain.webp" alt="" aria-hidden="true" />
           <p className={styles.waitSay}>
             <b>조금만 기다려 주세요!</b>
             팀원들의 일정과 선호를 반영해 가장 알맞은 시간을 정리하고 있어요.

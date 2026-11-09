@@ -39,7 +39,7 @@ export default function AgentQuote({ name, prefs }: Props) {
   // 11/9 TTAK: 캐릭터(내 에이전트)가 말하는 말풍선. AI가 만든 말이라 노란 테두리를 유지한다
   return (
     <div className={styles.wrap}>
-      <img className={styles.face} src="/splash/peek.webp" alt="" aria-hidden="true" />
+      <img className={styles.face} src="/splash/peek-plain.webp" alt="" aria-hidden="true" />
       <div className={styles.quote}>
         <p className="meta">내 에이전트가 이렇게 말해 줘요</p>
         <p>
