@@ -1,14 +1,4 @@
-.box {
-  margin-top: 10px;
-  padding: 12px;
-  border-radius: 10px;
-  background: var(--soft);
-}
-
-.box :global(.field) {
-  background: var(--card);
-}
-
+/* 요일 일곱 칸: 한 줄에 다 */
 .days {
   grid-auto-flow: row;
   grid-template-columns: repeat(7, 1fr);
@@ -31,9 +21,8 @@
   margin-top: 0;
 }
 
-.act {
-  display: flex;
-  justify-content: flex-end;
-  gap: 6px;
-  margin-top: 10px;
+/* 시간 고르기 칸: 요일이 여러 줄 쌓여도 덜 길게 낮춘다(꺾쇠는 base.css select.field) */
+:global(.field).hour {
+  min-height: 38px;
+  font-size: 14px;
 }

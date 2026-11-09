@@ -104,7 +104,10 @@ export default function MePage() {
             {notice}
           </p>
         )}
-        {adding ? (
+        <button type="button" className="btn small block" onClick={openAdd}>
+          + 일정 추가 (수업 · 알바 · 약속 같은 개인 일정)
+        </button>
+        {adding && (
           <ScheduleForm
             onCancel={() => setAdding(false)}
             onSaved={(message) => {
@@ -112,10 +115,6 @@ export default function MePage() {
               setNotice(message)
             }}
           />
-        ) : (
-          <button type="button" className="btn small block" onClick={openAdd}>
-            + 일정 추가 (수업 · 알바 · 약속 같은 개인 일정)
-          </button>
         )}
       </section>
 
