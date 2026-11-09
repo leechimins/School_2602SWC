@@ -33,3 +33,10 @@ export type RoomInput = {
   dueDate: IsoDate
   memberCount: number
 }
+
+/** 초대 코드로 찾은 방. 들어가기 전에는 이름과 인원만 보인다 */
+export type InvitePreview = {
+  name: string
+  memberCount: number // 정원
+  joinedCount: number
+}

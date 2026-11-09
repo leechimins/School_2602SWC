@@ -115,6 +115,12 @@ function RoomForm({ initial, onCreated }: { initial: RoomInput; onCreated: (room
         )}
       </section>
       <p className={`meta ${form.hint}`}>방을 만든 사람이 팀장이 되고, 회의 잡기는 팀장만 할 수 있어요.</p>
+      <p className={`meta ${form.hint}`}>
+        팀장에게 코드를 받았다면{' '}
+        <Link to={PATHS.join} className="link">
+          초대 코드로 들어가기
+        </Link>
+      </p>
     </Screen>
   )
 }

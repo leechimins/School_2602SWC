@@ -12,7 +12,7 @@ import type {
   Suggestion,
 } from '../types/meeting.ts'
 import type { ActivityLog, Notice, NoticeKind, NoticeList } from '../types/notification.ts'
-import type { Member, Room, YieldLevel } from '../types/room.ts'
+import type { InvitePreview, Member, Room, YieldLevel } from '../types/room.ts'
 import type { Burden, Proposal, ResponseState, Scheduling, SchedulingStatus, Utterance } from '../types/scheduling.ts'
 import type { Task, TaskStatus, TeamTasks } from '../types/task.ts'
 
@@ -77,6 +77,14 @@ export const toMember = (m: ServerMember): Member => ({
   isLeader: m.is_leader,
   isMe: m.is_me,
   yieldLevel: YIELD[m.yield_level],
+})
+
+export type ServerInvitePreview = { name: string; member_count: number; joined_count: number }
+
+export const toInvitePreview = (r: ServerInvitePreview): InvitePreview => ({
+  name: r.name,
+  memberCount: r.member_count,
+  joinedCount: r.joined_count,
 })
 
 export const toRoom = (r: ServerRoom): Room => ({
