@@ -48,7 +48,7 @@ export default function MePage() {
       <nav className={`sec ${styles.menu}`} aria-label="마이 메뉴">
         {MENU.map((item) => (
           <Link key={item.to} to={item.to} className={styles.item}>
-            <span className={styles.itemIcon} aria-hidden="true">
+            <span className={styles.itemIcon} data-tint={item.icon === 'heart' ? 'coral' : undefined} aria-hidden="true">
               <Icon name={item.icon} />
             </span>
             <span className={styles.itemLabel}>{item.label}</span>

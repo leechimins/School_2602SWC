@@ -78,9 +78,14 @@
   --point-grad: linear-gradient(120deg, #8c88f8 0%, #6c63ea 100%);
   --point-text-grad: linear-gradient(135deg, var(--amethyst), var(--delft));
 
-  /* "지금 챙길 것"(디데이·남은 시간·오늘): Delft Blue로 진하게. 알림 점만 경고 빨강 */
-  --accent: var(--delft);
-  --accent-soft: color-mix(in srgb, var(--amethyst) 14%, var(--white));
+  /* 강조색(핑크): 달력 그림의 효과선·체크 동그라미에서 뽑았다. 포인트 보라 옆에서 "눈길 둘 곳"에만 쓴다
+     — 내 할 일 타일, 알림 점, 인사의 TTAK 밑줄, 새 회의 버튼 반짝이, 내 조건 아이콘. 경고(빨강)와는 따로 둔다 */
+  --pink: #f6918a; /* 아이콘 바탕·점 */
+  --pink-light: #fdb9b5; /* 그림 효과선 그대로 */
+  --pink-soft: #fde4e2; /* 옅은 바탕 */
+  --pink-ink: #d9625a; /* 흰 바탕 위 글자 */
+  --accent: var(--pink);
+  --accent-soft: var(--pink-soft);
 
   /* 보조 색: 팔레트에서. 카드 아이콘·요약에만 쓴다(장식 금지) */
   --tint-blue: var(--amethyst);
@@ -111,6 +116,10 @@
 [data-tint='yellow'] {
   --tc: var(--tint-yellow);
   --tc-soft: var(--tint-yellow-soft);
+}
+[data-tint='coral'] {
+  --tc: var(--pink);
+  --tc-soft: var(--pink-soft);
 }
 [data-tint='violet'] {
   --tc: var(--tint-violet);

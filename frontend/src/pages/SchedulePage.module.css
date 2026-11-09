@@ -25,7 +25,9 @@
 .spark {
   position: absolute;
   right: 24px;
-  font-size: 18px;
+  color: var(--pink-light);
+  font-size: 20px;
+  text-shadow: 0 0 10px rgb(253 185 181 / 0.8);
 }
 
 /* 섹션 제목: 아이콘 + 글 (+ 오른쪽) */

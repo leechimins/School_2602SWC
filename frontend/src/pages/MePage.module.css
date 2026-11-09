@@ -52,7 +52,7 @@
 
 .itemIcon {
   display: inline-flex;
-  color: var(--strong);
+  color: var(--tc, var(--strong));
 }
 
 .itemLabel {

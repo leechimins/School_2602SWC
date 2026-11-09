@@ -66,7 +66,7 @@
   height: 9px;
   border: 2px solid var(--card);
   border-radius: 50%;
-  background: var(--danger);
+  background: var(--pink);
 }
 
 /* 인사: 큰 글 + 오른쪽 캐릭터 */
@@ -94,6 +94,8 @@
 .hello b {
   color: var(--point);
   font-weight: 900;
+  /* 달력 그림의 핑크로 밑줄 하이라이트 */
+  background: linear-gradient(transparent 64%, var(--pink-soft) 64%);
 }
 
 .peek {
@@ -162,7 +164,8 @@
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: var(--point-grad);
+  /* 보라에서 끝으로 갈수록 핑크: 마감이 다가오는 쪽 */
+  background: linear-gradient(90deg, #8c88f8, var(--point) 60%, var(--pink));
 }
 
 /* 다음 회의 | 내 할 일 두 칸 */
@@ -233,6 +236,9 @@
 }
 
 .cardHead h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin: 0 !important;
   color: var(--strong);
   font-size: 16px !important;
@@ -250,4 +256,12 @@
   .peek {
     animation: none;
   }
+}
+
+.pinkDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--pink);
+  box-shadow: 0 0 0 4px var(--pink-soft);
 }

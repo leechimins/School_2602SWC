@@ -73,7 +73,7 @@ function HomeBody({ home, name }: { home: Home; name: string }) {
       <div className={styles.tiles}>
         <NextMeetingTile home={home} />
         <Link to={PATHS.myTasks} className={styles.tile}>
-          <span className={styles.tileIcon} data-tint="violet" aria-hidden="true">
+          <span className={styles.tileIcon} data-tint="coral" aria-hidden="true">
             <Icon name="check" small />
           </span>
           <b className={styles.tileTitle}>내 할 일</b>
@@ -128,7 +128,10 @@ function TodayTasks({ home }: { home: Home }) {
   return (
     <section className="sec">
       <div className={styles.cardHead}>
-        <h2>오늘 챙길 일</h2>
+        <h2>
+          <i className={styles.pinkDot} aria-hidden="true" />
+          오늘 챙길 일
+        </h2>
         <Link to={PATHS.myTasks} className={styles.more}>
           전체 보기 ›
         </Link>
