@@ -1,6 +1,7 @@
 /* 디자인 토큰. 처음 값은 디자인 시안10이고, 11/9에 TTAK 시안(A·B, 페리윙클 보라)으로 바꿨다.
    색은 옅은 보라 바탕 + 포인트 보라 1색 + AI 노랑 1색. 초록은 완료 뱃지에만 쓴다(바탕·장식 금지).
-   카드는 테두리 대신 옅은 그림자 하나(--shadow). 컴포넌트 CSS는 이 변수만 쓰고 색 값을 직접 적지 않는다. */
+   카드는 테두리 대신 옅은 그림자 하나(--shadow). 컴포넌트 CSS는 이 변수만 쓰고 색 값을 직접 적지 않는다.
+   11/9 확정(스타일 견본 documents/02-목업/C_목업-스타일견본.html): 글자·회색 "살짝만 차갑게", AI 노랑 조금 쨍하게. */
 :root {
   color-scheme: light;
   --font: "Pretendard Variable", Pretendard, -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
@@ -9,14 +10,14 @@
   --point: #6e6ae8;
   --on-point: #ffffff;
   --point-ink: #5450d6;
-  --sub: #e8b730;
-  --sub-ink: #7f6418;
+  --sub: #f2bf22;
+  --sub-ink: #7a5b08;
 
   /* 면·글자 */
   --white: #ffffff;
   --page: #f2f2fb;
   --card: #ffffff;
-  --text: #26244a;
+  --text: #24242e;
   --frame: #e6e6ef; /* 휴대폰 폭보다 넓은 화면의 양옆 */
 
   /* 상태: 뱃지·알림 카드에만 쓴다. 장식 금지 */
@@ -24,16 +25,16 @@
   --warn: #b8690f;
   --danger: #e5383b;
 
-  /* 파생색: 글자색·포인트색을 바탕과 섞어 만든다 */
-  --soft: color-mix(in srgb, var(--text) 5%, var(--card));
-  --line: color-mix(in srgb, var(--text) 10%, var(--page));
-  --muted: color-mix(in srgb, var(--text) 62%, var(--page));
-  --bubble: color-mix(in srgb, var(--text) 7%, var(--page));
+  /* 회색: 글자 #24242E에 맞춘 차가운 회색. 옅은 색은 포인트·AI 색을 바탕과 섞어 만든다 */
+  --soft: #f4f4f7; /* 입력칸·고르기 트랙·묶음 이름표 바탕 */
+  --line: #e4e4ea;
+  --muted: #6c6d7a;
+  --bubble: #ededf1;
   --point-soft: color-mix(in srgb, var(--point) 12%, var(--card));
   --sub-soft: color-mix(in srgb, var(--sub) 18%, var(--card));
   --sub-wash: color-mix(in srgb, var(--sub) 7%, var(--card));
-  --tab-idle: #9a9cb8;
-  --check-idle: #b6b8d0;
+  --tab-idle: #9d9eaa;
+  --check-idle: #bcbdc7;
   --check-off: #e2e2ec;
 
   /* 글자 크기 */
@@ -51,7 +52,8 @@
   --gap-1: 4px;
   --gap-2: 8px;
   --gap-3: 12px;
-  --r-s: 10px; /* 입력칸 */
+  --r-s: 10px; /* 작은 칸(제안 카드 안 입력칸·날짜 칸) */
+  --r-field: 12px; /* 입력칸 */
   --r: 14px; /* 버튼 */
   --r-l: 20px; /* 묶음(카드) */
   --r-badge: 999px; /* 알약 모양 */
@@ -63,6 +65,9 @@
 
   /* 브랜드(TTAK): 스플래시·로그인 화면에만 쓴다. 배경 그림(public/splash/bg.webp)의 가운데 색 */
   --brand: #7580e6;
+
+  /* 아래 꺾쇠(상태 칩·고르기). mask로 써서 글자색을 따른다 */
+  --chev: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M3 4.5 6 7.5 9 4.5' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 }
 
 @media (min-width: 431px) {

@@ -43,7 +43,7 @@
   height: 8px;
   margin: 10px 0 4px;
   border-radius: 99px;
-  background: var(--card);
+  background: var(--point-soft);
 }
 
 .period > i {
