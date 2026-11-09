@@ -95,3 +95,167 @@
   min-height: 32px;
   font-size: 13px;
 }
+
+/* ── 11/9 TTAK 시안 ─────────────────────────────── */
+
+/* 전체 진행률 카드 */
+.progress {
+  padding-top: 18px;
+}
+
+.progressRow {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: end;
+  gap: 14px;
+}
+
+.progressLabel {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.percent {
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.bigBar {
+  height: 12px;
+  margin-bottom: 8px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: var(--point-soft);
+}
+
+.bigBar > i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--point-grad);
+  transition: width 0.4s ease;
+}
+
+.count {
+  margin-bottom: 4px;
+  color: var(--point-ink);
+  font-weight: 700;
+  font-size: 13.5px;
+}
+
+.loadToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-top: 10px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: var(--fs-meta);
+}
+
+.loadToggle[aria-expanded='true'] :global(svg) {
+  transform: rotate(180deg);
+}
+
+/* 필터 칩: 아이콘 + 글자. 고른 칩은 보라로 채운다 */
+.chips button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 38px;
+  padding: 0 14px;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.chips button[data-tone='진행 중'] :global(svg) {
+  color: var(--point);
+}
+
+.chips button[data-tone='막힘'] :global(svg) {
+  color: var(--danger);
+}
+
+.chips button[data-tone='완료'] :global(svg) {
+  color: var(--ok);
+}
+
+.chips button[aria-pressed='true'] {
+  background: var(--point-grad);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--point) 30%, transparent);
+}
+
+.chips button[aria-pressed='true'] :global(svg) {
+  color: inherit;
+}
+
+/* 사람별 묶음: 아바타 · 이름 · 개수 · 접기 */
+.group {
+  margin-top: 6px;
+}
+
+.groupHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 52px;
+  padding: 6px 22px 0;
+  border: 0;
+  background: none;
+  text-align: left;
+}
+
+.groupName {
+  font-size: 15px;
+}
+
+.noOne {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--soft);
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.fold {
+  margin-left: auto;
+  color: var(--muted);
+  transition: transform 0.2s;
+}
+
+.fold[data-open='true'] {
+  transform: rotate(180deg);
+}
+
+.groupCard {
+  margin-top: 4px;
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+/* 하단 "할 일 추가하기": 큰 보라 그라데이션 버튼 */
+.addBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 54px;
+  border-radius: 99px;
+  background: var(--point-grad);
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--point) 35%, transparent);
+  font-size: 16px;
+}
+
+.adding {
+  margin: 10px 12px 0;
+}

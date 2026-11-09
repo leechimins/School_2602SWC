@@ -1,26 +1,26 @@
-/* 디자인 토큰. 원본은 디자인 시안10(docs/mockup/index.html)의 :root·.app 값이다.
-   색은 중립 바탕 + 포인트 파랑 1색 + AI 노랑 1색. 초록은 쓰지 않는다(완료도 포인트 계열).
+/* 디자인 토큰. 처음 값은 디자인 시안10(docs/mockup/index.html)이고, 11/9에 TTAK 브랜드 시안(보라)으로 바꿨다.
+   색은 연보라 바탕 + 포인트 보라 1색 + AI 노랑 1색 + 완료 초록. 초록은 "완료"에만 쓴다(11/9 시안).
    컴포넌트 CSS는 이 변수만 쓰고 색 값을 직접 적지 않는다. */
 :root {
   color-scheme: light;
   --font: "Pretendard Variable", Pretendard, -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
 
   /* 테마: 포인트(주요 행동·확정) · 보조(AI 제안·판단 에이전트) */
-  --point: #3d5bab;
+  --point: #6b74e0;
   --on-point: #ffffff;
-  --point-ink: #3d5bab;
+  --point-ink: #4f57c9;
   --sub: #e8b730;
   --sub-ink: #7f6418;
 
   /* 면·글자 */
   --white: #ffffff;
-  --page: #f4f5f7;
+  --page: #f4f4fd;
   --card: #ffffff;
-  --text: #191f28;
+  --text: #1d1f3a;
   --frame: #e9e9e6; /* 휴대폰 폭보다 넓은 화면의 양옆 */
 
   /* 상태: 뱃지·알림 카드에만 쓴다. 장식 금지 */
-  --ok: var(--point-ink);
+  --ok: #2e9d5b; /* 완료 */
   --warn: #b8690f;
   --danger: #e5383b;
 
@@ -32,7 +32,7 @@
   --point-soft: color-mix(in srgb, var(--point) 12%, var(--card));
   --sub-soft: color-mix(in srgb, var(--sub) 18%, var(--card));
   --sub-wash: color-mix(in srgb, var(--sub) 7%, var(--card));
-  --tab-idle: #8e8e93;
+  --tab-idle: #9a9cb8;
   --check-idle: #c7c7cc;
   --check-off: #e2e2e6;
 
@@ -53,10 +53,14 @@
   --gap-3: 12px;
   --r-s: 8px; /* 입력칸 */
   --r: 12px; /* 버튼 */
-  --r-l: 16px; /* 묶음(카드) */
-  --r-badge: 4px;
+  --r-l: 20px; /* 묶음(카드) */
+  --r-badge: 99px;
+  --shadow-card: 0 4px 18px rgb(80 86 190 / 0.08);
   --app-width: 430px;
 
-  /* 브랜드(TTAK): 스플래시·로그인 화면에만 쓴다. 배경 그림(public/splash/bg.webp)의 가운데 색 */
+  /* 브랜드(TTAK): 스플래시와 화면 머리(hero). 배경 그림(public/splash/bg.webp)의 가운데 색 */
   --brand: #7580e6;
+  --brand-top: #aeb3f5;
+  --brand-grad: linear-gradient(180deg, #8a91ec 0%, #a5aaf2 55%, var(--page) 100%);
+  --point-grad: linear-gradient(90deg, #7f87ec, #6067d8);
 }

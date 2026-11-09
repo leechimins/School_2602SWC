@@ -1,5 +1,5 @@
 .row {
-  padding: 8px 0;
+  padding: 12px 0;
   border-bottom: 1px solid var(--line);
   list-style: none;
 }
@@ -12,7 +12,7 @@
 .head {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   gap: 8px;
   -webkit-user-select: none;
   user-select: none;
@@ -31,7 +31,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 4px 6px;
-  font-size: var(--fs-strong);
+  font-size: 15px;
   font-weight: 600;
 }
 
@@ -41,15 +41,15 @@
   font-weight: 400;
 }
 
-/* 완료 체크: 빈 원 → 포인트 원 + 흰 체크 */
+/* 완료 체크: 빈 네모 → 포인트 네모 + 흰 체크 (11/9 시안) */
 .check {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   flex: none;
-  margin-top: 1px;
+  margin-top: 0;
   padding: 0;
   border: 2px solid var(--check-idle);
-  border-radius: 50%;
+  border-radius: 7px;
   background-color: transparent;
 }
 
@@ -88,10 +88,8 @@
   cursor: pointer;
 }
 
-.chip::after {
-  content: '▾';
-  margin-left: 3px;
-  font-size: 10px;
+.chip {
+  min-height: 28px;
 }
 
 .menu {

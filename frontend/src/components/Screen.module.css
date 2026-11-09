@@ -44,3 +44,132 @@
   background: var(--card);
   border-top: 1px solid var(--line);
 }
+
+/* ── TTAK 머리(hero) ─────────────────────────────── */
+.heroScreen {
+  grid-template-rows: 1fr auto;
+}
+
+.hero {
+  position: relative;
+  padding: 4px 0 34px;
+  background:
+    radial-gradient(circle at 92% 30%, rgb(255 255 255 / 0.28) 0 52px, transparent 53px),
+    radial-gradient(circle at 80% 46%, rgb(255 255 255 / 0.22) 0 40px, transparent 41px),
+    radial-gradient(circle at 6% 8%, rgb(255 255 255 / 0.25) 0 46px, transparent 47px),
+    var(--brand-grad);
+  color: var(--white);
+}
+
+.heroBar {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  min-height: 52px;
+  padding: 0 8px;
+}
+
+.heroSide {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.heroAux {
+  justify-content: flex-end;
+  color: var(--white);
+}
+
+/* 머리 위의 링크·아이콘 버튼은 흰색으로 */
+.heroAux :global(.link),
+.heroAux :global(.icon-btn) {
+  color: var(--white);
+}
+
+.heroSide .back {
+  margin-left: 0;
+  color: var(--white);
+}
+
+.logo {
+  width: 92px;
+  height: auto;
+  filter: drop-shadow(0 2px 4px rgb(60 60 150 / 0.25));
+}
+
+.heroText {
+  position: relative;
+  z-index: 1;
+  max-width: 60%;
+  padding: 6px 20px 0;
+}
+
+.heroTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.25;
+  text-shadow: 0 2px 8px rgb(60 60 150 / 0.2);
+}
+
+.heroIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: rgb(255 255 255 / 0.9);
+  color: var(--point);
+}
+
+.heroSub {
+  margin-top: 6px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  opacity: 0.95;
+}
+
+/* 캐릭터: 오른쪽 아래에서 고개를 내밀고, 손은 바로 아래 첫 카드 위에 걸친다 */
+.peek {
+  position: absolute;
+  right: 10px;
+  bottom: -12px;
+  z-index: 2;
+  width: 38%;
+  max-width: 160px;
+  height: auto;
+  pointer-events: none;
+  filter: drop-shadow(0 6px 10px rgb(60 60 160 / 0.15));
+  animation: peek 3.6s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+@keyframes peek {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+/* 첫 묶음은 머리 위로 살짝 올라와 캐릭터 손 아래 깔린다 */
+.heroBody {
+  position: relative;
+  margin-top: -14px;
+}
+
+.heroBody > :global(.sec):first-child {
+  margin-top: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .peek {
+    animation: none;
+  }
+}

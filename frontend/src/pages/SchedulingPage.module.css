@@ -1,95 +1,421 @@
-.head {
-  padding: 2px var(--sp) 10px;
+/* 회의 조율 (11/9 TTAK 시안) */
+
+.cardTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 10px;
+  font-size: 16px !important;
+  font-weight: 800;
 }
 
-.topic {
-  font-size: 17px;
-  font-weight: 700;
-  line-height: 1.4;
+.titleIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  color: var(--point);
+  font-size: 15px;
+}
+
+/* ── 상태 카드 ── */
+.statusCard {
+  padding-bottom: 14px;
+}
+
+.statusHead {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+/* 도는 동안 점 고리가 돈다 */
+.spin {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  margin-top: 2px;
+  border-radius: 50%;
+  background: conic-gradient(var(--point) 0 12%, transparent 12% 20%, var(--point) 20% 32%, transparent 32% 40%, color-mix(in srgb, var(--point) 60%, transparent) 40% 52%, transparent 52% 60%, color-mix(in srgb, var(--point) 35%, transparent) 60% 72%, transparent 72% 80%, color-mix(in srgb, var(--point) 20%, transparent) 80% 92%, transparent 92%);
+  mask: radial-gradient(circle, transparent 10px, #000 11px);
+}
+
+.spin {
+  animation: spin 1.4s linear infinite;
+}
+
+/* 끝났을 때: 초록 체크(합의·확정) · 빨간 느낌표(못 잡음) */
+.endDot {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  margin-top: 2px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--ok) 14%, var(--white));
+  color: var(--ok);
+}
+
+.endDot[data-status='failed'] {
+  background: color-mix(in srgb, var(--danger) 12%, var(--white));
+  color: var(--danger);
+}
+
+.endDot :global(svg.i) {
+  stroke-width: 2.4;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.statusText {
+  flex: 1;
+  min-width: 0;
+}
+
+.statusTitle {
+  display: block;
+  color: var(--point-ink);
+  font-size: 19px;
+  font-weight: 800;
   letter-spacing: -0.02em;
 }
 
-.state {
+.roundChip {
+  flex: none;
+  padding: 4px 12px;
+  border-radius: 99px;
+  background: var(--point-soft);
+  color: var(--point-ink);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* 세 단계 바: 점 · 선 · 점 · 선 · 점 */
+.stages {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stages li {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
   color: var(--muted);
-  font-weight: 600;
+}
+
+/* 앞 칸과 잇는 선 */
+.stages li + li::before {
+  content: '';
+  position: absolute;
+  top: 12px;
+  right: 50%;
+  width: 100%;
+  height: 5px;
+  margin-top: -2px;
+  border-radius: 99px;
+  background: var(--point-soft);
+}
+
+.stages li[data-state='done']::before,
+.stages li[data-state='now']::before,
+.stages li[data-state='fail']::before {
+  background: var(--point-grad);
+}
+
+.dot {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 3px solid var(--point-soft);
+  border-radius: 50%;
+  background: var(--card);
+  color: var(--white);
+}
+
+.stages li[data-state='done'] .dot {
+  border-color: var(--point);
+  background: var(--point);
+}
+
+.stages li[data-state='now'] .dot {
+  border: 6px solid var(--point);
+  box-shadow: 0 0 0 4px var(--point-soft);
+}
+
+.stages li[data-state='fail'] .dot {
+  border-color: var(--danger);
+}
+
+.stages li[data-state='now'] .stageLabel {
+  color: var(--point-ink);
+  font-weight: 800;
+}
+
+.stages li[data-state='fail'] .stageLabel {
+  color: var(--danger);
+  font-weight: 700;
 }
 
 .chips {
   display: flex;
   flex-wrap: wrap;
   gap: 5px;
-  margin-top: 6px;
+  margin-top: 14px;
 }
 
 .chips span {
-  padding: 1px 9px;
-  border: 1px solid var(--line);
+  padding: 2px 10px;
   border-radius: 99px;
-  background: var(--card);
+  background: var(--soft);
   font-size: 12px;
 }
 
-/* 라운드 표시: 세 칸이 차례로 찬다 */
+/* ── 라운드 타임라인 ── */
 .rounds {
-  display: flex;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rounds li {
+  position: relative;
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 10px;
+  padding-bottom: 12px;
+}
+
+/* 점 사이를 잇는 세로선 */
+.rounds li:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: 26px;
+  bottom: 0;
+  left: 13px;
+  width: 2px;
+  background: var(--point-soft);
+}
+
+.rdot {
+  display: inline-flex;
   align-items: center;
-  gap: var(--gap-1);
-  margin-top: 10px;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 2px solid var(--line);
+  border-radius: 50%;
+  background: var(--card);
+  color: var(--white);
 }
 
-.rounds i {
-  flex: 1;
-  height: 4px;
-  border-radius: 99px;
-  background: var(--line);
-  transition: background 0.3s;
-}
-
-.rounds i.on {
+.rounds li[data-state='done'] .rdot {
+  border-color: var(--point);
   background: var(--point);
 }
 
-.rounds span {
-  margin-left: 6px;
-  font-size: 12px;
-  color: var(--muted);
-  white-space: nowrap;
+.rounds li[data-state='now'] .rdot {
+  border: 7px solid var(--point);
 }
 
+.rname {
+  font-size: 14.5px;
+}
+
+.rounds li[data-state='now'] .rname {
+  color: var(--point-ink);
+}
+
+.rounds li[data-state='todo'] .rname,
+.rounds li[data-state='skip'] .rname {
+  color: var(--muted);
+}
+
+.nowTag {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.rline {
+  margin-top: 1px;
+}
+
+/* ── 에이전트 대화 ── */
 .talk {
-  padding: 0 var(--gap-3);
+  margin: 0 -4px;
 }
 
 .roundDiv {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin: 16px 0 6px;
+  margin: 14px 0 6px;
   font-size: 11.5px;
-  font-weight: 600;
-  color: var(--muted);
+  font-weight: 700;
+  color: var(--point-ink);
 }
 
 .roundDiv::before,
 .roundDiv::after {
-  content: "";
+  content: '';
   flex: 1;
   height: 1px;
-  background: var(--line);
+  background: var(--point-soft);
 }
 
 .replay {
+  margin-top: 6px;
   text-align: center;
 }
 
+/* ── 기다리는 캐릭터 ── */
+.waitCard {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 14px 12px 0;
+}
+
+.waitArt {
+  flex: none;
+  width: 96px;
+  height: auto;
+  animation: bob 3.6s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+.waitSay {
+  position: relative;
+  flex: 1;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: var(--card);
+  box-shadow: var(--shadow-card);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.waitSay b {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 14.5px;
+}
+
+/* 말풍선 꼬리 */
+.waitSay::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: -6px;
+  width: 12px;
+  height: 12px;
+  margin-top: -6px;
+  background: var(--card);
+  transform: rotate(45deg);
+}
+
+@keyframes bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+/* ── 하단 ── */
 .sum {
   margin-bottom: var(--gap-2);
 }
 
+/* 끝났을 때: 확정 카드 → 조율 결과 */
+.doneCard {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 4px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.doneIcon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  background: var(--point-soft);
+  color: var(--point);
+}
+
+.doneIcon :global(svg.i) {
+  width: 30px;
+  height: 30px;
+  stroke-width: 2;
+}
+
+.doneText {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.doneBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 10px;
+  border-radius: 99px;
+  background: var(--point-grad);
+  color: var(--on-point);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.doneBadge :global(svg.i) {
+  width: 13px;
+  height: 13px;
+  stroke-width: 2.4;
+}
+
 .when {
   display: block;
-  margin: 2px 0;
-  font-size: 18px;
+  margin: 3px 0 1px;
+  font-size: 17px;
+  white-space: nowrap;
   font-weight: 800;
   letter-spacing: -0.02em;
+}
+
+/* 뒤로 아이콘을 뒤집어 "넘어가기" 화살표로 */
+.go {
+  flex: none;
+  color: var(--point);
+  transform: scaleX(-1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spin,
+  .waitArt {
+    animation: none;
+  }
 }

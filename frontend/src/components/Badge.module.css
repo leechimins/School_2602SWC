@@ -1,10 +1,11 @@
 .badge {
   display: inline-flex;
   align-items: center;
-  padding: 0 6px;
+  gap: 3px;
+  padding: 1px 9px;
   border-radius: var(--r-badge);
   font-size: var(--fs-badge);
-  font-weight: 600;
+  font-weight: 700;
   line-height: 1.7;
   white-space: nowrap;
 }
@@ -42,4 +43,11 @@
   background: transparent;
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sub) 70%, transparent);
   font-weight: 500;
+}
+
+/* 뱃지 안 상태 아이콘(StatusIcon) */
+.badge :global(svg.i) {
+  width: 13px;
+  height: 13px;
+  stroke-width: 2;
 }

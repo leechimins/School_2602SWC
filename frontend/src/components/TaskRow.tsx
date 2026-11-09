@@ -6,7 +6,21 @@ import { TASK_STATUSES, type Task, type TaskStatus } from '../types/task.ts'
 import Badge from './Badge.tsx'
 import badge from './Badge.module.css'
 import ConfirmSheet from './ConfirmSheet.tsx'
+import Icon, { type IconName } from './Icon.tsx'
 import styles from './TaskRow.module.css'
+
+// 상태 칩 글자 옆 아이콘 (11/9 시안). 시작 전은 글자만
+const STATUS_ICON: Partial<Record<TaskStatus, IconName>> = { '진행 중': 'progress', 막힘: 'alert', 완료: 'check' }
+
+function StatusLabel({ status }: { status: TaskStatus }) {
+  const icon = STATUS_ICON[status]
+  return (
+    <>
+      {icon && <Icon name={icon} small />}
+      {status}
+    </>
+  )
+}
 
 type Props = {
   task: Task
@@ -85,7 +99,6 @@ export default function TaskRow({ task, onStatusChange, onEdit, meetingDone = fa
   }
 
   const late = task.isLate
-  const blockedBadge = task.status === '막힘' && !mine // 내 일은 상태 칩이 이미 "막힘"을 보여 준다
 
   return (
     <li ref={rowRef} className={styles.row} data-done={done}>
@@ -102,14 +115,13 @@ export default function TaskRow({ task, onStatusChange, onEdit, meetingDone = fa
           <span className={styles.name}>
             {task.title}
             {late && <Badge tone="danger">늦음</Badge>}
-            {blockedBadge && <Badge tone="warn">막힘</Badge>}
           </span>
         </div>
         <div className={styles.right}>
           {task.dueDate && <span className="meta num">{formatMD(task.dueDate)}</span>}
           {meetingDone && done ? (
             <Badge tone="ok">회의에서 완료</Badge>
-          ) : mine && (
+          ) : mine ? (
             <button
               type="button"
               className={`${badge.badge} ${badge[TASK_STATUS_TONE[task.status]]} ${styles.chip}`}
@@ -118,8 +130,13 @@ export default function TaskRow({ task, onStatusChange, onEdit, meetingDone = fa
               aria-label={`상태 ${task.status}, 눌러서 바꾸기`}
               onClick={() => send({ type: 'menu/toggle' })}
             >
-              {task.status}
+              <StatusLabel status={task.status} />
             </button>
+          ) : (
+            // 남의 일: 상태는 보이되 바꿀 수는 없다 (11/9 시안: 모든 행 오른쪽에 상태)
+            <Badge tone={TASK_STATUS_TONE[task.status]}>
+              <StatusLabel status={task.status} />
+            </Badge>
           )}
           {ui.menuOpen && (
             <div className={styles.menu} role="menu">
@@ -131,7 +148,9 @@ export default function TaskRow({ task, onStatusChange, onEdit, meetingDone = fa
                   aria-checked={status === task.status}
                   onClick={() => pick(status)}
                 >
-                  <Badge tone={TASK_STATUS_TONE[status]}>{status}</Badge>
+                  <Badge tone={TASK_STATUS_TONE[status]}>
+                    <StatusLabel status={status} />
+                  </Badge>
                 </button>
               ))}
             </div>

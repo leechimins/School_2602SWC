@@ -1,4 +1,4 @@
-// 기능이 있는 곳(하단 탭·뒤로·알림 종·받아적기)에만 쓰는 선 아이콘. 장식용으로 쓰지 않는다.
+// 선 아이콘. 기능이 있는 곳(하단 탭·뒤로·알림 종·받아적기)과, 글자와 함께 붙는 상태 표시(진행 중·막힘·완료)에 쓴다.
 const PATHS = {
   home: <path d="M4 10.5 12 4l8 6.5V20h-5v-6H9v6H4z" />,
   calendar: (
@@ -27,6 +27,17 @@ const PATHS = {
       <path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21" />
     </>
   ),
+  // 상태: 뱃지·필터 칩에서 글자 옆에 붙는다 (색만으로 구분하지 않기 — 글자는 늘 같이)
+  progress: <circle cx="12" cy="12" r="7.5" strokeDasharray="2.6 3" />,
+  alert: (
+    <>
+      <circle cx="12" cy="12" r="8" />
+      <path d="M12 8v4.5M12 15.8v.2" />
+    </>
+  ),
+  check: <path d="m5.5 12.5 4.2 4 8.8-9" />,
+  chevron: <path d="m6 9.5 6 6 6-6" />,
+  plus: <path d="M12 5v14M5 12h14" />,
 } as const
 
 export type IconName = keyof typeof PATHS

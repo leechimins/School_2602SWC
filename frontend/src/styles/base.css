@@ -60,11 +60,11 @@ p {
 
 /* 묶음: 카드 한 장 */
 .sec {
-  margin: 8px 12px 0;
-  padding: 14px var(--sp);
+  margin: 10px 12px 0;
+  padding: 16px var(--sp);
   background: var(--card);
-  border: 1px solid var(--line);
   border-radius: var(--r-l);
+  box-shadow: var(--shadow-card);
 }
 
 .sec h2 {
