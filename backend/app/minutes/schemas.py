@@ -30,6 +30,7 @@ class RecordStartIn(SQLModel):
     """
 
     model_config = {
+        "str_strip_whitespace": True,  # 공백만 넣은 주제는 min_length로 걸림
         "json_schema_extra": {
             "examples": [
                 {"topic": "최종 발표 역할 나누기", "mode": "offline"},
@@ -229,6 +230,8 @@ class ConfirmIn(SQLModel):
 class SuggestionPatch(SQLModel):
     """제안 고치기. 보낸 칸만 바꾼다. 담당자·기한은 null을 보내면 비운다."""
 
+    model_config = {"str_strip_whitespace": True}  # 공백만 넣은 제목은 min_length로 걸림
+
     title: str | None = Field(default=None, min_length=1, max_length=200, description="제목")
     assignee_user_id: int | None = Field(
         default=None, description="담당자. 이 방 팀원만. null이면 담당자 없음"
@@ -272,6 +275,8 @@ class StatusIn(SQLModel):
 class TaskPatch(SQLModel):
     """할 일 고치기. 보낸 칸만 바꾼다. 담당자·기한은 null을 보내면 비운다."""
 
+    model_config = {"str_strip_whitespace": True}  # 공백만 넣은 제목은 min_length로 걸림
+
     title: str | None = Field(default=None, min_length=1, max_length=200, description="제목")
     assignee_user_id: int | None = Field(
         default=None, description="담당자. 이 방 팀원만. null이면 담당자 없음"
@@ -281,6 +286,8 @@ class TaskPatch(SQLModel):
 
 class TaskCreateIn(SQLModel):
     """할 일 직접 추가. AI 없이 도는 길."""
+
+    model_config = {"str_strip_whitespace": True}  # 공백만 넣은 제목은 min_length로 걸림
 
     title: str = Field(min_length=1, max_length=200, description="제목")
     assignee_user_id: int | None = Field(default=None, description="담당자. 비워도 됨")
