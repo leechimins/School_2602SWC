@@ -334,6 +334,33 @@ def test_다시_하기가_실패해도_전에_된_요약과_제안은_남는다(
     assert [t.id for t in _suggestions(seeded, meeting)] == before
 
 
+def test_동시_요약에서_한쪽이_실패해도_먼저_끝난_요약은_done으로_남는다(
+    client: TestClient, seeded: Session, login, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """이 요청이 모델을 기다리는 사이 다른 폰의 요청이 먼저 성공해 done으로 저장한 뒤,
+    이 요청의 모델은 실패한다."""
+    room = _room(seeded)
+    login("지수")
+    meeting_id = _new_meeting_with_transcript(client, room)
+
+    def request(prompt: str) -> dict | None:
+        minutes = seeded.exec(select(Minutes).where(Minutes.meeting_id == meeting_id)).one()
+        minutes.headline = "다른 폰이 만든 요약"
+        minutes.status = "done"
+        seeded.add(minutes)
+        seeded.commit()
+        return None
+
+    monkeypatch.setattr(summarize, "request", request)
+
+    res = client.post(_url(room, meeting_id))
+
+    assert res.status_code == 503
+    detail = client.get(f"{API}/rooms/{room.id}/meetings/{meeting_id}").json()
+    assert detail["minutes"]["status"] == "done"
+    assert detail["minutes"]["headline"] == "다른 폰이 만든 요약"
+
+
 def test_AI를_꺼도_요약은_503으로_끝난다(
     client: TestClient, seeded: Session, login
 ) -> None:

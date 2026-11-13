@@ -524,7 +524,7 @@ def summarize_meeting(
     - 할 일 제안은 회의록에만 "AI 제안"으로 붙습니다. 확정해야 할 일 목록에 들어갑니다.
     - 담당자는 원문에서 분명할 때만 채워집니다. 기한은 회의 날짜 기준으로 계산합니다.
     - 다시 부르면 요약을 바꾸고, 아직 확정하지 않은 AI 제안을 새 제안으로 바꿉니다. 확정된 할 일과 원문은 그대로입니다.
-    - AI가 실패하면 503 `AGENT_TIMEOUT`. 처음이면 요약 상태가 `failed`, 전에 요약이 있었으면 그 요약이 그대로 남습니다.
+    - AI가 실패하면 503 `AGENT_TIMEOUT`. 처음이면 요약 상태가 `failed`, 전에 요약이 있었으면 그 요약이 그대로 남습니다. 다른 폰의 요약이 먼저 끝났으면 그 요약이 남습니다.
     - 원문이 없으면 409 `NO_TRANSCRIPT`, 확정 전·취소된 회의면 409 `NOT_CONFIRMED`.
     - 받아적는 중이면 409 `RECORDING`. 멈춘 뒤에 불러 주세요.
     """
@@ -571,14 +571,16 @@ def summarize_meeting(
     )
 
     if draft is None:
-        # 다시 하기가 실패해도 전에 된 요약은 지우지 않는다
+        # 다시 하기가 실패해도 전에 된 요약은 지우지 않는다. 모델을 기다리는
+        # 동안 다른 폰의 요청이 먼저 끝나 done으로 만들었으면 그것도 그대로 둔다.
         minutes = db.exec(
             select(Minutes).where(Minutes.meeting_id == meeting_id).with_for_update()
         ).one()
-        minutes.status = (
-            MinutesStatus.DONE if previous == MinutesStatus.DONE else MinutesStatus.FAILED
-        )
-        db.add(minutes)
+        if minutes.status == MinutesStatus.SUMMARIZING:
+            minutes.status = (
+                MinutesStatus.DONE if previous == MinutesStatus.DONE else MinutesStatus.FAILED
+            )
+            db.add(minutes)
         db.commit()
         raise HTTPException(
             status.HTTP_503_SERVICE_UNAVAILABLE,
