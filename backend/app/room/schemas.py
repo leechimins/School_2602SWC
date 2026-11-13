@@ -20,6 +20,8 @@ from app.shared.enums import YieldLevel
 class RoomCreateIn(SQLModel):
     """방 생성하기 화면의 입력."""
 
+    model_config = {"str_strip_whitespace": True}  # 공백만 넣은 방 이름은 min_length로 걸림
+
     name: str = Field(min_length=1, max_length=100, description="과제 제목 (방 이름)")
     description: str = Field(default="", max_length=500, description="과제 설명 두세 줄")
     start_date: date = Field(description="시작일 (YYYY-MM-DD)")
