@@ -2,7 +2,7 @@ import dayjs, { type Dayjs } from 'dayjs'
 import type { IsoDate } from '../types/common.ts'
 
 // 날짜·시각을 화면 글자로 바꾸는 곳은 이 파일 하나다. 화면마다 따로 만들면 표기가 갈린다.
-// "지금"은 인자로 받는다(useClock·getNow). 여기서 인자 없는 dayjs()를 부르지 않는다.
+// "지금"은 인자로 받는다(useClock). 여기서 인자 없는 dayjs()를 부르지 않는다.
 
 type DateInput = string | Dayjs
 
@@ -73,7 +73,16 @@ export function daysUntil(target: DateInput, now: Dayjs) {
 
 /** 시작까지 남은 시간: 8일 06:59:12 · 00:30:00 (지났으면 00:00:00) */
 export function formatCountdown(target: DateInput, now: Dayjs) {
-  const s = Math.max(0, d(target).diff(now, 'second'))
+  return formatSeconds(d(target).diff(now, 'second'))
+}
+
+/** 시작한 뒤 흐른 시간: 00:12:30 (진행 중인 회의) */
+export function formatElapsed(since: DateInput, now: Dayjs) {
+  return formatSeconds(now.diff(d(since), 'second'))
+}
+
+function formatSeconds(seconds: number) {
+  const s = Math.max(0, seconds)
   const days = Math.floor(s / 86400)
   const p = (n: number) => String(n).padStart(2, '0')
   const hms = `${p(Math.floor((s % 86400) / 3600))}:${p(Math.floor((s % 3600) / 60))}:${p(s % 60)}`

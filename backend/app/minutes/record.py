@@ -196,3 +196,27 @@ def meeting_list(db: Session, room_id: int) -> list[MeetingSummaryOut]:
         )
         for m in meetings
     ]
+
+
+def finished_ids(db: Session, meetings: list[Meeting]) -> set[int]:
+    """기록을 마친 회의 id. 원문이 있고 받아적는 중이 아니면 끝난 회의로 본다.
+
+    "지금 회의 기록하기"로 만든 회의는 끝 시각을 1시간 뒤로 잡아 두므로,
+    끝 시각만 보면 기록을 마친 뒤에도 한동안 "다가오는 회의"로 남는다.
+    홈 다음 회의와 일정의 잡힌/지난 회의 가르기가 이걸 함께 본다.
+    """
+    ids = [m.id for m in meetings if m.id is not None]
+    if not ids:
+        return set()
+    has_text = set(
+        db.exec(
+            select(TranscriptSegment.meeting_id)
+            .where(col(TranscriptSegment.meeting_id).in_(ids))
+            .distinct()
+        ).all()
+    )
+    return {
+        m.id
+        for m in meetings
+        if m.id in has_text and recording.state(m) != "recording"
+    }

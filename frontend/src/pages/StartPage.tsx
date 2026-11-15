@@ -1,9 +1,9 @@
 import dayjs from 'dayjs'
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { messageOf } from '../api/client.ts'
 import { createRoom, getRoom } from '../api/rooms.ts'
-import { signIn } from '../api/session.ts'
+import { signIn, signOut } from '../api/session.ts'
 import RetryBox from '../components/RetryBox.tsx'
 import Screen from '../components/Screen.tsx'
 import Segmented from '../components/Segmented.tsx'
@@ -37,6 +37,14 @@ function blankRoom(): RoomInput {
 }
 
 function RoomForm({ initial, onCreated }: { initial: RoomInput; onCreated: (room: Room) => void }) {
+  const user = useCurrentUser()
+  const navigate = useNavigate()
+  // 뒤로: 방이 있으면 홈으로, 처음 온 사람(방 없음)은 로그인 화면으로 — 다른 계정으로 다시 들어갈 수 있게 로그아웃한다
+  const back = async () => {
+    if (user.roomId) return navigate(PATHS.home)
+    await signOut()
+    navigate(PATHS.login, { replace: true })
+  }
   const [input, setInput] = useState<RoomInput>({
     name: initial.name,
     description: initial.description,
@@ -70,6 +78,7 @@ function RoomForm({ initial, onCreated }: { initial: RoomInput; onCreated: (room
   return (
     <Screen
       title="방 만들기"
+      onBack={back}
       dock={
         <div className="btn-row">
           <button type="button" className="btn primary" disabled={saving} onClick={submit}>

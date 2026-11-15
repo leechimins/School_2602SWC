@@ -27,14 +27,6 @@ export type Slot = {
   mode: MeetingMode
 }
 
-/** 판단 에이전트가 바꾼 누적 양보 단계: 누가, 전 단계 → 뒤 단계 */
-export type YieldChange = {
-  userId: Id
-  name: string
-  from: YieldLevel
-  to: YieldLevel
-}
-
 /**
  * 시간 정하는 과정의 발언 한 줄. 라운드마다 어필 → 판단 → 응답 순서다.
  * appeal = 개인 에이전트가 원하는 시간 어필(1라운드는 모두, 2라운드부터는 거절당한 시간을 낸 에이전트만 새 시간을 낸다)
@@ -51,7 +43,6 @@ export type Utterance = {
   burden: Burden | null // 남의 불편은 단계로만
   myScore: number | null // 내 발언일 때만 숫자
   slot: Slot | null // 판단 에이전트가 낸 시간
-  yieldChanges: YieldChange[]
 }
 
 export type Scheduling = {
@@ -78,23 +69,6 @@ export type Responder = {
   feedback: string | null
 }
 
-/** 이번에 양보 점수를 받는 사람: 누적 단계가 어떻게 바뀌는지. 숫자는 본인에게만(Proposal.myYieldPoints) */
-export type YieldGetter = {
-  userId: Id
-  name: string
-  isMe: boolean
-  burden: Burden // 맞춰 준 시간이 얼마나 불편했는지
-  from: YieldLevel
-  to: YieldLevel // 회의가 확정되면 이 단계가 된다. 가장 높은 단계면 from과 같다
-}
-
-/** 수락·거절할 때 내가 남긴 한 줄과, 내 에이전트가 그 말로 바꾼 선호 */
-export type MyFeedback = {
-  text: string
-  change: string | null // "다음부터 수업 바로 뒤는 30분 띄워서 잡을게요". 시간과 상관없는 말이면 null
-  undone: boolean // 되돌리기를 눌렀다
-}
-
 /** 회의 일정 조율 확인. 보는 사람마다 my* 값이 다르다 */
 export type Proposal = {
   id: Id
@@ -115,9 +89,6 @@ export type Proposal = {
   canRespond: boolean
   feedbackOnly: boolean // 조정안은 수락·거절 없이 피드백 한 줄만
   responders: Responder[]
-  absentName: string | null // 불참안에서 빠진 사람
-  yieldGetter: YieldGetter | null
-  myFeedback: MyFeedback | null
 }
 
 export type RespondInput = {

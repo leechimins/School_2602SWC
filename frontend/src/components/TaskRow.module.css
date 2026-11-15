@@ -8,15 +8,16 @@
   border-bottom: 0;
 }
 
-/* 길게 누르기 = 고치기. 글자 선택·휴대폰 길게 누름 메뉴를 막는다 */
+/* 한 줄 머리. 고칠 수 있는 행은 누르면 고치기가 열린다 */
 .head {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   gap: 8px;
-  -webkit-user-select: none;
-  user-select: none;
-  -webkit-touch-callout: none;
+}
+
+.head[data-edit] {
+  cursor: pointer;
 }
 
 .title {

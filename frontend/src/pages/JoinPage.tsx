@@ -81,7 +81,7 @@ export default function JoinPage() {
   )
 
   return (
-    <Screen title="초대 코드로 들어가기" dock={dock}>
+    <Screen title="초대 코드로 들어가기" backTo={PATHS.start} dock={dock}>
       <section className="sec">
         <label className={form.label}>
           초대 코드

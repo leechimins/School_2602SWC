@@ -13,6 +13,7 @@
   min-height: 32px;
   padding: 0 8px;
   font-size: 13px;
+  background-color: var(--card); /* 패널 바탕이 회색이라 입력칸은 흰색으로 띄운다 */
 }
 
 .fields {

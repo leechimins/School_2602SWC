@@ -17,7 +17,6 @@ export type Task = {
   assigneeId: Id | null // null = 담당자 없음 (오류가 아니라 정상인 시작 상태)
   assigneeName: string | null
   status: TaskStatus
-  blockedReason: string | null // 막힘을 고를 때 받은 한 줄. 막힘 알림에 붙는다
   source: TaskSource
   confirmedByName: string | null
   confirmedAt: IsoDateTime | null

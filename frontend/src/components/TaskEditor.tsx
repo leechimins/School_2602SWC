@@ -17,7 +17,7 @@ type Props = {
   onClose: () => void
 }
 
-// 할 일 고치기(행을 길게 누르거나 우클릭): 제목 / 담당자 · 기한 / 출처 | 취소 · 삭제 · 수정
+// 할 일 고치기(행을 누르면 열림): 제목 / 담당자 · 기한 / 출처(회의 날짜·주제) | 취소 · 삭제 · 수정
 // 확정된 할 일은 누구나 고치고 지울 수 있다. 지우기는 한 번 더 묻는다.
 export default function TaskEditor({ task, members, onSave, onDelete, onClose }: Props) {
   const [draft, setDraft] = useState<TaskInput>({ title: task.title, assigneeId: task.assigneeId, dueDate: task.dueDate })
@@ -38,7 +38,6 @@ export default function TaskEditor({ task, members, onSave, onDelete, onClose }:
       </div>
       <div className={styles.actions}>
         <span className="meta">
-          출처{' '}
           {task.source ? (
             <Link to={pathTo.meeting(task.source.meetingId)}>
               {formatMD(task.source.heldOn)} {task.source.topic}

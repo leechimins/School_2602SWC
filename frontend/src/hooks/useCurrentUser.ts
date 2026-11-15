@@ -1,12 +1,8 @@
 import { useSyncExternalStore } from 'react'
-import { isRealServer } from '../api/client.ts'
-import { getIdentity, signIn, subscribeIdentity } from '../api/session.ts'
-import { getState, subscribe as subscribeStore } from '../mock/store.ts'
+import { getIdentity, subscribeIdentity } from '../api/session.ts'
 import type { Id } from '../types/common.ts'
 
-// 지금 이 휴대폰 화면을 보는 사람.
-// /demo의 iframe은 src="/?user=u-minji"처럼 주소로 사람을 정한다. 앱이 처음 뜰 때 한 번 읽고, 화면을 옮겨도 그대로 둔다.
-// 주소에 없거나 모르는 ID면 팀장으로 본다. 화면 코드에 사람 ID를 직접 쓰지 않는다.
+// 지금 로그인한 사람. 로그인 전에는 App.tsx의 RequireLogin이 스플래시로 보내므로 화면 안에서는 늘 있다.
 
 export type CurrentUser = {
   id: Id
@@ -15,52 +11,10 @@ export type CurrentUser = {
   roomId: Id
 }
 
-const listeners = new Set<() => void>()
-let userId: Id | null = new URLSearchParams(window.location.search).get('user')
-
-/** 컴포넌트 밖(목 API)에서 보는 사람. 목록에 없는 ID면 팀장 (사람을 바꿔도 화면이 깨지지 않게, 목업 버그 ③) */
-export function getCurrentUserId(): Id {
-  const { members, room } = getState()
-  return members.some((m) => m.id === userId) ? (userId as Id) : room.leaderId
-}
-
-/** 목 ID → 이름. 목 시드와 서버 시드의 이름이 같아서(지수·민지·현우·서연) 실서버 로그인에 이 이름을 쓴다 */
-export function currentUserName(): string | null {
-  const id = getCurrentUserId()
-  return getState().members.find((m) => m.id === id)?.name ?? null
-}
-
-/** 시연 장치의 사용자 바꾸기. 실서버면 그 사람으로 다시 로그인한다 */
-export function switchUser(id: Id) {
-  userId = id
-  listeners.forEach((fn) => fn())
-  void signIn(currentUserName())
-}
-
-// /demo 패널이 휴대폰 화면의 주소를 ?user=…로 바꾸고 popstate를 보내면 새로고침 없이 사람을 바꾼다.
-// 새로고침하면 조율 재생 타이머가 끊기므로 이 길을 쓴다. 앱 안 이동은 ?user를 떼므로 없을 때는 그대로 둔다.
-window.addEventListener('popstate', () => {
-  const next = new URLSearchParams(window.location.search).get('user')
-  if (next && next !== userId) switchUser(next)
-})
-
-function subscribe(fn: () => void) {
-  listeners.add(fn)
-  const unsubscribeStore = subscribeStore(fn) // 초기화로 팀원이 바뀌어도 다시 계산
-  return () => {
-    listeners.delete(fn)
-    unsubscribeStore()
-  }
-}
+const NOBODY: CurrentUser = { id: '', name: '', isLeader: false, roomId: '' }
 
 export function useCurrentUser(): CurrentUser {
-  const id = useSyncExternalStore(subscribe, getCurrentUserId)
-  const real = useSyncExternalStore(subscribeIdentity, getIdentity)
-  // 실서버면 서버 번호를 쓴다. 목 ID(room-1, u-minji)는 서버가 모른다(api/session.ts)
-  if (isRealServer() && real) {
-    return { id: real.id, name: real.name, isLeader: real.isLeader, roomId: real.roomId ?? '' }
-  }
-  const { members, room } = getState()
-  const me = members.find((m) => m.id === id)
-  return { id, name: me?.name ?? '', isLeader: id === room.leaderId, roomId: room.id }
+  const me = useSyncExternalStore(subscribeIdentity, getIdentity)
+  if (!me) return NOBODY
+  return { id: me.id, name: me.name, isLeader: me.isLeader, roomId: me.roomId ?? '' }
 }

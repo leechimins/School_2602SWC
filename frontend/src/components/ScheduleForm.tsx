@@ -1,8 +1,9 @@
+import dayjs from 'dayjs'
 import { useState } from 'react'
 import { messageOf } from '../api/client.ts'
 import { addScheduleItem } from '../api/me.ts'
 import form from '../pages/Form.module.css'
-import { WEEKDAYS, type ScheduleItemInput } from '../types/me.ts'
+import { WEEKDAYS, type Recurrence, type ScheduleItemInput } from '../types/me.ts'
 import styles from './ScheduleForm.module.css'
 import Segmented from './Segmented.tsx'
 import seg from './Segmented.module.css'
@@ -12,13 +13,22 @@ const KINDS = ['일정', '수업'] as const
 const HOURS = Array.from({ length: 13 }, (_, i) => i + 9) // 9:00~21:00
 
 type Props = {
+  recurrence: Recurrence
   onSaved: (message: string) => void
   onCancel: () => void
 }
 
-// 일정 추가 시트(매주 반복): 이름 · 종류 · 요일 여러 개 · 요일마다 시간. '좋아하는 방식' 시트와 같은 모양.
+// 일정 직접 추가 시트. '좋아하는 방식' 시트와 같은 모양.
+//   매주 반복: 이름 · 종류 · 요일 여러 개 · 요일마다 시간
+//   한 번만: 이름 · 날짜 · 시간
 // 구글 캘린더 약속은 캘린더에서 고친다
-export default function ScheduleForm({ onSaved, onCancel }: Props) {
+export default function ScheduleForm({ recurrence, onSaved, onCancel }: Props) {
+  return recurrence === 'weekly' ? <WeeklyForm onSaved={onSaved} onCancel={onCancel} /> : <OnceForm onSaved={onSaved} onCancel={onCancel} />
+}
+
+type FormProps = Omit<Props, 'recurrence'>
+
+function WeeklyForm({ onSaved, onCancel }: FormProps) {
   const [title, setTitle] = useState('')
   const [kind, setKind] = useState<(typeof KINDS)[number]>('일정')
   const [days, setDays] = useState<Record<number, [number, number]>>({ 0: [18, 20] })
@@ -41,6 +51,7 @@ export default function ScheduleForm({ onSaved, onCancel }: Props) {
     const bad = picked.find((d) => days[d][1] <= days[d][0])
     if (bad !== undefined) return setError(`${WEEKDAYS[bad]}요일 끝나는 시간이 시작보다 늦어야 해요.`)
     const input: ScheduleItemInput = {
+      recurrence: 'weekly',
       title: title.trim() || kind,
       kind: kind === '수업' ? 'class' : 'event',
       days: picked.map((d) => ({ weekday: d, startHour: days[d][0], endHour: days[d][1] })),
@@ -56,20 +67,7 @@ export default function ScheduleForm({ onSaved, onCancel }: Props) {
   }
 
   return (
-    <Sheet
-      title="일정 추가"
-      onClose={onCancel}
-      actions={
-        <>
-          <button type="button" className="btn quiet" onClick={onCancel}>
-            취소
-          </button>
-          <button type="button" className="btn primary" disabled={saving} onClick={save}>
-            {saving ? '저장하는 중…' : '저장'}
-          </button>
-        </>
-      }
-    >
+    <Sheet title="매주 반복 일정 추가" onClose={onCancel} actions={<Actions saving={saving} onCancel={onCancel} onSave={save} />}>
       <label className={form.label}>
         이름 (나만 보여요)
         <input className="field" value={title} maxLength={20} placeholder="예: 카페 알바" onChange={(e) => setTitle(e.target.value)} />
@@ -101,6 +99,66 @@ export default function ScheduleForm({ onSaved, onCancel }: Props) {
         </p>
       )}
     </Sheet>
+  )
+}
+
+// 한 번만: 날짜 하루와 시간. 지난 날짜는 고를 수 없다
+function OnceForm({ onSaved, onCancel }: FormProps) {
+  const today = dayjs().format('YYYY-MM-DD')
+  const [title, setTitle] = useState('')
+  const [date, setDate] = useState(today)
+  const [time, setTime] = useState<[number, number]>([18, 20])
+  const [error, setError] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+
+  const save = async () => {
+    if (!date || date < today) return setError('오늘이나 그 뒤 날짜를 골라 주세요.')
+    if (time[1] <= time[0]) return setError('끝나는 시간이 시작보다 늦어야 해요.')
+    setSaving(true)
+    try {
+      await addScheduleItem({ recurrence: 'once', title: title.trim() || '일정', date, startHour: time[0], endHour: time[1] })
+      onSaved(`${dayjs(date).format('M/D')} ${time[0]}–${time[1]}시에 넣었어요. 에이전트가 이 시간은 빼고 조율해요.`)
+    } catch (e) {
+      setError(messageOf(e))
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Sheet title="한 번만 있는 일정 추가" onClose={onCancel} actions={<Actions saving={saving} onCancel={onCancel} onSave={save} />}>
+      <label className={form.label}>
+        이름 (나만 보여요)
+        <input className="field" value={title} maxLength={20} placeholder="예: 병원 예약" onChange={(e) => setTitle(e.target.value)} />
+      </label>
+      <label className={form.label}>
+        날짜
+        <input className="field num" type="date" min={today} value={date} onChange={(e) => setDate(e.target.value)} />
+      </label>
+      <span className={form.label}>시간</span>
+      <div className={form.range}>
+        <HourSelect label="시작" value={time[0]} onChange={(h) => setTime([h, time[1]])} />
+        <span>–</span>
+        <HourSelect label="끝" value={time[1]} onChange={(h) => setTime([time[0], h])} />
+      </div>
+      {error && (
+        <p className={form.error} role="alert">
+          {error}
+        </p>
+      )}
+    </Sheet>
+  )
+}
+
+function Actions({ saving, onCancel, onSave }: { saving: boolean; onCancel: () => void; onSave: () => void }) {
+  return (
+    <>
+      <button type="button" className="btn quiet" onClick={onCancel}>
+        취소
+      </button>
+      <button type="button" className="btn primary" disabled={saving} onClick={onSave}>
+        {saving ? '저장하는 중…' : '저장'}
+      </button>
+    </>
   )
 }
 

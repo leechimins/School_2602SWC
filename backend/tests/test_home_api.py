@@ -17,7 +17,7 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session
 
 from app.meeting.models import Meeting, MeetingResponse, Scheduling
-from app.minutes.models import Task
+from app.minutes.models import Task, TranscriptSegment
 from app.notice.models import Notification
 from app.shared import demo_clock
 from app.shared.base import KST
@@ -201,6 +201,22 @@ def test_지난_회의는_다음_회의가_아니다(
     _회의(session, 방, 오늘 - timedelta(days=3))
     login("지수")
     assert client.get(f"{API}/rooms/{방.rid}/home").json()["next_meeting"] is None
+
+
+def test_기록을_마친_회의는_끝_시각_전이어도_다음_회의가_아니다(
+    client: TestClient, session: Session, 방: 팀, login
+) -> None:
+    """바로 기록한 회의는 끝 시각이 1시간 뒤라, 기록을 마쳤으면 다음 것을 보여 준다."""
+    먼저 = _회의(
+        session, 방, 오늘 - timedelta(minutes=30), topic="먼저 기록함", status=MeetingStatus.CONFIRMED
+    )
+    session.add(TranscriptSegment(meeting_id=먼저.id, seq=0, text="지수: 다 했어요"))  # type: ignore[arg-type]
+    session.commit()
+    둘째 = _회의(session, 방, 오늘, topic="두 번째", status=MeetingStatus.CONFIRMED)
+    login("지수")
+
+    body = client.get(f"{API}/rooms/{방.rid}/home").json()
+    assert body["next_meeting"]["id"] == 둘째.id
 
 
 def test_응답_상태를_같이_준다(

@@ -1,6 +1,5 @@
-import { useEffect, useReducer, useRef, type MouseEvent, type PointerEvent, type ReactNode } from 'react'
+import { useEffect, useReducer, useRef, type MouseEvent, type ReactNode } from 'react'
 import { formatMD } from '../lib/date.ts'
-import { later } from '../lib/timers.ts'
 import { TASK_STATUS_TONE } from '../lib/tones.ts'
 import { TASK_STATUSES, type Task, type TaskStatus } from '../types/task.ts'
 import Badge from './Badge.tsx'
@@ -12,7 +11,7 @@ type Props = {
   task: Task
   /** 상태 바꾸기. 막힘이면 막힌 이유 한 줄(비워도 됨)이 함께 온다 */
   onStatusChange: (task: Task, status: TaskStatus, reason: string | null) => void
-  /** 길게 누르기(0.5초)·우클릭 = 고치기 패널 열기 */
+  /** 행 누르기 = 고치기 패널 열고 닫기 (체크·상태 칩은 제외) */
   onEdit?: (task: Task) => void
   /** 회의록 "회의에서 끝난 일": 상태 칩 대신 "회의에서 완료" 뱃지, 체크를 끄면 "진행 중"으로 (시안10 autoRow) */
   meetingDone?: boolean
@@ -37,14 +36,11 @@ function reduceUi(state: UiState, action: UiAction): UiState {
   }
 }
 
-const LONG_PRESS_MS = 500
-
 // 할 일 한 줄 (팀 할 일·내 할 일·홈 공통): 체크 · 제목(늦음·막힘 뱃지) | 기한 · 상태 칩
 // 상태 칩과 완료 체크는 담당자만 쓴다. 남의 일은 체크가 회색으로 막혀 있지만, 완료면 체크 표시는 보인다(목업 버그 ⑤).
 export default function TaskRow({ task, onStatusChange, onEdit, meetingDone = false, children }: Props) {
   const [ui, send] = useReducer(reduceUi, { menuOpen: false, askingBlocked: false })
   const rowRef = useRef<HTMLLIElement>(null)
-  const cancelPress = useRef<(() => void) | null>(null)
   const mine = task.canChangeStatus
   const done = task.status === '완료'
   const undoStatus: TaskStatus = meetingDone ? '진행 중' : '시작 전'
@@ -65,21 +61,10 @@ export default function TaskRow({ task, onStatusChange, onEdit, meetingDone = fa
     if (status !== task.status) onStatusChange(task, status, null)
   }
 
-  const stopPress = () => {
-    cancelPress.current?.()
-    cancelPress.current = null
-  }
   const press = onEdit && {
-    onPointerDown: (e: PointerEvent) => {
-      if (e.button !== 0 || (e.target as HTMLElement).closest('button')) return
-      cancelPress.current = later(() => onEdit(task), LONG_PRESS_MS)
-    },
-    onPointerUp: stopPress,
-    onPointerLeave: stopPress,
-    onPointerCancel: stopPress,
-    onContextMenu: (e: MouseEvent) => {
-      e.preventDefault() // 노트북 시연: 우클릭도 고치기
-      stopPress()
+    'data-edit': true,
+    onClick: (e: MouseEvent) => {
+      if ((e.target as HTMLElement).closest('button')) return // 체크·상태 칩·메뉴는 제 할 일만
       onEdit(task)
     },
   }

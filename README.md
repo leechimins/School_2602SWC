@@ -28,7 +28,7 @@
 
 ```text
 School_2602SWC/
-├─ frontend/   # React + TypeScript 웹앱 (화면, 시연용 목 데이터, 시연 화면)
+├─ frontend/   # React + TypeScript 웹앱 (화면)
 ├─ backend/    # API 서버·에이전트 로직 (PostgreSQL + FastAPI + SQLModel)
 ├─ docs/       # DB 설계·API 스펙·디자인 브리프·화면 목업(mockup/)
 └─ .github/    # 이슈·PR·커밋 템플릿
@@ -43,7 +43,7 @@ School_2602SWC/
    git clone https://github.com/leechimins/School_2602SWC.git
    ```
 2. 백엔드 실행: [`backend/README.md`](backend/README.md) — Docker로 Postgres를 띄우고 네 줄이면 됩니다.
-3. 프론트엔드 실행: [`frontend/README.md`](frontend/README.md) — `npm install` 후 `npm run dev`. 서버 없이도 목 데이터로 모든 화면과 시연(`/demo`)이 돕니다.
+3. 프론트엔드 실행: [`frontend/README.md`](frontend/README.md) — `npm install` 후 `npm run dev`. 백엔드를 먼저 띄워야 화면에 데이터가 들어옵니다.
 
 ---
 
