@@ -5,7 +5,6 @@ import { getProposal, respondProposal } from '../api/scheduling.ts'
 import Avatar from '../components/Avatar.tsx'
 import Badge from '../components/Badge.tsx'
 import ConfirmSheet, { type ConfirmResult } from '../components/ConfirmSheet.tsx'
-import JudgeBubble from '../components/JudgeBubble.tsx'
 import RetryBox from '../components/RetryBox.tsx'
 import Screen from '../components/Screen.tsx'
 import { useApi } from '../hooks/useApi.ts'
@@ -41,29 +40,22 @@ export default function ProposalPage() {
   // 조율 없이 "지금 회의 기록하기"로 만든 회의는 회의안이 없다(응답할 사람 0명). 회의록 화면으로 보낸다
   if (p.schedulingId === null && p.responders.length === 0) return <Navigate to={pathTo.meeting(p.id)} replace />
   return (
-    <Screen title="회의 일정" backTo={PATHS.home} dock={<RespondDock proposal={p} roomId={user.roomId} />}>
-      <ResultSummary proposal={p} />
-      <Burdens proposal={p} viewerId={user.id} />
-      <div className={styles.judge}>
-        <JudgeBubble text={p.rationale} />
-      </div>
-      <Responses proposal={p} viewerId={user.id} />
-      {p.feedbackOnly && <SettledFeedback proposal={p} roomId={user.roomId} />}
-      {p.schedulingId && (
-        <div className={styles.center}>
-          <Link to={pathTo.scheduling(p.schedulingId)} className="link">
-            조율 과정 다시 보기
-          </Link>
-        </div>
-      )}
+    <Screen
+      title="회의 일정"
+      backTo={PATHS.home}
+      dock={p.feedbackOnly ? <SettledFeedback proposal={p} roomId={user.roomId} /> : <RespondDock proposal={p} roomId={user.roomId} />}
+    >
+      <ResultSummary proposal={p} viewerId={user.id} />
+      <Reasons proposal={p} viewerId={user.id} />
     </Screen>
   )
 }
 
 // ── 결과 표시 ───────────────────────────────────────────
 
+// 카드 둘: ① 결과(시간·상태·사람별 응답) ② 판단 근거(판단 에이전트의 말 + 각자의 부담)
 // 합의안이 보통이라 따로 표시하지 않고, 판단 에이전트가 정한 조정안만 뱃지와 한 줄로 알린다
-function ResultSummary({ proposal: p }: { proposal: Proposal }) {
+function ResultSummary({ proposal: p, viewerId }: { proposal: Proposal; viewerId: Id }) {
   return (
     <section className="sec">
       <div className="row-between">
@@ -79,16 +71,20 @@ function ResultSummary({ proposal: p }: { proposal: Proposal }) {
       {p.settled && <p className="meta num">{p.roundsUsed ? `${p.roundsUsed}라운드 뒤 ` : ''}판단 에이전트가 정했어요</p>}
       {p.confirmed && !p.settled && <p className="meta">모두 수락해서 회의가 확정됐어요</p>}
       {p.cancelled && <p className="meta">누군가 거절해서 이 시간은 취소됐어요. 남은 라운드로 다시 조율해요</p>}
+      <Responses proposal={p} viewerId={viewerId} />
     </section>
   )
 }
 
-// 부담: 내 줄이 맨 위(불편 점수는 본인에게만 숫자로), 다른 사람은 말로만.
-// 불참안에서 빠진 사람은 점수 대신 빠진다는 한 줄(목업 버그 ③)
-function Burdens({ proposal: p, viewerId }: { proposal: Proposal; viewerId: Id }) {
+// 판단 근거: 판단 에이전트의 말 → 부담(내 줄이 맨 위, 불편 점수는 본인에게만 숫자로, 다른 사람은 말로만).
+// 불참안에서 빠진 사람은 점수 대신 빠진다는 한 줄(목업 버그 ③). 맨 아래 조율 과정 다시 보기
+function Reasons({ proposal: p, viewerId }: { proposal: Proposal; viewerId: Id }) {
   const others = p.responders.filter((r) => r.userId !== viewerId)
   return (
     <section className="sec">
+      <h2>판단 근거</h2>
+      <p className={styles.judgeHead}>⚖ 판단 에이전트 (중립)</p>
+      <p className={styles.judgeSay}>{p.rationale}</p>
       <div className={styles.mine}>
         {p.myScore === null ? (
           <p className="strong">이번 회의에서 빠져요 · 회의록 요약을 따로 보내 드려요</p>
@@ -107,38 +103,41 @@ function Burdens({ proposal: p, viewerId }: { proposal: Proposal; viewerId: Id }
           <span className="meta">{r.reason}</span>
         </div>
       ))}
+      {p.schedulingId && (
+        <div className={styles.center}>
+          <Link to={pathTo.scheduling(p.schedulingId)} className="link">
+            조율 과정 다시 보기
+          </Link>
+        </div>
+      )}
     </section>
   )
 }
 
+// 사람별 응답: 결과 카드 아래 한 줄씩 늘어놓는 작은 칩. 조정안은 응답을 받지 않으므로 없다
 function Responses({ proposal: p, viewerId }: { proposal: Proposal; viewerId: Id }) {
-  // 조정안은 응답을 받지 않으므로 사람별 응답 줄이 없다
   if (p.feedbackOnly) return null
   const accepted = p.responders.filter((r) => r.state === '수락').length
   return (
-    <section className="sec">
-      <h2 className={`${styles.flush} num`}>
+    <div className={styles.responses}>
+      <span className="meta num">
         {p.responders.length}명 중 {accepted}명 수락
-      </h2>
-      <div className={styles.responses}>
-        {p.responders.map((r) => (
-          <div key={r.userId}>
-            <Avatar name={r.name} size="large" />
-            <span>
-              {r.name}
-              {r.userId === viewerId && ' (나)'}
-            </span>
-            <Badge tone={RESPONSE_TONE[r.state]}>{r.state}</Badge>
-          </div>
-        ))}
-      </div>
-    </section>
+      </span>
+      {p.responders.map((r) => (
+        <span key={r.userId} className={styles.chip}>
+          <Avatar name={r.name} size="small" />
+          {r.name}
+          {r.userId === viewerId && ' (나)'}
+          <Badge tone={RESPONSE_TONE[r.state]}>{r.state}</Badge>
+        </span>
+      ))}
+    </div>
   )
 }
 
 // ── 확정 방식(응답 영역) ─────────────────────────────────
 
-// 조정안: 이미 확정이라 수락·거절 창 없이 피드백 칸이 화면에 바로 보인다
+// 조정안: 이미 확정이라 수락·거절 대신 아래 고정 영역에 의견 한 줄 칸이 있다
 function SettledFeedback({ proposal: p, roomId }: { proposal: Proposal; roomId: Id }) {
   const [text, setText] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -149,18 +148,10 @@ function SettledFeedback({ proposal: p, roomId }: { proposal: Proposal; roomId: 
       (e: unknown) => setError(messageOf(e)),
     )
 
-  if (sent) {
-    return (
-      <section className="sec">
-        <p className="strong">“{text.trim()}”</p>
-        <p className="meta">의견을 남겼어요.</p>
-      </section>
-    )
-  }
+  if (sent) return <p className="meta">의견을 남겼어요: “{text.trim()}”</p>
 
   return (
-    <section className="sec">
-      <p className="strong">일정 의견</p>
+    <>
       <div className={styles.inline}>
         <input
           className="field"
@@ -175,7 +166,7 @@ function SettledFeedback({ proposal: p, roomId }: { proposal: Proposal; roomId: 
         </button>
       </div>
       {error && <p className="meta">{error}</p>}
-    </section>
+    </>
   )
 }
 
