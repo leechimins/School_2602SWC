@@ -40,7 +40,6 @@ export default function AgentQuote({ name, prefs }: Props) {
     <div className={styles.quote}>
       <p className={styles.head}>
         <b>내 에이전트가 이렇게 말해요</b>
-        {avoidText && <span>팀원에겐 다듬어서 전해요</span>}
       </p>
       <p>
         {sentences.length === 0 ? (

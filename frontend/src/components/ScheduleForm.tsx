@@ -67,14 +67,14 @@ function WeeklyForm({ onSaved, onCancel }: FormProps) {
   }
 
   return (
-    <Sheet title="매주 반복 일정 추가" onClose={onCancel} actions={<Actions saving={saving} onCancel={onCancel} onSave={save} />}>
+    <Sheet title="반복 일정 추가" onClose={onCancel} actions={<Actions saving={saving} onCancel={onCancel} onSave={save} />}>
       <label className={form.label}>
         이름 (나만 보여요)
         <input className="field" value={title} maxLength={20} placeholder="예: 카페 알바" onChange={(e) => setTitle(e.target.value)} />
       </label>
       <span className={form.label}>종류</span>
       <Segmented label="종류" options={KINDS} value={kind} onChange={setKind} />
-      <span className={form.label}>요일 (매주 반복 · 여러 개 고를 수 있어요)</span>
+      <span className={form.label}>요일 (매주 반복 · 복수 선택)</span>
       <div className={`${seg.seg} ${styles.days}`} role="group" aria-label="요일">
         {WEEKDAYS.map((w, d) => (
           <button key={w} type="button" aria-pressed={d in days} onClick={() => toggleDay(d)}>
@@ -125,7 +125,7 @@ function OnceForm({ onSaved, onCancel }: FormProps) {
   }
 
   return (
-    <Sheet title="한 번만 있는 일정 추가" onClose={onCancel} actions={<Actions saving={saving} onCancel={onCancel} onSave={save} />}>
+    <Sheet title="일회성 일정 추가" onClose={onCancel} actions={<Actions saving={saving} onCancel={onCancel} onSave={save} />}>
       <label className={form.label}>
         이름 (나만 보여요)
         <input className="field" value={title} maxLength={20} placeholder="예: 병원 예약" onChange={(e) => setTitle(e.target.value)} />
