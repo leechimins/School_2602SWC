@@ -546,6 +546,7 @@ export type ServerMySchedule = {
     start_at: string
     end_at: string
     source: ScheduleSource | null
+    recurrence?: 'weekly' | 'once' | null // 백엔드 일정 추가 개편 때 붙을 칸. 없으면 출처로 짐작한다
     item_id: number | null
     meeting_status: MeetingStatus | null
   }[]
@@ -569,6 +570,8 @@ export const toMyWeek = (r: ServerMySchedule): MyWeek => ({
       // 자정을 넘기는 칸은 그날 끝(24시)까지만 그린다
       endHour: dayjs(i.end_at).isSame(dayjs(i.start_at), 'day') ? hourOf(i.end_at) : 24,
       source: i.source,
+      recurrence: i.source === null ? null : (i.recurrence ?? (i.source === 'google' ? 'once' : 'weekly')),
+      date: dayjs(i.start_at).format('YYYY-MM-DD'),
       itemId: i.item_id === null ? null : id(i.item_id),
     }
   }),

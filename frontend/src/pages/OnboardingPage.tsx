@@ -13,7 +13,7 @@ import { useClock } from '../hooks/useClock.ts'
 import { useCurrentUser } from '../hooks/useCurrentUser.ts'
 import { toIsoDate } from '../lib/date.ts'
 import { PATHS } from '../lib/paths.ts'
-import type { Preferences } from '../types/me.ts'
+import type { Preferences, Recurrence } from '../types/me.ts'
 import form from './Form.module.css'
 import styles from './OnboardingPage.module.css'
 
@@ -114,7 +114,7 @@ function LinkStep({ onPrev, onNext }: StepProps) {
   const user = useCurrentUser()
   const today = toIsoDate(useClock())
   const week = useApi(() => getMyWeek(user.roomId, today), [user.roomId, user.id, today])
-  const [adding, setAdding] = useState(false)
+  const [adding, setAdding] = useState<Recurrence | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const linked = week.status === 'ready' && week.data.blocks.some((b) => b.source !== null)
 
@@ -139,8 +139,8 @@ function LinkStep({ onPrev, onNext }: StepProps) {
         {week.status === 'ready' && (
           <ScheduleLinks
             blocks={week.data.blocks}
-            onAddManual={() => {
-              setAdding(true)
+            onAdd={(recurrence) => {
+              setAdding(recurrence)
               setNotice(null)
             }}
           />
@@ -152,9 +152,10 @@ function LinkStep({ onPrev, onNext }: StepProps) {
         )}
         {adding && (
           <ScheduleForm
-            onCancel={() => setAdding(false)}
+            recurrence={adding}
+            onCancel={() => setAdding(null)}
             onSaved={(message) => {
-              setAdding(false)
+              setAdding(null)
               setNotice(message)
             }}
           />

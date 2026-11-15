@@ -23,6 +23,8 @@ export type Preferences = {
 /** 시간표 한 칸의 종류. 알바·약속은 "일정" 하나로 묶는다 */
 export type WeekBlockKind = 'class' | 'event' | 'meeting' | 'waiting'
 export type ScheduleSource = 'everytime' | 'google' | 'manual'
+/** 일정은 크게 둘: 매주 반복(에브리타임·직접 추가) / 한 번만(구글 캘린더·직접 추가) */
+export type Recurrence = 'weekly' | 'once'
 
 export type WeekBlock = {
   kind: WeekBlockKind
@@ -31,6 +33,8 @@ export type WeekBlock = {
   startHour: number // 18.5 = 18:30
   endHour: number
   source: ScheduleSource | null // 팀 회의는 null
+  recurrence: Recurrence | null // 팀 회의는 null
+  date: IsoDate // 이 칸이 놓인 날(한 번만 일정의 요약 줄에 쓴다)
   itemId: Id | null // 내 일정이면 그 일정 ID(직접 넣은 일정을 길게 눌러 고치기·지우기). 팀 회의는 null
 }
 
@@ -40,12 +44,21 @@ export type MyWeek = {
   blocks: WeekBlock[]
 }
 
-/** 일정 직접 추가(매주 반복): 이름 · 종류 · 요일마다 시간 */
-export type ScheduleItemInput = {
-  title: string
-  kind: 'class' | 'event'
-  days: { weekday: number; startHour: number; endHour: number }[]
-}
+/** 일정 직접 추가. 매주 반복은 요일마다 시간, 한 번만은 날짜 하루와 시간 */
+export type ScheduleItemInput =
+  | {
+      recurrence: 'weekly'
+      title: string
+      kind: 'class' | 'event'
+      days: { weekday: number; startHour: number; endHour: number }[]
+    }
+  | {
+      recurrence: 'once'
+      title: string
+      date: IsoDate
+      startHour: number
+      endHour: number
+    }
 
 /** 직접 넣은 일정 한 칸(요일 하나) 고치기 */
 export type ScheduleItemPatch = { title: string; startHour: number; endHour: number }

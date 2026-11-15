@@ -30,16 +30,37 @@ export async function getMyWeek(roomId: Id, anyDay: IsoDate): Promise<MyWeek> {
   return toMyWeek(await request<ServerMySchedule>(`/rooms/${roomId}/me/schedule?week=${anyDay}`))
 }
 
-/** 일정 직접 추가(매주 반복). 내 수업과 겹치면 서버가 409(CLASS_CONFLICT) 문구를 준다 */
+// 시각은 오프셋을 붙여 보낸다(api-스펙 권장 규칙 2). 시는 0.5 단위라 분으로 바꾼다
+const atKst = (date: string, hour: number) =>
+  `${date}T${String(Math.floor(hour)).padStart(2, '0')}:${hour % 1 ? '30' : '00'}:00+09:00`
+
+/**
+ * 일정 직접 추가. 매주 반복과 한 번만이 같은 주소로 가고 recurrence로 나뉜다(백엔드 Recurrence와 같은 값).
+ * 내 수업과 겹치면 서버가 409(CLASS_CONFLICT) 문구를 준다
+ */
 export function addScheduleItem(input: ScheduleItemInput): Promise<void> {
+  const body =
+    input.recurrence === 'weekly'
+      ? {
+          recurrence: 'weekly',
+          title: input.title,
+          kind: input.kind,
+          days: input.days.map((d) => ({ weekday: d.weekday, start_min: d.startHour * 60, end_min: d.endHour * 60 })),
+        }
+      : {
+          recurrence: 'once',
+          title: input.title,
+          kind: 'event',
+          start_at: atKst(input.date, input.startHour),
+          end_at: atKst(input.date, input.endHour),
+        }
   return write(async () => {
-    await request('/me/schedule/items', {
-      method: 'POST',
-      body: {
-        title: input.title,
-        kind: input.kind,
-        days: input.days.map((d) => ({ weekday: d.weekday, start_min: d.startHour * 60, end_min: d.endHour * 60 })),
-      },
+    await request('/me/schedule/items', { method: 'POST', body }).catch((e: unknown) => {
+      // 일정 추가 API가 아직 없으면(404·405) "잠시 후 다시" 대신 못 한다고 알린다
+      if (e instanceof ApiError && (e.status === 404 || e.status === 405)) {
+        throw new ApiError(e.status, 'SCHEDULE_ADD_UNAVAILABLE', '지금은 일정을 직접 넣을 수 없어요.')
+      }
+      throw e
     })
   })
 }

@@ -23,7 +23,7 @@ import { useClock } from '../hooks/useClock.ts'
 import { useCurrentUser } from '../hooks/useCurrentUser.ts'
 import { formatRange, toIsoDate } from '../lib/date.ts'
 import { PATHS } from '../lib/paths.ts'
-import type { Preferences, WeekBlock } from '../types/me.ts'
+import type { Preferences, Recurrence, WeekBlock } from '../types/me.ts'
 import form from './Form.module.css'
 import styles from './MePage.module.css'
 
@@ -35,7 +35,7 @@ export default function MePage() {
   const now = useClock()
   const navigate = useNavigate()
   const [week, setWeek] = useState<(typeof WEEKS)[number]>('이번 주')
-  const [adding, setAdding] = useState(false)
+  const [adding, setAdding] = useState<Recurrence | null>(null) // 열린 일정 추가 시트
   const [notice, setNotice] = useState<string | null>(null)
   const [editingPrefs, setEditingPrefs] = useState(false)
   const [editingBlock, setEditingBlock] = useState<WeekBlock | null>(null)
@@ -46,8 +46,8 @@ export default function MePage() {
   const thisWeek = useApi(() => getMyWeek(user.roomId, toIsoDate(now)), [user.roomId, user.id, toIsoDate(now)])
   const shown = useApi(() => getMyWeek(user.roomId, anyDay), [user.roomId, user.id, anyDay])
 
-  const openAdd = () => {
-    setAdding(true)
+  const openAdd = (recurrence: Recurrence) => {
+    setAdding(recurrence)
     setNotice(null)
   }
 
@@ -86,7 +86,7 @@ export default function MePage() {
           <span>팀원에겐 바쁜지만 보여요</span>
         </div>
         {thisWeek.status === 'error' && <RetryBox message={thisWeek.message} onRetry={thisWeek.reload} />}
-        {thisWeek.status === 'ready' && <ScheduleLinks blocks={thisWeek.data.blocks} showLock={false} />}
+        {thisWeek.status === 'ready' && <ScheduleLinks blocks={thisWeek.data.blocks} onAdd={openAdd} showLock={false} />}
       </section>
 
       <section className="sec">
@@ -106,19 +106,17 @@ export default function MePage() {
             {notice}
           </p>
         )}
-        <button type="button" className="btn small block" onClick={openAdd}>
-          + 일정 추가 (수업 · 알바 · 약속 같은 개인 일정)
-        </button>
-        {adding && (
-          <ScheduleForm
-            onCancel={() => setAdding(false)}
-            onSaved={(message) => {
-              setAdding(false)
-              setNotice(message)
-            }}
-          />
-        )}
       </section>
+      {adding && (
+        <ScheduleForm
+          recurrence={adding}
+          onCancel={() => setAdding(null)}
+          onSaved={(message) => {
+            setAdding(null)
+            setNotice(message)
+          }}
+        />
+      )}
 
       {room.status === 'error' && <RetryBox message={room.message} onRetry={room.reload} />}
       {room.status === 'ready' && <TeamSection room={room.data} />}
