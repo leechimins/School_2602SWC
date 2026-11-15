@@ -17,8 +17,8 @@ type Reading = { state: 'idle' } | { state: 'reading' } | { state: 'ok' | 'fail'
 const hourText = (h: number) => (Number.isInteger(h) ? `${h}` : `${Math.floor(h)}:30`)
 
 // 내 일정 가져오기: 두 묶음 × [연동 / 직접 추가]. 직접 추가는 그 묶음 연동 아래에 딸린 줄로 보인다
-//   반복형(매주)   — 에브리타임 공유 링크(수업) └ 직접 추가(알바처럼 매주 있는 일)
-//   비반복형(그날) — 구글 캘린더(약속)         └ 직접 추가(그날만 있는 일)
+//   반복 일정(매주)   — 에브리타임 공유 링크(수업) └ 직접 추가(알바처럼 매주 있는 일)
+//   일회성 일정(그날) — 구글 캘린더(약속)         └ 직접 추가(그날만 있는 일)
 // 아직 아무것도 없으면 설명 문구 없이 제목과 버튼만 보인다
 export default function ScheduleLinks({ blocks, onAdd, showLock = true }: Props) {
   const [url, setUrl] = useState('')
@@ -57,7 +57,7 @@ export default function ScheduleLinks({ blocks, onAdd, showLock = true }: Props)
 
   return (
     <>
-      <p className={styles.group}>반복형</p>
+      <p className={styles.group}>반복 일정</p>
       <div className={styles.row}>
         <div>
           <p className="strong">
@@ -86,7 +86,7 @@ export default function ScheduleLinks({ blocks, onAdd, showLock = true }: Props)
       </div>
       <ManualRow text={weeklyText} onAdd={() => onAdd('weekly')} />
 
-      <p className={styles.group}>비반복형</p>
+      <p className={styles.group}>일회성 일정</p>
       <div className={styles.row}>
         <div>
           <p className="strong">구글 캘린더</p>
@@ -117,15 +117,13 @@ export default function ScheduleLinks({ blocks, onAdd, showLock = true }: Props)
   )
 }
 
+// 연동 아래 딸린 한 줄: 넣은 일정이 있으면 그 목록, 끝에 "+ 직접 추가"
 function ManualRow({ text, onAdd }: { text: string; onAdd: () => void }) {
   return (
-    <div className={`${styles.row} ${styles.sub}`}>
-      <div>
-        <p className="strong">직접 추가</p>
-        {text && <p className="meta">{text}</p>}
-      </div>
-      <button type="button" className="btn small" onClick={onAdd}>
-        넣기
+    <div className={styles.sub}>
+      {text && <p className="meta">{text}</p>}
+      <button type="button" className={styles.add} onClick={onAdd}>
+        + 직접 추가
       </button>
     </div>
   )
