@@ -6,6 +6,7 @@ export const PATHS = {
   // 홈 탭
   home: '/',
   notifications: '/notifications',
+  activity: '/notifications/activity', // 에이전트 기록(한 일·양보). 알림과 My에서 들어온다
   schedulingNew: '/scheduling/new',
   scheduling: '/scheduling/:schedulingId',
   proposal: '/proposals/:proposalId',

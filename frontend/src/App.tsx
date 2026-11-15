@@ -4,6 +4,7 @@ import { getIdentity, subscribeIdentity } from './api/session.ts'
 import AppShell from './components/AppShell.tsx'
 import { isBooted } from './lib/boot.ts'
 import { PATHS } from './lib/paths.ts'
+import ActivityPage from './pages/ActivityPage.tsx'
 import HomePage from './pages/HomePage.tsx'
 import JoinPage from './pages/JoinPage.tsx'
 import MeetingPage from './pages/MeetingPage.tsx'
@@ -43,6 +44,7 @@ export default function App() {
         {/* 홈 탭 */}
         <Route path={PATHS.home} element={<HomePage />} />
         <Route path={PATHS.notifications} element={<NotificationsPage />} />
+        <Route path={PATHS.activity} element={<ActivityPage />} />
         <Route path={PATHS.schedulingNew} element={<SchedulingNewPage />} />
         <Route path={PATHS.scheduling} element={<SchedulingPage />} />
         <Route path={PATHS.proposal} element={<ProposalPage />} />
