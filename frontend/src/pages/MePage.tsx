@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { messageOf } from '../api/client.ts'
 import { getMyWeek, getPreferences, savePreferences } from '../api/me.ts'
 import { getRoom } from '../api/rooms.ts'
-import { signOut } from '../api/session.ts'
+import { renameMe, signOut } from '../api/session.ts'
 import AgentQuote from '../components/AgentQuote.tsx'
 import Avatar from '../components/Avatar.tsx'
 import Badge from '../components/Badge.tsx'
@@ -38,6 +38,7 @@ export default function MePage() {
   const [notice, setNotice] = useState<string | null>(null)
   const [editingPrefs, setEditingPrefs] = useState(false)
   const [editingBlock, setEditingBlock] = useState<WeekBlock | null>(null)
+  const [editingName, setEditingName] = useState(false)
 
   const anyDay = toIsoDate(week === '이번 주' ? now : now.add(7, 'day'))
   const room = useApi(() => getRoom(user.roomId), [user.roomId, user.id])
@@ -60,7 +61,11 @@ export default function MePage() {
       <div className={styles.profile}>
         <Avatar name={user.name} size="large" />
         <div>
-          <b className={styles.name}>{user.name}</b> {user.isLeader && <Badge tone="here">팀장</Badge>}
+          <button type="button" className={styles.nameBtn} onClick={() => setEditingName(true)} aria-label="이름 고치기">
+            <b className={styles.name}>{user.name}</b>
+            <span className="meta">고치기</span>
+          </button>{' '}
+          {user.isLeader && <Badge tone="here">팀장</Badge>}
           {room.status === 'ready' && <p className="meta">{room.data.name}</p>}
         </div>
         {prefs.status === 'ready' && (
@@ -69,6 +74,8 @@ export default function MePage() {
           </button>
         )}
       </div>
+
+      {editingName && <NameSheet current={user.name} onClose={() => setEditingName(false)} />}
 
       {prefs.status === 'error' && <RetryBox message={prefs.message} onRetry={prefs.reload} />}
       {prefs.status === 'ready' && (
@@ -122,6 +129,55 @@ export default function MePage() {
         로그아웃
       </button>
     </Screen>
+  )
+}
+
+// 내 이름 고치기 시트. 성까지 한 칸(이지민). 회의록 "이름: 말" 줄의 이름과 같아야 말한 사람이 이어진다
+function NameSheet({ current, onClose }: { current: string; onClose: () => void }) {
+  const [name, setName] = useState(current)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const trimmed = name.trim()
+
+  const save = async () => {
+    if (/[:：]/.test(trimmed)) return setError('이름에 콜론(:)은 쓸 수 없어요.')
+    setSaving(true)
+    setError(null)
+    try {
+      await renameMe(trimmed)
+      onClose()
+    } catch (e) {
+      setError(messageOf(e))
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Sheet
+      title="내 이름"
+      onClose={onClose}
+      actions={
+        <>
+          <button type="button" className="btn quiet" onClick={onClose}>
+            취소
+          </button>
+          <button type="button" className="btn primary" disabled={!trimmed || trimmed === current || saving} onClick={save}>
+            {saving ? '저장하는 중…' : '저장'}
+          </button>
+        </>
+      }
+    >
+      <label className={form.label}>
+        이름 (성까지)
+        <input className="field" value={name} maxLength={20} placeholder="이지민" autoFocus onChange={(e) => setName(e.target.value)} />
+      </label>
+      <p className="meta">회의록에 붙여 넣는 "이름: 말" 줄의 이름과 똑같이 써 주세요.</p>
+      {error && (
+        <p className={form.error} role="alert">
+          {error}
+        </p>
+      )}
+    </Sheet>
   )
 }
 

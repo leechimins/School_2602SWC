@@ -1,5 +1,5 @@
 import type { Id } from '../types/common.ts'
-import { ApiError, request } from './client.ts'
+import { ApiError, request, write } from './client.ts'
 
 // "나는 누구"를 들고 있는 곳. 로그인한 뒤 GET /me로 받은 서버 번호를 화면이 쓴다(useCurrentUser).
 
@@ -84,6 +84,16 @@ export async function signInWithGoogle(credential: string): Promise<boolean> {
   const out = await request<GoogleLoginOut>('/sessions/google', { method: 'POST', body: { credential } })
   set(await loadMe())
   return out.is_new
+}
+
+/**
+ * 내 이름 고치기(서버 PATCH /me). 성까지 한 칸으로 보낸다(예: 이지민).
+ * 회의록 "이름: 말" 줄과 받아적기 말한 사람이 이 이름과 글자까지 같아야 이어진다.
+ * 같은 방에 같은 이름이 있으면 서버가 409(NAME_TAKEN) 문구를 준다
+ */
+export async function renameMe(name: string): Promise<void> {
+  await write(() => request('/me', { method: 'PATCH', body: { name } }))
+  set(await loadMe()) // 머리·팀 목록·말풍선이 새 이름을 쓰게
 }
 
 /** 로그아웃. 서버가 안 닿아도 이 화면에서는 로그인 안 한 상태로 둔다 */

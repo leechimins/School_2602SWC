@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from datetime import date
 
+from pydantic import field_validator
 from sqlmodel import Field, SQLModel
 
 from app.shared.enums import YieldLevel
@@ -48,6 +49,25 @@ class MyRoomOut(SQLModel):
     id: int = Field(description="방 ID")
     name: str = Field(description="방 이름")
     is_leader: bool = Field(description="내가 이 방의 팀장인지")
+
+
+class NameIn(SQLModel):
+    """내 이름 고치기."""
+
+    model_config = {"str_strip_whitespace": True}  # 공백만 넣은 이름은 min_length로 걸림
+
+    # 콜론을 막는 이유: 회의록 원문은 "이름: 말" 줄로 말한 사람을 찾는다(minutes/transcript.py).
+    # 이름에 콜론이 있으면 그 줄을 이름과 말로 가를 수 없다.
+    name: str = Field(
+        min_length=1, max_length=20, description="새 이름. 한 칸에 성까지(예: 이지민). 콜론(:)은 못 씀"
+    )
+
+    @field_validator("name")
+    @classmethod
+    def _no_colon(cls, value: str) -> str:
+        if ":" in value or "：" in value:
+            raise ValueError("이름에 콜론(:)은 쓸 수 없어요.")
+        return value
 
 
 class MeOut(SQLModel):

@@ -84,6 +84,62 @@ def test_방이_없어도_내_계정은_200이다(
     assert res.json()["rooms"] == []
 
 
+# ── PATCH /me ───────────────────────────────────────────────────────
+
+
+def test_이름을_고치면_내_계정과_팀원_목록에_바로_보인다(
+    client: TestClient, seeded, login
+) -> None:
+    login("지수")
+
+    res = client.patch(f"{API}/me", json={"name": "  이지수  "})
+
+    assert res.status_code == 200
+    assert res.json()["name"] == "이지수"  # 앞뒤 공백은 잘라 저장
+    assert client.get(f"{API}/me").json()["name"] == "이지수"
+    room_id = res.json()["rooms"][0]["id"]
+    names = [m["name"] for m in client.get(f"{API}/rooms/{room_id}").json()["members"]]
+    assert "이지수" in names
+
+
+@pytest.mark.parametrize("name", ["", "   ", "가" * 21, "지수: 팀장", "지수：팀장"])
+def test_빈_이름_긴_이름_콜론_든_이름은_400이다(
+    client: TestClient, seeded, login, name: str
+) -> None:
+    login("지수")
+
+    res = client.patch(f"{API}/me", json={"name": name})
+
+    assert res.status_code == 400
+    assert res.json()["code"] == "INVALID_INPUT"
+    assert client.get(f"{API}/me").json()["name"] == "지수"
+
+
+def test_같은_방_팀원과_같은_이름은_409다(client: TestClient, seeded, login) -> None:
+    login("지수")
+
+    res = client.patch(f"{API}/me", json={"name": "민지"})
+
+    assert res.status_code == 409
+    assert res.json()["code"] == "NAME_TAKEN"
+
+
+def test_다른_방_사람과는_이름이_같아도_된다(
+    client: TestClient, session: Session, login
+) -> None:
+    _new_user(session, "새사람")
+    _new_user(session, "민지")  # 방이 없는 다른 사람
+    login("새사람")
+
+    res = client.patch(f"{API}/me", json={"name": "민지"})
+
+    assert res.status_code == 200
+
+
+def test_로그인_없이는_이름을_못_고친다(client: TestClient, seeded) -> None:
+    assert client.patch(f"{API}/me", json={"name": "이지민"}).status_code == 401
+
+
 # ── GET /rooms/{id} ─────────────────────────────────────────────────
 
 
