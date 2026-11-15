@@ -134,7 +134,9 @@ function MyTasks({ tasks }: { tasks: Task[] }) {
   )
 }
 
-// 다음 회의: 조율 중이면 조율 과정으로, 회의안이 나왔으면 조율 결과로 들어간다
+// 다음 회의: 조율 중이면 조율 과정으로, 회의안이 나왔으면 조율 결과로 들어간다.
+// 서버는 아직 안 끝난 회의를 주므로, 시작 시각이 지났으면(진행 중) 카운트다운 대신 회의록으로 보낸다.
+// "지금 회의 기록하기"로 만든 회의도 늘 시작한 뒤라 여기로 와서, 없는 조율 결과로 가지 않는다
 function NextMeeting({ home }: { home: Home }) {
   const { coordinating: c, nextMeeting: m } = home
   const now = useClock()
@@ -164,14 +166,15 @@ function NextMeeting({ home }: { home: Home }) {
       </section>
     )
   }
+  const started = !now.isBefore(m.startAt)
   const confirmed = m.status === 'confirmed'
-  const waiting = !confirmed && m.myState === '대기'
+  const waiting = !started && !confirmed && m.myState === '대기'
   const answers = answerLine(m, home.joinedCount)
   return (
     <section className="sec">
       <div className="row-between">
         <h2>다음 회의</h2>
-        <Badge tone={confirmed ? 'ok' : 'warn'}>{confirmed ? '확정' : '확정 대기'}</Badge>
+        {started ? <Badge tone="here">진행 중</Badge> : <Badge tone={confirmed ? 'ok' : 'warn'}>{confirmed ? '확정' : '확정 대기'}</Badge>}
       </div>
       <div className={styles.meet}>
         <DateBlock at={m.startAt} />
@@ -180,16 +183,24 @@ function NextMeeting({ home }: { home: Home }) {
           <p className="meta num">
             {formatTimeRange(m.startAt, m.endAt)} · {m.mode} · {formatDuration(minutesBetween(m.startAt, m.endAt))}
           </p>
-          <p className={styles.tick}>
-            시작까지 <span className="num">{formatCountdown(m.startAt, now)}</span>
-          </p>
+          {!started && (
+            <p className={styles.tick}>
+              시작까지 <span className="num">{formatCountdown(m.startAt, now)}</span>
+            </p>
+          )}
         </div>
       </div>
       <div className={`row-between ${styles.meetFoot}`}>
-        <span className="meta">{answers}</span>
-        <Link to={pathTo.proposal(m.id)} className={`btn small ${waiting ? 'primary' : ''}`}>
-          조율 결과 보기
-        </Link>
+        <span className="meta">{started ? '끝나면 회의록에 기록해요' : answers}</span>
+        {started ? (
+          <Link to={pathTo.meeting(m.id)} className="btn small primary">
+            회의록 보기
+          </Link>
+        ) : (
+          <Link to={pathTo.proposal(m.id)} className={`btn small ${waiting ? 'primary' : ''}`}>
+            조율 결과 보기
+          </Link>
+        )}
       </div>
     </section>
   )
