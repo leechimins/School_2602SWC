@@ -260,7 +260,8 @@ svg.i.s {
 }
 
 /* 버튼 모양 링크 */
-a.btn {
+a.btn,
+span.btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;

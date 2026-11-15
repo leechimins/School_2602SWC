@@ -116,10 +116,16 @@ function ScheduleBody({ schedule, canStartScheduling, total }: BodyProps) {
               <span className={styles.body}>
                 <span className="strong">{m.topic}</span>
                 <span className="meta num">
-                  {formatDuration(minutesBetween(m.startAt, m.endAt))} · {m.mode} · 회의록 열기
+                  {formatDuration(minutesBetween(m.startAt, m.endAt))} · {m.mode}
                 </span>
+                {m.suggestionCount > 0 && (
+                  <span className={styles.mark}>
+                    <AiMark label={`제안 ${m.suggestionCount}개`} />
+                  </span>
+                )}
               </span>
-              {m.suggestionCount > 0 && <AiMark label={`제안 ${m.suggestionCount}개`} />}
+              {/* 줄 전체가 링크라 버튼은 모양만 낸다(링크 안에 링크를 넣지 않음) */}
+              <span className="btn small">회의록 보기</span>
             </Link>
           ))
         )}
@@ -130,14 +136,14 @@ function ScheduleBody({ schedule, canStartScheduling, total }: BodyProps) {
 
 type RowProps = { meeting: MeetingBrief; isToday: boolean; recorded: boolean; total: number | null }
 
-// 잡힌 회의 한 줄: 누르면 조율 결과로(바로 기록한 회의는 조율 결과가 없어 회의록으로).
+// 잡힌 회의 한 줄: 누르면 조율 결과로. 바로 기록한 회의는 조율 결과가 없어 기록 화면으로(기록 시작과 같은 곳).
 // 오늘 회의면 오른쪽에 기록 시작(기록했으면 회의록 보기)
 function UpcomingRow({ meeting: m, isToday, recorded, total }: RowProps) {
   const confirmed = m.status === 'confirmed'
   const line = answerLine(m, total)
   return (
     <div className={styles.row}>
-      <Link to={isAdhoc(m) ? pathTo.meeting(m.id) : pathTo.proposal(m.id)} className={styles.main}>
+      <Link to={isAdhoc(m) ? pathTo.record(m.id) : pathTo.proposal(m.id)} className={styles.main}>
         <DateBlock at={m.startAt} />
         <span className={styles.body}>
           <span className="strong">{m.topic}</span>
