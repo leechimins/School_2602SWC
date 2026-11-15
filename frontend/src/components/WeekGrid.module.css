@@ -47,6 +47,14 @@
   word-break: keep-all;
 }
 
+/* 30분짜리 칸(8px)은 글자가 잘려서 한 줄이 들어갈 만큼만 늘린다. 바로 뒤 칸과 겹치지 않게 앞쪽에 둔다 */
+.blk[data-short] {
+  z-index: 1;
+  min-height: 13px;
+  padding: 0 3px;
+  line-height: 13px;
+}
+
 /* 내 일정은 무늬 없이 회색 3단(수업 진함 → 구글 → 직접 넣음 연함), 팀 회의는 포인트 보라,
    확정 대기는 AI가 조율 중이라 노랑 테두리. 색만으로 구분하지 않도록 칸 안 글자와 범례가 함께 있다 */
 .blk[data-k='class'],

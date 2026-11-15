@@ -13,9 +13,9 @@ type Props = {
 
 type Reading = { state: 'idle' } | { state: 'reading' } | { state: 'ok' | 'fail'; message: string }
 
-// 내 일정 가져오기: 두 묶음 × [연동 / 직접 추가]. 직접 추가는 그 묶음 연동 아래에 딸린 줄로 보인다
-//   반복 일정(매주)   — 에브리타임 공유 링크(수업) └ 직접 추가(알바처럼 매주 있는 일)
-//   일회성 일정(그날) — 구글 캘린더(약속)         └ 직접 추가(그날만 있는 일)
+// 내 일정 가져오기: 두 묶음 × 두 방식 [연동 / 직접 추가]. 두 방식은 같은 모양의 줄로 나란히 보인다
+//   반복 일정(매주)   — 에브리타임 공유 링크(수업) / 직접 추가(알바처럼 매주 있는 일)
+//   일회성 일정(그날) — 구글 캘린더(약속)         / 직접 추가(그날만 있는 일)
 // 아직 아무것도 없으면 설명 문구 없이 제목과 버튼만 보인다
 export default function ScheduleLinks({ blocks, onAdd, showLock = true }: Props) {
   const [url, setUrl] = useState('')
@@ -108,12 +108,13 @@ export default function ScheduleLinks({ blocks, onAdd, showLock = true }: Props)
   )
 }
 
-// 연동 아래 딸린 한 줄 "+ 직접 추가". 넣은 일정은 위 시간표에 보이므로 여기 다시 늘어놓지 않는다
+// 직접 추가 줄: 연동 줄과 같은 모양(이름 | 버튼). 넣은 일정은 위 시간표에 보이므로 여기 다시 늘어놓지 않는다
 function ManualRow({ onAdd }: { onAdd: () => void }) {
   return (
-    <div className={styles.sub}>
-      <button type="button" className={styles.add} onClick={onAdd}>
-        + 직접 추가
+    <div className={styles.row}>
+      <p className="strong">직접 추가</p>
+      <button type="button" className="btn small" onClick={onAdd}>
+        추가
       </button>
     </div>
   )

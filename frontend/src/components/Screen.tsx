@@ -44,7 +44,7 @@ export default function Screen({ title, backTo, onBack, aux, hero, dock, childre
           {aux}
         </header>
       )}
-      <main className={styles.body}>
+      <main className={`${styles.body} ${hero ? '' : styles.fade}`}>
         {hero}
         {children}
       </main>

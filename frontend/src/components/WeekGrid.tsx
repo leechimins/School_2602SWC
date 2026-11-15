@@ -80,6 +80,7 @@ export default function WeekGrid({ blocks, onEdit }: Props) {
                   key={i}
                   className={styles.blk}
                   data-k={lookOf(b)}
+                  data-short={b.endHour - b.startHour < 1 || undefined}
                   style={{ top: pct(b.startHour), height: `calc(${pct(b.endHour)} - ${pct(b.startHour)})` }}
                   title={`${w} ${b.startHour}–${b.endHour}시 ${b.title}`}
                   {...editProps(b)}
