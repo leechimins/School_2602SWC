@@ -181,7 +181,6 @@ function Recorder({ meeting: m, members }: { meeting: MeetingDetail; members: Me
             <Icon name="mic" />
             회의 녹음하기
           </button>
-          <p className={`meta ${styles.center}`}>음성은 저장하지 않고 글자만 남겨요</p>
           <div className={styles.center}>
             <button type="button" className="link" onClick={() => setStep('paste')}>
               직접 쓰기
@@ -295,10 +294,15 @@ function formatProblem(text: string, names: string[]): string | null {
 
 type PasteProps = { members: Member[]; onCancel: () => void; onDone: (text: string) => void }
 
-// 직접 쓰기: 한 줄에 "팀원 이름: 한 말". 형식이 틀린 줄이 있으면 정리하기를 누를 수 없다
+// 직접 쓰기: 한 줄에 "팀원 이름: 한 말". 쓰는 동안은 조용하고, 정리하기를 누를 때 틀린 줄을 알려 주고 멈춘다
 function Paste({ members, onCancel, onDone }: PasteProps) {
   const [text, setText] = useState('')
-  const problem = text.trim() ? formatProblem(text, members.map((x) => x.name)) : null
+  const [problem, setProblem] = useState<string | null>(null)
+  const submit = () => {
+    const found = formatProblem(text, members.map((x) => x.name))
+    if (found) return setProblem(found)
+    onDone(text)
+  }
   return (
     <section className="sec">
       <h2>회의록 직접 쓰기</h2>
@@ -308,10 +312,13 @@ function Paste({ members, onCancel, onDone }: PasteProps) {
         aria-invalid={problem !== null}
         value={text}
         placeholder={'이름: 한 말\n이름: 한 말'}
-        onChange={(e) => setText(e.target.value)}
+        onChange={(e) => {
+          setText(e.target.value)
+          setProblem(null)
+        }}
       />
       {problem && (
-        <p className={form.error} role="status">
+        <p className={form.error} role="alert">
           {problem}
         </p>
       )}
@@ -319,7 +326,7 @@ function Paste({ members, onCancel, onDone }: PasteProps) {
         <button type="button" className="btn quiet" onClick={onCancel}>
           취소
         </button>
-        <button type="button" className="btn primary" disabled={!text.trim() || problem !== null} onClick={() => onDone(text)}>
+        <button type="button" className="btn primary" disabled={!text.trim()} onClick={submit}>
           정리하기
         </button>
       </div>

@@ -76,11 +76,6 @@ export function formatCountdown(target: DateInput, now: Dayjs) {
   return formatSeconds(d(target).diff(now, 'second'))
 }
 
-/** 시작한 뒤 흐른 시간: 00:12:30 (진행 중인 회의) */
-export function formatElapsed(since: DateInput, now: Dayjs) {
-  return formatSeconds(now.diff(d(since), 'second'))
-}
-
 function formatSeconds(seconds: number) {
   const s = Math.max(0, seconds)
   const days = Math.floor(s / 86400)

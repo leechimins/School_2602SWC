@@ -20,7 +20,7 @@ export default function PrefForm({ value, onChange }: Props) {
   return (
     <>
       <div className={styles.pref}>
-        <span className="meta">몇 시부터 몇 시까지 회의할 수 있어요?</span>
+        <span className="meta">회의 가능 시간</span>
         <div className={form.range}>
           <HourSelect label="몇 시부터" value={value.fromHour} onChange={(h) => set('fromHour', h)} />
           <span>–</span>
@@ -28,11 +28,11 @@ export default function PrefForm({ value, onChange }: Props) {
         </div>
       </div>
       <div className={styles.pref}>
-        <span className="meta">어떻게 만날까요?</span>
+        <span className="meta">회의 방식</span>
         <Segmented label="만나는 방식" options={PREF_MODES} value={value.mode ?? '상관없음'} onChange={(m) => set('mode', m)} />
       </div>
       <div className={styles.pref}>
-        <span className="meta">언제가 좋아요? (복수 선택)</span>
+        <span className="meta">선호 시간대 (복수 선택)</span>
         <div className={seg.seg} role="group" aria-label="좋은 때">
           {DAYPARTS.map((d) => (
             <button key={d} type="button" aria-pressed={value.dayparts.includes(d)} onClick={() => toggleDaypart(d)}>
@@ -43,7 +43,7 @@ export default function PrefForm({ value, onChange }: Props) {
       </div>
       <div className={styles.pref}>
         <label className="meta" htmlFor="pref-avoid">
-          꼭 피하고 싶은 시간이 있어요? (선택)
+          제외할 시간 (선택)
         </label>
         <textarea
           id="pref-avoid"
@@ -51,7 +51,7 @@ export default function PrefForm({ value, onChange }: Props) {
           rows={2}
           maxLength={80}
           value={value.avoid}
-          placeholder="예: 화요일 오전, 목요일 오후는 알바라 어려워요"
+          placeholder="예: 화요일 오전, 목요일 오후"
           onChange={(e) => set('avoid', e.target.value)}
         />
       </div>

@@ -34,3 +34,7 @@
 .log > span {
   flex: none;
 }
+
+.log .meta {
+  margin-top: 2px;
+}

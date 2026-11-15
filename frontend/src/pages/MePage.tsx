@@ -166,9 +166,15 @@ function NameSheet({ current, onClose }: { current: string; onClose: () => void 
     >
       <label className={form.label}>
         이름 (성까지)
-        <input className="field" value={name} maxLength={20} placeholder="이지민" autoFocus onChange={(e) => setName(e.target.value)} />
+        <input
+          className="field"
+          value={name}
+          maxLength={20}
+          placeholder="회의록 “이름: 말”의 이름과 같게"
+          autoFocus
+          onChange={(e) => setName(e.target.value)}
+        />
       </label>
-      <p className="meta">회의록에 붙여 넣는 "이름: 말" 줄의 이름과 똑같이 써 주세요.</p>
       {error && (
         <p className={form.error} role="alert">
           {error}

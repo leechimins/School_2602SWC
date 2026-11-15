@@ -192,8 +192,6 @@ function RecordNow({ todayMeeting }: { todayMeeting: MeetingBrief | null }) {
   const navigate = useNavigate()
   const [asking, setAsking] = useState(false)
   const [error, setError] = useState('')
-  const label = '지금 회의 기록하기'
-  const verb = '기록해요'
 
   const open = async (topic: string) => {
     try {
@@ -215,11 +213,11 @@ function RecordNow({ todayMeeting }: { todayMeeting: MeetingBrief | null }) {
           <Icon name="mic" />
         </span>
         <span>
-          <b>{label}</b>
+          <b>지금 회의 기록하기</b>
           <span>
             {todayMeeting
-              ? `오늘 ${formatTimeRange(todayMeeting.startAt, todayMeeting.endAt)} '${todayMeeting.topic}' 회의를 ${verb}`
-              : `잡힌 회의가 없어도 주제 한 줄만 쓰고 바로 ${verb}`}
+              ? `오늘 ${formatTimeRange(todayMeeting.startAt, todayMeeting.endAt)} ‘${todayMeeting.topic}’`
+              : '주제만 정하고 바로 시작'}
           </span>
         </span>
       </button>
@@ -231,7 +229,6 @@ function RecordNow({ todayMeeting }: { todayMeeting: MeetingBrief | null }) {
       {asking && (
         <ConfirmSheet
           title="지금 회의를 기록할까요?"
-          body="잡힌 회의가 없어도 바로 시작해요. 끝나면 지난 회의 목록에 들어가요."
           okLabel="기록 시작"
           irreversible={false}
           input={{ label: '회의 주제', placeholder: '예: 발표 순서 정하기', required: '회의 주제를 적어 주세요.' }}
