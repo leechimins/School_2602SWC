@@ -5,13 +5,18 @@
   min-height: 0;
 }
 
+/* 아래만 둥근 흰 판(하단 탭과 짝). 노치가 있으면 그만큼 아래로 내린다 */
 .top {
-  min-height: 54px;
+  position: relative;
+  z-index: 1;
+  min-height: calc(54px + env(safe-area-inset-top));
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 0 8px 0 16px;
-  background: var(--page);
+  padding: env(safe-area-inset-top) 8px 0 16px;
+  background: var(--card);
+  border-radius: 0 0 20px 20px;
+  box-shadow: 0 4px 18px rgb(60 60 160 / 0.08);
 }
 
 .title {

@@ -1,8 +1,7 @@
-import dayjs from 'dayjs'
 import { useState } from 'react'
 import { messageOf } from '../api/client.ts'
 import { connectEverytime, connectGoogle } from '../api/me.ts'
-import { WEEKDAYS, type Recurrence, type WeekBlock } from '../types/me.ts'
+import type { Recurrence, WeekBlock } from '../types/me.ts'
 import Badge from './Badge.tsx'
 import styles from './ScheduleLinks.module.css'
 
@@ -13,24 +12,6 @@ type Props = {
 }
 
 type Reading = { state: 'idle' } | { state: 'reading' } | { state: 'ok' | 'fail'; message: string }
-
-const hourText = (h: number) => (Number.isInteger(h) ? `${h}` : `${Math.floor(h)}:30`)
-
-/** 같은 시간끼리 요일을 묶는다: 월~금 9–18시면 "월–금 9–18시", 다르면 "목·금 18–20시, 일 9–13시" */
-function weeklySummary(blocks: WeekBlock[]): string {
-  const byTime = new Map<string, number[]>()
-  for (const b of [...blocks].sort((x, y) => x.weekday - y.weekday)) {
-    const time = `${hourText(b.startHour)}–${hourText(b.endHour)}시`
-    byTime.set(time, [...(byTime.get(time) ?? []), b.weekday])
-  }
-  return [...byTime].map(([time, days]) => `${dayText(days)} ${time}`).join(', ')
-}
-
-/** 이어진 요일 셋 이상은 "월–금", 아니면 "목·금" */
-const dayText = (days: number[]) =>
-  days.length >= 3 && days.at(-1)! - days[0] === days.length - 1
-    ? `${WEEKDAYS[days[0]]}–${WEEKDAYS[days.at(-1)!]}`
-    : days.map((d) => WEEKDAYS[d]).join('·')
 
 // 내 일정 가져오기: 두 묶음 × [연동 / 직접 추가]. 직접 추가는 그 묶음 연동 아래에 딸린 줄로 보인다
 //   반복 일정(매주)   — 에브리타임 공유 링크(수업) └ 직접 추가(알바처럼 매주 있는 일)
@@ -43,10 +24,6 @@ export default function ScheduleLinks({ blocks, onAdd, showLock = true }: Props)
 
   const classCount = new Set(blocks.filter((b) => b.source === 'everytime').map((b) => b.title)).size
   const googleCount = blocks.filter((b) => b.source === 'google').length
-  const weekly = blocks.filter((b) => b.source === 'manual' && b.recurrence === 'weekly')
-  const once = blocks.filter((b) => b.source === 'manual' && b.recurrence === 'once')
-  const weeklyText = [...new Set(weekly.map((b) => b.title))].map((t) => `${t} ${weeklySummary(weekly.filter((b) => b.title === t))}`).join(' · ')
-  const onceText = once.map((b) => `${b.title} ${dayjs(b.date).format('M/D')} ${hourText(b.startHour)}–${hourText(b.endHour)}시`).join(' · ')
 
   const loadEverytime = async () => {
     setEt({ state: 'reading' })
@@ -98,7 +75,7 @@ export default function ScheduleLinks({ blocks, onAdd, showLock = true }: Props)
           )}
         </div>
       </div>
-      <ManualRow text={weeklyText} onAdd={() => onAdd('weekly')} />
+      <ManualRow onAdd={() => onAdd('weekly')} />
 
       <p className={styles.group}>일회성 일정</p>
       <div className={styles.row}>
@@ -120,7 +97,7 @@ export default function ScheduleLinks({ blocks, onAdd, showLock = true }: Props)
           </button>
         )}
       </div>
-      <ManualRow text={onceText} onAdd={() => onAdd('once')} />
+      <ManualRow onAdd={() => onAdd('once')} />
 
       {showLock && (
         <p className={styles.lock}>
@@ -131,11 +108,10 @@ export default function ScheduleLinks({ blocks, onAdd, showLock = true }: Props)
   )
 }
 
-// 연동 아래 딸린 한 줄: 넣은 일정이 있으면 그 목록, 끝에 "+ 직접 추가"
-function ManualRow({ text, onAdd }: { text: string; onAdd: () => void }) {
+// 연동 아래 딸린 한 줄 "+ 직접 추가". 넣은 일정은 위 시간표에 보이므로 여기 다시 늘어놓지 않는다
+function ManualRow({ onAdd }: { onAdd: () => void }) {
   return (
     <div className={styles.sub}>
-      {text && <p className="meta">{text}</p>}
       <button type="button" className={styles.add} onClick={onAdd}>
         + 직접 추가
       </button>
