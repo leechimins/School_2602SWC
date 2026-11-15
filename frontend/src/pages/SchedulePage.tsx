@@ -8,6 +8,7 @@ import AiMark from '../components/AiMark.tsx'
 import Badge from '../components/Badge.tsx'
 import ConfirmSheet from '../components/ConfirmSheet.tsx'
 import DateBlock from '../components/DateBlock.tsx'
+import EmptyState from '../components/EmptyState.tsx'
 import Icon from '../components/Icon.tsx'
 import RetryBox from '../components/RetryBox.tsx'
 import Screen from '../components/Screen.tsx'
@@ -22,7 +23,7 @@ import {
   minutesBetween,
 } from '../lib/date.ts'
 import { answerLine, isAdhoc } from '../lib/meeting.ts'
-import { pathTo } from '../lib/paths.ts'
+import { PATHS, pathTo } from '../lib/paths.ts'
 import type { MeetingBrief, Schedule } from '../types/meeting.ts'
 import styles from './SchedulePage.module.css'
 
@@ -91,10 +92,11 @@ function ScheduleBody({ schedule, canStartScheduling, total }: BodyProps) {
       </div>
       <section className="sec">
         {upcoming.length === 0 ? (
-          <p className="meta">
-            잡힌 회의가 없어요.{' '}
-            {canStartScheduling ? '홈에서 새 회의를 잡을 수 있어요.' : '팀장이 회의를 잡으면 알려 드려요.'}
-          </p>
+          <EmptyState
+            title="잡힌 회의가 없어요"
+            description={canStartScheduling ? '마감 전에 필요할 때 언제든 잡아요.' : '팀장이 회의를 잡으면 알려 드려요.'}
+            action={canStartScheduling ? { label: '새 회의 잡기', to: PATHS.schedulingNew } : undefined}
+          />
         ) : (
           upcoming.map((m) => (
             <UpcomingRow key={m.id} meeting={m} isToday={m.id === today?.id} recorded={recorded} total={total} />
@@ -108,7 +110,11 @@ function ScheduleBody({ schedule, canStartScheduling, total }: BodyProps) {
       </div>
       <section className="sec">
         {past.length === 0 ? (
-          <p className="meta">아직 지난 회의가 없어요. 회의를 기록하면 요약과 할 일 제안이 여기에 쌓여요.</p>
+          // 다음 행동(지금 회의 기록하기)은 화면 맨 위 카드에 있어 버튼을 또 두지 않는다
+          <EmptyState
+            title="아직 지난 회의가 없어요"
+            description="회의를 기록하면 요약과 할 일 제안이 여기에 쌓여요."
+          />
         ) : (
           past.map((m) => (
             <Link key={m.id} to={pathTo.meeting(m.id)} className={styles.row}>
