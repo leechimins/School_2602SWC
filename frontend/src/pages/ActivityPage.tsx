@@ -1,5 +1,6 @@
 import { useLocation, useSearchParams } from 'react-router-dom'
 import { getActivity } from '../api/notifications.ts'
+import EmptyState from '../components/EmptyState.tsx'
 import RetryBox from '../components/RetryBox.tsx'
 import Screen from '../components/Screen.tsx'
 import Segmented from '../components/Segmented.tsx'
@@ -34,7 +35,7 @@ export default function ActivityPage() {
       {res.status === 'ready' && tab === '한 일' && (
         <section className="sec">
           {res.data.agentLog.length === 0 ? (
-            <p className="meta">아직 에이전트가 한 일이 없어요.</p>
+            <EmptyState title="아직 에이전트가 한 일이 없어요" description="회의를 잡으면 에이전트가 한 일을 여기 남겨요." action={{ label: '회의 잡기', to: PATHS.schedulingNew }} />
           ) : (
             res.data.agentLog.map((a) => (
               <div key={a.id} className={`${styles.record} ${styles.log}`}>
@@ -48,7 +49,7 @@ export default function ActivityPage() {
       {res.status === 'ready' && tab === '양보' && (
         <section className="sec">
           {res.data.yieldRecords.length === 0 ? (
-            <p className="meta">회의가 잡히면 누가 맞춰 줬는지 남겨요.</p>
+            <EmptyState title="아직 양보 기록이 없어요" description="회의가 잡히면 누가 맞춰 줬는지 남겨요." action={{ label: '회의 잡기', to: PATHS.schedulingNew }} />
           ) : (
             res.data.yieldRecords.map((y) => (
               <div key={y.id} className={styles.record}>

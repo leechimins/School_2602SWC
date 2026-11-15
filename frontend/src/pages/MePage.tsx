@@ -63,11 +63,11 @@ export default function MePage() {
         <Avatar name={user.name} size="large" />
         <div className={styles.who}>
           <p className={styles.nameLine}>
+            {user.isLeader && <Badge tone="here">팀장</Badge>}
             <b className={styles.name}>{user.name}</b>
             <button type="button" className={styles.pencil} onClick={() => setEditingName(true)} aria-label="이름 고치기">
               <Icon name="pencil" small />
             </button>
-            {user.isLeader && <Badge tone="here">팀장</Badge>}
           </p>
           {room.status === 'ready' && <p className="meta">{room.data.name}</p>}
         </div>
