@@ -33,11 +33,6 @@ function set(next: Identity | null) {
   listeners.forEach((fn) => fn())
 }
 
-/** 개발용 로그인: 이름만 보내면 그 사람이 된다(서버 POST /sessions). "시연 계정으로 둘러보기"가 쓴다 */
-async function devLogin(name: string): Promise<void> {
-  await request('/sessions', { method: 'POST', body: { name } })
-}
-
 /** 지금 쿠키의 주인. 로그인 안 했으면 null */
 async function loadMe(): Promise<Identity | null> {
   try {
@@ -57,21 +52,11 @@ async function loadMe(): Promise<Identity | null> {
 }
 
 /**
- * 이 사람으로 로그인하고 서버 번호를 받는다. name이 null이면 로그인은 하지 않고 지금 쿠키의 주인만 확인한다.
- * 이름이 서버에 없으면(404) 로그인 안 한 상태로 둔다. 서버가 안 닿으면 ApiError를 던져 화면이 다시 하기를 보여 준다.
+ * 지금 쿠키의 주인과 방 번호를 서버에서 다시 받는다(GET /me). 로그인 안 했으면 null로 둔다.
+ * 서버가 안 닿으면 ApiError를 던져 화면이 다시 하기를 보여 준다.
  */
-export async function signIn(name: string | null): Promise<void> {
-  try {
-    if (name) await devLogin(name)
-    set(await loadMe())
-  } catch (e) {
-    if (e instanceof ApiError && e.status < 500) {
-      console.warn('[session] 로그인하지 못했어요', e)
-      set(null)
-      return
-    }
-    throw e
-  }
+export async function refreshIdentity(): Promise<void> {
+  set(await loadMe())
 }
 
 type GoogleLoginOut = { user_id: number; name: string; is_new: boolean }

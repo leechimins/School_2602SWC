@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { messageOf } from '../api/client.ts'
-import { getIdentity, signIn, signInWithGoogle } from '../api/session.ts'
+import { getIdentity, refreshIdentity, signInWithGoogle } from '../api/session.ts'
 import { markBooted } from '../lib/boot.ts'
 import { PATHS } from '../lib/paths.ts'
 import styles from './SplashPage.module.css'
@@ -10,7 +10,6 @@ const SPLASH_MS = 2000 // 로그인돼 있을 때 캐릭터를 보여 주는 시
 const BUTTON_MS = 1000 // 로그인이 필요할 때 버튼이 나타나기까지
 const LEAVE_MS = 450 // 들어갈 때 스플래시가 걷히는 시간 (SplashPage.module.css .leaving과 같게)
 const CLIENT_ID = (import.meta.env.VITE_GOOGLE_CLIENT_ID ?? '').trim()
-const DEMO_LEADER = '지수' // 서버 시드(backend/tools/seed.py)의 팀장. "시연 계정으로 둘러보기"가 이 사람으로 들어간다
 
 // 스플래시 + 구글 로그인. 앱을 열면 캐릭터가 둥둥 뜨고,
 // 로그인돼 있으면(쿠키) 2초 뒤 원래 가려던 곳으로, 아니면 1초 뒤 캐릭터 아래에 로그인 버튼이 나타난다.
@@ -50,7 +49,7 @@ export default function SplashPage() {
     const timers: number[] = []
     const after = (ms: number, fn: () => void) => timers.push(window.setTimeout(fn, Math.max(0, ms - (Date.now() - opened))))
     const run = { alive: true } // 화면을 떠난 뒤 늦게 끝나도 이동하지 않게
-    signIn(null).then(
+    refreshIdentity().then(
       () => {
         if (!run.alive) return
         if (getIdentity()) after(SPLASH_MS, () => enterRef.current())
@@ -79,20 +78,6 @@ export default function SplashPage() {
     }
   }
 
-  const onDemo = async () => {
-    setBusy(true)
-    setError(null)
-    try {
-      await signIn(DEMO_LEADER)
-    } catch (e) {
-      setError(messageOf(e))
-      return setBusy(false)
-    }
-    if (getIdentity()) return enterRef.current()
-    setError('시연 계정으로 들어가지 못했어요. 서버에 시드가 들어 있는지 확인해 주세요.')
-    setBusy(false)
-  }
-
   return (
     <main className={`${styles.page} ${leaving ? styles.leaving : ''}`}>
       <div className={styles.hero}>
@@ -111,9 +96,6 @@ export default function SplashPage() {
                 {error}
               </p>
             )}
-            <button type="button" className={styles.demo} disabled={busy} onClick={onDemo}>
-              시연 계정으로 둘러보기
-            </button>
           </div>
         )}
       </section>

@@ -27,7 +27,7 @@ npm run dev        # http://localhost:5173
 
 `src/api/client.ts`가 `VITE_API_URL`(비우면 `/api/v1`)을 부릅니다. `vite.config.ts`의 프록시가 `/api`를 `http://localhost:8000`으로 넘겨, 브라우저 입장에서는 같은 출처라 CORS 설정 없이 로그인 쿠키가 오갑니다(`dev`·`preview` 모두). 배포한 백엔드에 바로 붙일 때만 `.env.local`에 주소를 넣습니다(`.env.example` 참고).
 
-서버가 실패하면 화면마다 한 줄 안내와 "다시 하기"가 뜹니다. 스플래시의 "시연 계정으로 둘러보기"는 서버 시드의 팀장(지수)으로 로그인합니다.
+서버가 실패하면 화면마다 한 줄 안내와 "다시 하기"가 뜹니다. 로그인은 스플래시의 구글 로그인 하나입니다(서버 `POST /sessions/google`).
 
 ## 폴더 구조
 

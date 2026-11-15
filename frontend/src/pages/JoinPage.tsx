@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ApiError, messageOf } from '../api/client.ts'
 import { joinRoom, previewInvite } from '../api/rooms.ts'
-import { signIn } from '../api/session.ts'
+import { refreshIdentity } from '../api/session.ts'
 import Screen from '../components/Screen.tsx'
 import { PATHS } from '../lib/paths.ts'
 import type { InvitePreview } from '../types/room.ts'
@@ -47,7 +47,7 @@ export default function JoinPage() {
     setBusy(true)
     try {
       await joinRoom(typed)
-      await signIn(null) // 실서버: 내 방 번호를 다시 받는다. 이제야 방이 생겼다
+      await refreshIdentity() // 실서버: 내 방 번호를 다시 받는다. 이제야 방이 생겼다
       navigate(PATHS.onboarding, { replace: true })
     } catch (e) {
       // 이미 팀원이면 막을 일이 아니라 홈으로 보내 주면 된다
