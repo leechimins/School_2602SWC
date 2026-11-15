@@ -7,13 +7,15 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 
 from sqlmodel import Session, select
 
 from app.meeting.models import Meeting
 from app.minutes.models import Minutes, MinutesItem, Task, TranscriptSegment
+from app.shared import demo_clock
 from app.shared.enums import MinutesItemKind, MinutesStatus, TaskOrigin, TaskState
+from tools.seed import seed
 
 # 시연 시계의 오늘. 늦음은 이 날짜보다 기한이 앞선 것이다.
 TODAY = date(2026, 11, 10)
@@ -95,6 +97,34 @@ def test_직접_추가한_할_일은_출처_회의가_없다(seeded: Session) ->
 
     assert manual
     assert all(t.meeting_id is None and t.confirmed for t in manual)
+
+
+def _open_dues(session: Session) -> list[date]:
+    """끝나지 않은 할 일과 제안의 기한."""
+    return [
+        t.due_date
+        for t in session.exec(select(Task)).all()
+        if t.due_date and t.state != TaskState.DONE
+    ]
+
+
+def test_본선_날에_넣어도_늦은_할_일은_하나뿐이다(session: Session) -> None:
+    """시연 시계가 없어져 실제 날짜로 본다. 11/10에 박은 기한이면 전부 늦음이 된다."""
+    final = date(2026, 11, 19)
+
+    seed(session, today=final)
+
+    dues = _open_dues(session)
+    assert len([d for d in dues if d < final]) == 1
+    assert min(d for d in dues if d >= final) == final + timedelta(days=2)
+
+
+def test_기준일을_안_주면_시계의_오늘이_기준이다(session: Session) -> None:
+    seed(session)
+
+    today = demo_clock.now(session).date()
+    late = [d for d in _open_dues(session) if d < today]
+    assert late == [today - timedelta(days=2)]
 
 
 def test_시각은_전부_오프셋이_붙어_있다(seeded: Session) -> None:
