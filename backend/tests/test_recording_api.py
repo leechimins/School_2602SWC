@@ -269,6 +269,34 @@ def test_멈추면_원문은_남고_상태가_멈춤이_된다(client, seeded, r
     assert blank.recording_stopped_at == stop_at
 
 
+def test_멈추면_회의_끝_시각이_실제로_녹음이_끝난_시각이_된다(client, seeded, room, blank):
+    _start(client, room, blank)
+    stop_at = datetime(2026, 11, 10, 16, 20, tzinfo=KST)
+    demo_clock.set_clock(seeded, stop_at)
+    seeded.commit()
+
+    res = _stop(client, room, blank)
+
+    assert res.status_code == 200, res.text
+    seeded.refresh(blank)
+    assert blank.end_at == stop_at
+    assert res.json()["end_at"].startswith("2026-11-10T16:20")
+
+
+def test_시작_시각_전에_멈추면_끝_시각은_그대로다(client, seeded, room, blank):
+    """일찍 녹음해 본 것. start_at < end_at을 깨지 않는다."""
+    blank.start_at = datetime(2026, 11, 10, 18, 0, tzinfo=KST)
+    blank.end_at = datetime(2026, 11, 10, 19, 0, tzinfo=KST)
+    seeded.add(blank)
+    seeded.commit()
+    _start(client, room, blank)
+
+    _stop(client, room, blank)
+
+    seeded.refresh(blank)
+    assert blank.end_at == datetime(2026, 11, 10, 19, 0, tzinfo=KST)
+
+
 def test_두_번_멈춰도_그대로다(client, seeded, room, blank):
     _start(client, room, blank)
     _stop(client, room, blank)

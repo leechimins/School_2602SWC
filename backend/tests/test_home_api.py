@@ -206,7 +206,7 @@ def test_지난_회의는_다음_회의가_아니다(
 def test_기록을_마친_회의는_끝_시각_전이어도_다음_회의가_아니다(
     client: TestClient, session: Session, 방: 팀, login
 ) -> None:
-    """바로 기록한 회의는 끝 시각이 1시간 뒤라, 기록을 마쳤으면 다음 것을 보여 준다."""
+    """바로 기록한 회의는 끝 시각이 30분 뒤라, 기록을 마쳤으면 다음 것을 보여 준다."""
     먼저 = _회의(
         session, 방, 오늘 - timedelta(minutes=30), topic="먼저 기록함", status=MeetingStatus.CONFIRMED
     )

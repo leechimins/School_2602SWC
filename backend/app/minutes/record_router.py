@@ -42,8 +42,21 @@ router = APIRouter(prefix="/rooms/{room_id}", tags=["record"])
 
 
 # 잡힌 회의 없이 바로 기록을 시작할 때 회의 길이. 끝 시각 칸이 NOT NULL이고
-# start_at < end_at 제약이 있어서 자리만 채운다. 화면은 이 값을 쓰지 않는다.
-ADHOC_MEETING_LENGTH = timedelta(hours=1)
+# start_at < end_at 제약이 있어서 자리만 채운다. 녹음을 멈추면 실제 끝난 시각으로 바뀐다.
+ADHOC_MEETING_LENGTH = timedelta(minutes=30)
+
+
+def _stop(db: Session, meeting: Meeting) -> None:
+    """받아적기를 멈춘다. 회의 끝 시각도 실제로 녹음이 끝난 시각으로 고친다.
+
+    바로 기록한 회의는 길이를 자리만 채워 두었고, 잡힌 회의도 계획보다 일찍·늦게
+    끝난다. 일정·지난 회의에는 실제로 한 시간이 보여야 한다. 시작 전에 멈췄으면
+    (일찍 녹음해 본 것) start_at < end_at 제약을 지키려고 그대로 둔다.
+    """
+    now = demo_clock.now(db)
+    meeting.recording_stopped_at = now
+    if now > meeting.start_at:
+        meeting.end_at = now
 
 
 def _meeting(db: Session, room_id: int, meeting_id: int) -> Meeting:
@@ -339,7 +352,7 @@ def stop_recording(
     if current == "none":
         raise recording.not_recording_error()
     if current == "recording":
-        meeting.recording_stopped_at = demo_clock.now(db)
+        _stop(db, meeting)
         db.add(meeting)
     db.commit()
     db.refresh(meeting)
@@ -442,7 +455,7 @@ def upload_recording(
     meeting = _locked_recordable(db, room_id, meeting_id)
     check(meeting)
     recording.stack(db, meeting_id, pieces)
-    meeting.recording_stopped_at = demo_clock.now(db)
+    _stop(db, meeting)
     db.add(meeting)
     db.commit()
     db.refresh(meeting)
