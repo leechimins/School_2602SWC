@@ -7,6 +7,7 @@ import { renameMe, signOut } from '../api/session.ts'
 import AgentQuote from '../components/AgentQuote.tsx'
 import Avatar from '../components/Avatar.tsx'
 import Badge from '../components/Badge.tsx'
+import Icon from '../components/Icon.tsx'
 import PrefForm from '../components/PrefForm.tsx'
 import RetryBox from '../components/RetryBox.tsx'
 import ScheduleEditSheet from '../components/ScheduleEditSheet.tsx'
@@ -63,20 +64,18 @@ export default function MePage() {
         <div className={styles.who}>
           <p className={styles.nameLine}>
             <b className={styles.name}>{user.name}</b>
+            <button type="button" className={styles.pencil} onClick={() => setEditingName(true)} aria-label="이름 고치기">
+              <Icon name="pencil" small />
+            </button>
             {user.isLeader && <Badge tone="here">팀장</Badge>}
           </p>
           {room.status === 'ready' && <p className="meta">{room.data.name}</p>}
         </div>
-        <div className={styles.profileBtns}>
-          <button type="button" className="btn small" onClick={() => setEditingName(true)}>
-            이름 고치기
+        {prefs.status === 'ready' && (
+          <button type="button" className={`btn small ${styles.prefBtn}`} onClick={() => setEditingPrefs(true)}>
+            좋아하는 방식 바꾸기
           </button>
-          {prefs.status === 'ready' && (
-            <button type="button" className="btn small" onClick={() => setEditingPrefs(true)}>
-              좋아하는 방식 바꾸기
-            </button>
-          )}
-        </div>
+        )}
       </div>
 
       {editingName && <NameSheet current={user.name} onClose={() => setEditingName(false)} />}
@@ -97,10 +96,7 @@ export default function MePage() {
 
       <section className="sec">
         <div className="row-between">
-          <div className={styles.secHead}>
-            <h2>내 시간</h2>
-            <span>직접 넣은 일정은 눌러서 수정</span>
-          </div>
+          <h2>내 시간</h2>
           {shown.status === 'ready' && <span className="meta num">{formatRange(shown.data.weekStart, shown.data.weekEnd)}</span>}
         </div>
         <Segmented label="주" options={WEEKS} value={week} onChange={setWeek} />

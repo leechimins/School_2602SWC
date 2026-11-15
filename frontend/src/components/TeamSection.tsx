@@ -15,10 +15,15 @@ export default function TeamSection({ room }: { room: Room }) {
     <>
       <section className="sec">
         <div className="row-between">
-          <h2>팀원</h2>
-          <span className="meta num">
-            {room.joinedCount}/{room.memberCount} 들어옴
-          </span>
+          <h2>
+            팀원{' '}
+            <span className="meta num">
+              {room.joinedCount}/{room.memberCount} 들어옴
+            </span>
+          </h2>
+          <Link to={`${PATHS.meActivity}?tab=yield`} className="btn small">
+            양보 기록 보기
+          </Link>
         </div>
         <ul className={styles.list}>
           {room.members.map((m) => (
@@ -38,9 +43,6 @@ export default function TeamSection({ room }: { room: Room }) {
             </li>
           ))}
         </ul>
-        <Link to={`${PATHS.meActivity}?tab=yield`} className="btn small">
-          양보 기록 보기
-        </Link>
       </section>
 
       <section className="sec">
@@ -49,7 +51,6 @@ export default function TeamSection({ room }: { room: Room }) {
           <span className={`${styles.code} num`}>{room.inviteCode}</span>
           <CopyButton text={room.inviteCode} />
         </div>
-        <p className="meta">팀원은 이 초대 코드로 들어와요.</p>
       </section>
     </>
   )
@@ -69,7 +70,7 @@ function CopyButton({ text }: { text: string }) {
   }
   return (
     <button type="button" className={styles.copy} onClick={copy} aria-label={copied ? '복사했어요' : '초대 코드 복사'}>
-      <Icon name={copied ? 'check' : 'copy'} />
+      <Icon name={copied ? 'check' : 'copy'} small />
     </button>
   )
 }

@@ -32,7 +32,7 @@ export default function PrefForm({ value, onChange }: Props) {
         <Segmented label="만나는 방식" options={PREF_MODES} value={value.mode ?? '상관없음'} onChange={(m) => set('mode', m)} />
       </div>
       <div className={styles.pref}>
-        <span className="meta">언제가 좋아요? (여러 개)</span>
+        <span className="meta">언제가 좋아요? (복수 선택)</span>
         <div className={seg.seg} role="group" aria-label="좋은 때">
           {DAYPARTS.map((d) => (
             <button key={d} type="button" aria-pressed={value.dayparts.includes(d)} onClick={() => toggleDaypart(d)}>
@@ -43,7 +43,7 @@ export default function PrefForm({ value, onChange }: Props) {
       </div>
       <div className={styles.pref}>
         <label className="meta" htmlFor="pref-avoid">
-          꼭 피하고 싶은 시간이 있어요? (안 써도 돼요)
+          꼭 피하고 싶은 시간이 있어요? (선택)
         </label>
         <textarea
           id="pref-avoid"
@@ -54,7 +54,6 @@ export default function PrefForm({ value, onChange }: Props) {
           placeholder="예: 화요일 오전, 목요일 오후는 알바라 어려워요"
           onChange={(e) => set('avoid', e.target.value)}
         />
-        <p className="meta">에이전트가 다듬어서 조율 근거로 써요.</p>
       </div>
     </>
   )
