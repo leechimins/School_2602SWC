@@ -64,7 +64,7 @@
   position: absolute;
   z-index: 1;
   right: 22px;
-  top: -99px; /* 몸 아랫선이 기간 카드 윗선에 닿고 손만 카드 위로 늘어지게 */
+  top: -95px; /* 몸 아랫선이 기간 카드 윗선에 닿고 손만 카드 위로 늘어지게 */
   width: 124px;
   pointer-events: none;
 }
