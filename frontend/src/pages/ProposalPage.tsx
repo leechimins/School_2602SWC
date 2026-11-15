@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, Navigate, useParams } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { messageOf } from '../api/client.ts'
 import { getProposal, respondProposal } from '../api/scheduling.ts'
 import Avatar from '../components/Avatar.tsx'
@@ -94,7 +94,7 @@ function Burdens({ proposal: p, viewerId }: { proposal: Proposal; viewerId: Id }
           <p className="strong">이번 회의에서 빠져요 · 회의록 요약을 따로 보내 드려요</p>
         ) : (
           <p className="strong">
-            내 불편 <span className="num">{p.myScore}/5</span> · {p.myReason}
+            내 불편 <span className={`num ${styles.score}`}>{p.myScore}/5</span> · {p.myReason}
           </p>
         )}
         <span className="meta">나만 보여요</span>
@@ -153,22 +153,21 @@ function SettledFeedback({ proposal: p, roomId }: { proposal: Proposal; roomId: 
     return (
       <section className="sec">
         <p className="strong">“{text.trim()}”</p>
-        <p className="meta">남겼어요. 내 에이전트가 다음 회의부터 참고해요.</p>
+        <p className="meta">의견을 남겼어요.</p>
       </section>
     )
   }
 
   return (
     <section className="sec">
-      <p className="strong">이 시간으로 정해졌어요. 한 줄 남기시겠어요?</p>
-      <p className="meta">내 에이전트가 다음 회의부터 참고해요. 비워 둬도 돼요.</p>
+      <p className="strong">일정 의견</p>
       <div className={styles.inline}>
         <input
           className="field"
           value={text}
           maxLength={40}
-          placeholder="예: 금요일은 역시 힘드네요"
-          aria-label="이 시간 어때요"
+          placeholder="이 시간에 대한 의견 (선택)"
+          aria-label="일정 의견"
           onChange={(e) => setText(e.target.value)}
         />
         <button type="button" className="btn small" disabled={!text.trim()} onClick={send}>
@@ -182,8 +181,9 @@ function SettledFeedback({ proposal: p, roomId }: { proposal: Proposal; roomId: 
 
 type Asking = 'accept' | 'reject' | null
 
-// 합의안: 거절(글자) | 수락(버튼). 누르면 한 줄을 받는 창이 뜨고, 전원이 수락하면 따로 누르지 않아도 확정된다
+// 합의안: 거절(글자) | 수락(버튼). 누르면 다시 묻는 창이 뜨고(거절은 이유 한 줄), 전원이 수락하면 따로 누르지 않아도 확정된다
 function RespondDock({ proposal: p, roomId }: { proposal: Proposal; roomId: Id }) {
+  const navigate = useNavigate()
   const [asking, setAsking] = useState<Asking>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -194,7 +194,9 @@ function RespondDock({ proposal: p, roomId }: { proposal: Proposal; roomId: Id }
     setAsking(null)
     if (!ok) return
     try {
-      await respondProposal(roomId, p.id, { accept, feedback: value || null })
+      const { rerun } = await respondProposal(roomId, p.id, { accept, feedback: value || null })
+      // 거절로 다시 조율이 시작되면 이 회의안은 취소된다. 새 조율 과정으로 바로 넘어간다
+      if (rerun && p.schedulingId) navigate(pathTo.scheduling(p.schedulingId), { replace: true })
     } catch (e) {
       setError(messageOf(e))
     }
@@ -207,20 +209,18 @@ function RespondDock({ proposal: p, roomId }: { proposal: Proposal; roomId: Id }
       {asking === 'accept' && (
         <ConfirmSheet
           title="이 시간으로 수락할까요?"
-          body="이 시간이 어떤지 한 줄 남기면 내 에이전트가 다음 회의부터 참고해요. 비워 둬도 돼요."
           okLabel="수락하기"
           irreversible={false}
-          input={{ label: '이 시간 어때요', placeholder: '예: 수업 바로 뒤라 조금 빠듯해요' }}
           onClose={(r) => respond(true, r)}
         />
       )}
       {asking === 'reject' && (
         <ConfirmSheet
           title="조율 결과를 거절할까요?"
-          body="이유를 한 줄 남기면 판단 에이전트가 다음 라운드에 반영하고, 내 에이전트도 다음 회의부터 참고해요. 비워 둬도 돼요."
+          body="남긴 이유는 다시 조율할 때 반영돼요."
           okLabel="거절하기"
           irreversible={false}
-          input={{ label: '거절 이유', placeholder: '예: 금요일은 역시 힘들어요' }}
+          input={{ label: '거절 이유', placeholder: '거절 이유 (선택)' }}
           onClose={(r) => respond(false, r)}
         />
       )}

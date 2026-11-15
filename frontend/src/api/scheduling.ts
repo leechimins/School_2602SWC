@@ -47,8 +47,11 @@ export async function getProposal(roomId: Id, proposalId: Id): Promise<Proposal>
  * 수락·거절 + 피드백 한 줄. 전원 수락하면 회의가 자동으로 확정된다.
  * 거절하면 라운드가 남았을 때 서버가 바로 다시 조율하고, 3라운드를 다 썼으면 거절한 사람을 불참으로 둔다.
  */
-export function respondProposal(roomId: Id, proposalId: Id, input: RespondInput): Promise<void> {
-  return write(() => request<void>(`/rooms/${roomId}/proposals/${proposalId}/respond`, { method: 'POST', body: input }))
+export function respondProposal(roomId: Id, proposalId: Id, input: RespondInput): Promise<{ rerun: boolean }> {
+  return write(async () => {
+    const r = await request<{ rerun?: boolean }>(`/rooms/${roomId}/proposals/${proposalId}/respond`, { method: 'POST', body: input })
+    return { rerun: r.rerun ?? false } // 참이면 거절로 조율이 다시 돌기 시작했다
+  })
 }
 
 /** 일정 탭: 조율 중 → 잡힌 회의 → 지난 회의 */

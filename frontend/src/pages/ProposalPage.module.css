@@ -20,16 +20,21 @@
   gap: 4px;
 }
 
-/* 부담 묶음 맨 위의 내 줄: 나만 보이는 줄이라 포인트 바탕 */
+/* 부담 묶음 맨 위의 내 줄: 상자 없이 한 줄, 점수만 포인트색 */
 .mine {
   display: flex;
   gap: var(--gap-2);
   align-items: center;
   justify-content: space-between;
-  margin-bottom: var(--gap-1);
-  padding: var(--gap-2) var(--gap-3);
-  border-radius: 10px;
-  background: var(--point-soft);
+  min-height: 40px;
+}
+
+.mine:not(:last-child) {
+  border-bottom: 1px solid var(--line);
+}
+
+.score {
+  color: var(--point-ink);
 }
 
 .mine > :global(.meta) {
