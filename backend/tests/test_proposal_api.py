@@ -31,6 +31,7 @@ from app.meeting.models import (
     YieldEntry,
 )
 from app.notice.models import Notification
+from app.shared import demo_clock
 from app.shared.base import KST
 from app.shared.enums import (
     MeetingStatus,
@@ -92,6 +93,9 @@ def 방(session: Session) -> 팀:
             Membership(room_id=room.id, user_id=민지.id),  # type: ignore[arg-type]
         ]
     )
+    # 지금을 MON 하루 전으로 고정한다. 실제 날짜로 두면 MON이 지난 뒤
+    # MON에 잡은 회의가 '지난 회의'로 가서 일정 테스트가 깨진다.
+    demo_clock.set_clock(session, MON - timedelta(days=1))
     session.commit()
     return 팀(room, 지수, 현우, 민지)
 
