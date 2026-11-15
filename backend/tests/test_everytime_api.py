@@ -309,10 +309,12 @@ def test_다시_불러오기가_실패하면_이전_수업은_남고_failed(clie
     assert _connect(client).json()["status"] == "ok"
 
 
-def test_크롬이_없으면_503이고_직접_입력하라고_한다(client, fake, jisu, monkeypatch):
+def test_연동이_서버에_없으면_503_NOT_CONFIGURED이고_직접_입력하라고_한다(client, fake, jisu, monkeypatch):
+    # 다시 해도 안 되는 경우라 "잠시 후 다시"(EVERYTIME_UNAVAILABLE)와 코드를 나눈다.
     monkeypatch.setattr(everytime, "configured", lambda: False)
     res = _connect(client)
     assert res.status_code == 503
+    assert res.json()["code"] == "EVERYTIME_NOT_CONFIGURED"
     assert "직접" in res.json()["message"]
     assert fake.calls == []
 
