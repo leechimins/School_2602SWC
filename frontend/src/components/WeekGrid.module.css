@@ -15,7 +15,7 @@
 .hours,
 .col {
   position: relative;
-  height: 180px;
+  height: var(--grid-h, 192px);
 }
 
 .hours {

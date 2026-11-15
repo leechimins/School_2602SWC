@@ -16,6 +16,22 @@ type Reading = { state: 'idle' } | { state: 'reading' } | { state: 'ok' | 'fail'
 
 const hourText = (h: number) => (Number.isInteger(h) ? `${h}` : `${Math.floor(h)}:30`)
 
+/** 같은 시간끼리 요일을 묶는다: 월~금 9–18시면 "월–금 9–18시", 다르면 "목·금 18–20시, 일 9–13시" */
+function weeklySummary(blocks: WeekBlock[]): string {
+  const byTime = new Map<string, number[]>()
+  for (const b of [...blocks].sort((x, y) => x.weekday - y.weekday)) {
+    const time = `${hourText(b.startHour)}–${hourText(b.endHour)}시`
+    byTime.set(time, [...(byTime.get(time) ?? []), b.weekday])
+  }
+  return [...byTime].map(([time, days]) => `${dayText(days)} ${time}`).join(', ')
+}
+
+/** 이어진 요일 셋 이상은 "월–금", 아니면 "목·금" */
+const dayText = (days: number[]) =>
+  days.length >= 3 && days.at(-1)! - days[0] === days.length - 1
+    ? `${WEEKDAYS[days[0]]}–${WEEKDAYS[days.at(-1)!]}`
+    : days.map((d) => WEEKDAYS[d]).join('·')
+
 // 내 일정 가져오기: 두 묶음 × [연동 / 직접 추가]. 직접 추가는 그 묶음 연동 아래에 딸린 줄로 보인다
 //   반복 일정(매주)   — 에브리타임 공유 링크(수업) └ 직접 추가(알바처럼 매주 있는 일)
 //   일회성 일정(그날) — 구글 캘린더(약속)         └ 직접 추가(그날만 있는 일)
@@ -29,10 +45,8 @@ export default function ScheduleLinks({ blocks, onAdd, showLock = true }: Props)
   const googleCount = blocks.filter((b) => b.source === 'google').length
   const weekly = blocks.filter((b) => b.source === 'manual' && b.recurrence === 'weekly')
   const once = blocks.filter((b) => b.source === 'manual' && b.recurrence === 'once')
-  const weeklyText = [...new Set(weekly.map((b) => b.title))]
-    .map((t) => `${t} · ${weekly.filter((b) => b.title === t).map((b) => `${WEEKDAYS[b.weekday]} ${hourText(b.startHour)}–${hourText(b.endHour)}시`).join(', ')}`)
-    .join(' / ')
-  const onceText = once.map((b) => `${b.title} · ${dayjs(b.date).format('M/D')} ${hourText(b.startHour)}–${hourText(b.endHour)}시`).join(' / ')
+  const weeklyText = [...new Set(weekly.map((b) => b.title))].map((t) => `${t} ${weeklySummary(weekly.filter((b) => b.title === t))}`).join(' · ')
+  const onceText = once.map((b) => `${b.title} ${dayjs(b.date).format('M/D')} ${hourText(b.startHour)}–${hourText(b.endHour)}시`).join(' · ')
 
   const loadEverytime = async () => {
     setEt({ state: 'reading' })
@@ -68,7 +82,7 @@ export default function ScheduleLinks({ blocks, onAdd, showLock = true }: Props)
             <input
               className="field num"
               value={url}
-              placeholder="everytime.kr/@아이디"
+              placeholder="에타 시간표 → 공유 → 링크 복사"
               aria-label="에브리타임 공유 링크"
               onChange={(e) => setUrl(e.target.value)}
             />

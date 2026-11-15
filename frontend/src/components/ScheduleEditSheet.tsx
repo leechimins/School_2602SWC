@@ -1,3 +1,4 @@
+import dayjs from 'dayjs'
 import { useState } from 'react'
 import { messageOf } from '../api/client.ts'
 import { deleteScheduleItem, editScheduleItem } from '../api/me.ts'
@@ -36,7 +37,7 @@ export default function ScheduleEditSheet({ block, onClose }: Props) {
 
   return (
     <Sheet
-      title={`매주 ${WEEKDAYS[block.weekday]}요일 일정`}
+      title={block.recurrence === 'once' ? `${dayjs(block.date).format('M/D')}(${WEEKDAYS[block.weekday]}) 일정` : `매주 ${WEEKDAYS[block.weekday]}요일 일정`}
       onClose={onClose}
       actions={
         <>
