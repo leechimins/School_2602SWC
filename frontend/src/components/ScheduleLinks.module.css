@@ -28,9 +28,20 @@
   gap: 6px;
 }
 
+/* 링크 칸은 옆 버튼(.btn.small)과 같은 높이로, 다른 줄의 버튼보다 두꺼워 보이지 않게 */
 .input :global(.field) {
   flex: 1;
   min-width: 0;
+  min-height: 34px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+/* 직접 추가: 연동 줄에 딸린 보조 한 줄. 왼쪽 선으로 들여 쓴다 */
+.manual {
+  margin: 2px 0 4px;
+  padding-left: 10px;
+  border-left: 2px solid var(--line);
 }
 
 .msg {
@@ -48,4 +59,9 @@
   border-radius: 10px;
   background: var(--soft);
   font-size: var(--fs-meta);
+}
+
+.manual :global(.link) {
+  min-height: 0;
+  font-size: inherit;
 }

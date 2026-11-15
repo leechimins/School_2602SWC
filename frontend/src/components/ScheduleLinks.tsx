@@ -77,7 +77,7 @@ export default function ScheduleLinks({ blocks, onAdd, showLock = true }: Props)
           )}
         </div>
       </div>
-      <ManualRow onAdd={() => onAdd('weekly')} />
+      <ManualRow what="에타에 없는 매주 일정" onAdd={() => onAdd('weekly')} />
 
       <p className={styles.group}>일회성 일정</p>
       <div className={styles.row}>
@@ -99,7 +99,7 @@ export default function ScheduleLinks({ blocks, onAdd, showLock = true }: Props)
           </button>
         )}
       </div>
-      <ManualRow onAdd={() => onAdd('once')} />
+      <ManualRow what="캘린더에 없는 약속" onAdd={() => onAdd('once')} />
 
       {showLock && (
         <p className={styles.lock}>
@@ -110,14 +110,15 @@ export default function ScheduleLinks({ blocks, onAdd, showLock = true }: Props)
   )
 }
 
-// 직접 추가 줄: 연동 줄과 같은 모양(이름 | 버튼). 넣은 일정은 위 시간표에 보이므로 여기 다시 늘어놓지 않는다
-function ManualRow({ onAdd }: { onAdd: () => void }) {
+// 직접 추가: 연동이 먼저고 이것은 보조라, 연동 줄 아래 들여 쓴 작은 한 줄로 딸려 보인다.
+// 넣은 일정은 위 시간표에 보이므로 여기 다시 늘어놓지 않는다
+function ManualRow({ what, onAdd }: { what: string; onAdd: () => void }) {
   return (
-    <div className={styles.row}>
-      <p className="strong">직접 추가</p>
-      <button type="button" className="btn small" onClick={onAdd}>
-        추가
+    <p className={`meta ${styles.manual}`}>
+      {what}은{' '}
+      <button type="button" className="link" onClick={onAdd}>
+        직접 추가
       </button>
-    </div>
+    </p>
   )
 }
