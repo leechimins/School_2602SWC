@@ -5,7 +5,7 @@ import styles from './PeriodCard.module.css'
 type Props = {
   startDate: IsoDate
   dueDate: IsoDate
-  today: IsoDate // 시연 시계 기준
+  today: IsoDate // 서버가 준 오늘
 }
 
 // 기간 카드(홈·일정 맨 위): 왼쪽 마감 디데이 | 오른쪽 오늘 + 기간 막대(오늘 위치) + 시작·마감일.
