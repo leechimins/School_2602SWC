@@ -9,6 +9,19 @@
   font-size: 18px;
 }
 
+/* 이름을 누르면 이름 고치기 시트 */
+.nameBtn {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
 /* 묶음 제목 + 오른쪽 연한 안내 */
 .secHead {
   display: flex;
