@@ -29,6 +29,33 @@ export function writeTranscript(roomId: Id, meetingId: Id, text: string): Promis
   return write(() => request<void>(`/rooms/${roomId}/meetings/${meetingId}/transcript`, { method: 'PUT', body: { text } }))
 }
 
+/** 녹음 시작: 서버에 받아적는 중으로 표시한다. 확정된 회의만 되고, 다시 불러도 그대로다 */
+export async function startRecording(roomId: Id, meetingId: Id): Promise<void> {
+  await request(`/rooms/${roomId}/meetings/${meetingId}/recording/start`, { method: 'POST' })
+}
+
+const UPLOAD_TIMEOUT_MS = 130_000 // 서버가 AI로 받아적는 데 최대 2분
+
+/**
+ * 녹음 파일을 올리면 서버가 받아적어 목소리마다 A·B… 라벨을 붙인 원문을 돌려준다.
+ * 실패해도 서버는 받아적는 중 그대로라 같은 녹음으로 다시 올릴 수 있다
+ */
+export async function uploadRecording(roomId: Id, meetingId: Id, audio: Blob): Promise<MeetingDetail> {
+  return toMeetingDetail(
+    await request<ServerMeetingDetail>(`/rooms/${roomId}/meetings/${meetingId}/recording/audio`, {
+      method: 'POST',
+      audio,
+      timeoutMs: UPLOAD_TIMEOUT_MS,
+    }),
+  )
+}
+
+/** 말한 사람 정하기: 목소리 라벨마다 팀원 한 명(null은 모름). 그 라벨의 모든 줄에 반영된다 */
+export function mapSpeakers(roomId: Id, meetingId: Id, labels: Record<string, Id | null>): Promise<void> {
+  const body = { labels: Object.fromEntries(Object.entries(labels).map(([label, who]) => [label, who && Number(who)])) }
+  return write(() => request<void>(`/rooms/${roomId}/meetings/${meetingId}/speaker-mapping`, { method: 'PUT', body }))
+}
+
 const SUMMARIZE_TIMEOUT_MS = 25_000 // 정리는 20초까지 걸린다(브리프 "기다림과 빈 화면")
 
 /** 회의록 정리 + 할 일 뽑기(AI). 실패하면 "잠시 후 다시 해 주세요." 한 줄과 다시 하기로 이어 간다 */

@@ -1,8 +1,7 @@
-import dayjs from 'dayjs'
 import { useState } from 'react'
 import { messageOf } from '../api/client.ts'
 import { connectEverytime, connectGoogle } from '../api/me.ts'
-import { WEEKDAYS, type Recurrence, type WeekBlock } from '../types/me.ts'
+import type { Recurrence, WeekBlock } from '../types/me.ts'
 import Badge from './Badge.tsx'
 import styles from './ScheduleLinks.module.css'
 
@@ -14,11 +13,10 @@ type Props = {
 
 type Reading = { state: 'idle' } | { state: 'reading' } | { state: 'ok' | 'fail'; message: string }
 
-const hourText = (h: number) => (Number.isInteger(h) ? `${h}` : `${Math.floor(h)}:30`)
-
-// 내 일정 가져오기: 두 묶음 × [연동 / 직접 추가]. 직접 추가는 그 묶음 연동 아래에 딸린 줄로 보인다
-//   반복 일정(매주)   — 에브리타임 공유 링크(수업) └ 직접 추가(알바처럼 매주 있는 일)
-//   일회성 일정(그날) — 구글 캘린더(약속)         └ 직접 추가(그날만 있는 일)
+// 내 일정 가져오기: 두 묶음 × 두 방식 [연동 / 직접 추가]. 묶음 제목이 카드 제목을 대신하고,
+// 연동이 먼저라 연동은 줄로, 직접 추가는 제목 오른쪽 작은 링크로 둔다
+//   반복 일정(매주)   — 에브리타임 공유 링크(수업) / 직접 추가(알바처럼 매주 있는 일)
+//   일회성 일정(그날) — 구글 캘린더(약속)         / 직접 추가(그날만 있는 일)
 // 아직 아무것도 없으면 설명 문구 없이 제목과 버튼만 보인다
 export default function ScheduleLinks({ blocks, onAdd, showLock = true }: Props) {
   const [url, setUrl] = useState('')
@@ -27,12 +25,6 @@ export default function ScheduleLinks({ blocks, onAdd, showLock = true }: Props)
 
   const classCount = new Set(blocks.filter((b) => b.source === 'everytime').map((b) => b.title)).size
   const googleCount = blocks.filter((b) => b.source === 'google').length
-  const weekly = blocks.filter((b) => b.source === 'manual' && b.recurrence === 'weekly')
-  const once = blocks.filter((b) => b.source === 'manual' && b.recurrence === 'once')
-  const weeklyText = [...new Set(weekly.map((b) => b.title))]
-    .map((t) => `${t} · ${weekly.filter((b) => b.title === t).map((b) => `${WEEKDAYS[b.weekday]} ${hourText(b.startHour)}–${hourText(b.endHour)}시`).join(', ')}`)
-    .join(' / ')
-  const onceText = once.map((b) => `${b.title} · ${dayjs(b.date).format('M/D')} ${hourText(b.startHour)}–${hourText(b.endHour)}시`).join(' / ')
 
   const loadEverytime = async () => {
     setEt({ state: 'reading' })
@@ -57,18 +49,20 @@ export default function ScheduleLinks({ blocks, onAdd, showLock = true }: Props)
 
   return (
     <>
-      <p className={styles.group}>반복 일정</p>
+      <GroupHead title="반복 일정" onAdd={() => onAdd('weekly')} />
+      {/* 다른 줄처럼 이름 | 오른쪽 뱃지, 링크 칸은 그 아래 한 줄 전체 */}
       <div className={styles.row}>
         <div>
-          <p className="strong">
-            에브리타임 시간표 {classCount > 0 && <Badge tone="ok">가져옴</Badge>}
-          </p>
+          <p className="strong">에브리타임 시간표</p>
           {classCount > 0 && <p className="meta">수업 {classCount}개 · 링크를 다시 넣으면 새로 불러와요</p>}
+        </div>
+        {classCount > 0 && <Badge tone="ok">가져옴</Badge>}
+        <div className={styles.full}>
           <div className={styles.input}>
             <input
               className="field num"
               value={url}
-              placeholder="everytime.kr/@아이디"
+              placeholder="에타 시간표 → 공유 → 링크 복사"
               aria-label="에브리타임 공유 링크"
               onChange={(e) => setUrl(e.target.value)}
             />
@@ -84,9 +78,8 @@ export default function ScheduleLinks({ blocks, onAdd, showLock = true }: Props)
           )}
         </div>
       </div>
-      <ManualRow text={weeklyText} onAdd={() => onAdd('weekly')} />
 
-      <p className={styles.group}>일회성 일정</p>
+      <GroupHead title="일회성 일정" onAdd={() => onAdd('once')} />
       <div className={styles.row}>
         <div>
           <p className="strong">구글 캘린더</p>
@@ -106,7 +99,6 @@ export default function ScheduleLinks({ blocks, onAdd, showLock = true }: Props)
           </button>
         )}
       </div>
-      <ManualRow text={onceText} onAdd={() => onAdd('once')} />
 
       {showLock && (
         <p className={styles.lock}>
@@ -117,13 +109,14 @@ export default function ScheduleLinks({ blocks, onAdd, showLock = true }: Props)
   )
 }
 
-// 연동 아래 딸린 한 줄: 넣은 일정이 있으면 그 목록, 끝에 "+ 직접 추가"
-function ManualRow({ text, onAdd }: { text: string; onAdd: () => void }) {
+// 묶음 제목(카드 제목 크기) | 오른쪽 "직접 추가". 연동이 먼저고 직접 추가는 보조라 제목 옆 작은 링크로 둔다.
+// 넣은 일정은 위 시간표에 보이므로 여기 다시 늘어놓지 않는다
+function GroupHead({ title, onAdd }: { title: string; onAdd: () => void }) {
   return (
-    <div className={styles.sub}>
-      {text && <p className="meta">{text}</p>}
-      <button type="button" className={styles.add} onClick={onAdd}>
-        + 직접 추가
+    <div className={`row-between ${styles.group}`}>
+      <h2>{title}</h2>
+      <button type="button" className="link" onClick={onAdd}>
+        직접 추가
       </button>
     </div>
   )

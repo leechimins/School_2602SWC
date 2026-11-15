@@ -17,7 +17,6 @@ import {
   dueGroup,
   formatCountdown,
   formatDuration,
-  formatElapsed,
   formatRange,
   formatTimeRange,
   minutesBetween,
@@ -43,7 +42,7 @@ export default function HomePage() {
     </Link>
   )
   const title = home.status === 'ready' ? home.data.roomName : '홈'
-  // 보라 띠 머리: 로고 한 줄 + 흰 알약 상자에 팀 이름 + 종. 솜솜이 한 장이 기간 카드 위에 손을 걸친다
+  // 보라 띠 머리: 로고 | 반투명 흰 알약에 팀 이름 | 종. 솜솜이 한 장이 기간 카드 위에 손을 걸친다
   const hero = (
     <header className={styles.hero}>
       <div className={styles.heroText}>
@@ -69,8 +68,13 @@ export default function HomePage() {
           <NextMeeting home={home.data} />
           {home.data.canStartScheduling && (
             <Link to={PATHS.schedulingNew} className={`sec ${styles.newMeeting}`}>
-              <b>+ 새 회의 잡기</b>
-              <span className="meta">기간과 길이만 정하면 에이전트들이 시간을 조율해요</span>
+              <span className={styles.newIcon}>
+                <Icon name="calendar" />
+              </span>
+              <b>새 회의 잡기</b>
+              <span className={styles.plus} aria-hidden="true">
+                +
+              </span>
             </Link>
           )}
           <MyTasks tasks={home.data.myTasks} />
@@ -185,10 +189,7 @@ function NextMeeting({ home }: { home: Home }) {
             {formatTimeRange(m.startAt, m.endAt)} · {m.mode} · {formatDuration(minutesBetween(m.startAt, m.endAt))}
           </p>
           {started ? (
-            // 진행 중에도 같은 자리에 시계를 둔다: 시작한 지 얼마나 됐는지
-            <p className={styles.tick}>
-              회의 진행 중 · 시작한 지 <span className="num">{formatElapsed(m.startAt, now)}</span>
-            </p>
+            <p className={styles.tick}>회의 진행 중</p>
           ) : (
             <p className={styles.tick}>
               시작까지 <span className="num">{formatCountdown(m.startAt, now)}</span>

@@ -5,7 +5,7 @@ export type ConfirmResult = { ok: boolean; value: string }
 
 type Props = {
   title: string // "이 할 일을 삭제할까요?"
-  body: string // 무엇을 하는지
+  body?: string // 무엇을 하는지. 제목으로 충분하면 비운다
   okLabel: string // 하는 일 이름: "삭제", "막힘으로 바꾸기"
   danger?: boolean // 삭제류는 빨간 버튼
   irreversible?: boolean // "되돌릴 수 없습니다" 안내
@@ -35,7 +35,7 @@ export default function ConfirmSheet({ title, body, okLabel, danger = false, irr
     // Esc로 닫으면 취소
     <dialog ref={ref} className={styles.sheet} onCancel={() => close(false)}>
       <h2 className={styles.title}>{title}</h2>
-      <p>{body}</p>
+      {body && <p>{body}</p>}
       {irreversible && <p className="meta">되돌릴 수 없습니다.</p>}
       {input && (
         <input

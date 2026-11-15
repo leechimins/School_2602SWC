@@ -63,11 +63,11 @@ export default function MePage() {
         <Avatar name={user.name} size="large" />
         <div className={styles.who}>
           <p className={styles.nameLine}>
+            {user.isLeader && <Badge tone="here">팀장</Badge>}
             <b className={styles.name}>{user.name}</b>
             <button type="button" className={styles.pencil} onClick={() => setEditingName(true)} aria-label="이름 고치기">
               <Icon name="pencil" small />
             </button>
-            {user.isLeader && <Badge tone="here">팀장</Badge>}
           </p>
           {room.status === 'ready' && <p className="meta">{room.data.name}</p>}
         </div>
@@ -89,7 +89,6 @@ export default function MePage() {
       )}
 
       <section className="sec">
-        <h2>내 일정 가져오기</h2>
         {thisWeek.status === 'error' && <RetryBox message={thisWeek.message} onRetry={thisWeek.reload} />}
         {thisWeek.status === 'ready' && <ScheduleLinks blocks={thisWeek.data.blocks} onAdd={openAdd} showLock={false} />}
       </section>
@@ -166,9 +165,15 @@ function NameSheet({ current, onClose }: { current: string; onClose: () => void 
     >
       <label className={form.label}>
         이름 (성까지)
-        <input className="field" value={name} maxLength={20} placeholder="이지민" autoFocus onChange={(e) => setName(e.target.value)} />
+        <input
+          className="field"
+          value={name}
+          maxLength={20}
+          placeholder="회의록 “이름: 말”의 이름과 같게"
+          autoFocus
+          onChange={(e) => setName(e.target.value)}
+        />
       </label>
-      <p className="meta">회의록에 붙여 넣는 "이름: 말" 줄의 이름과 똑같이 써 주세요.</p>
       {error && (
         <p className={form.error} role="alert">
           {error}

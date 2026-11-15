@@ -8,6 +8,12 @@
   background: var(--sub-soft);
 }
 
+/* 흰 묶음(.sec) 안에서는 상자를 또 두르지 않고 줄만 남긴다 */
+:global(.sec) > .waiting {
+  padding: 0;
+  background: none;
+}
+
 .what {
   font-weight: 600;
 }

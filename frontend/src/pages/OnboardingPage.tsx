@@ -96,7 +96,7 @@ function PrefStep({ initial, onSkip, onNext }: { initial: Preferences; onSkip: (
         </div>
       }
     >
-      <Question title="회의 잡을 때 쓸 조건 네 가지" hint="고르지 않은 건 비워 둬도 돼요. 시작한 뒤에도 My 탭에서 언제든 고칠 수 있어요." />
+      <Question title="회의 조건 설정" hint="모든 항목은 선택이며 My 탭에서 변경할 수 있습니다." />
       <section className="sec">
         <PrefForm value={draft} onChange={setDraft} />
         {error && (
@@ -133,7 +133,7 @@ function LinkStep({ onPrev, onNext }: StepProps) {
         </div>
       }
     >
-      <Question title="내 일정 연결하기" hint="수업과 개인 일정 시간은 에이전트가 빼고 조율해요." />
+      <Question title="일정 연결" hint="등록한 일정 시간은 조율에서 제외됩니다." />
       <section className="sec">
         {week.status === 'error' && <RetryBox message={week.message} onRetry={week.reload} />}
         {week.status === 'ready' && (
@@ -184,7 +184,7 @@ function ReadyStep({ prefs, onPrev }: { prefs: Preferences; onPrev: () => void }
         </div>
       }
     >
-      <Question title="내 에이전트가 준비됐어요" hint="고른 조건으로 이렇게 말해요. 시작한 뒤에도 My 탭에서 언제든 고칠 수 있어요." />
+      <Question title="설정 완료" hint="에이전트는 위 조건으로 조율에 참여합니다." />
       <AgentQuote name={user.name} prefs={prefs} />
     </Screen>
   )

@@ -19,6 +19,7 @@ export class ApiError extends Error {
 type RequestOptions = {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
   body?: unknown
+  audio?: Blob // 녹음 파일은 JSON 대신 그대로 보낸다
   timeoutMs?: number
 }
 
@@ -32,8 +33,8 @@ export async function request<Raw>(path: string, options: RequestOptions = {}): 
     res = await fetch(`${API_URL}${path}`, {
       method: options.method ?? 'GET',
       credentials: 'include', // 세션 쿠키
-      headers: { 'Content-Type': 'application/json' },
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      headers: { 'Content-Type': options.audio ? options.audio.type || 'audio/webm' : 'application/json' },
+      body: options.audio ?? (options.body === undefined ? undefined : JSON.stringify(options.body)),
       signal: AbortSignal.timeout(options.timeoutMs ?? TIMEOUT_MS),
     })
   } catch (e) {

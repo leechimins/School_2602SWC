@@ -21,10 +21,13 @@ export default function AgentBubble({ utterance: u, isMine, isNew }: Props) {
     <div className={`${styles.msg} ${isMine ? styles.mine : ''} ${isNew ? styles.enter : ''}`}>
       {!isMine && <Avatar name={name} size="small" />}
       <div className={styles.body}>
-        <div className={styles.who}>
-          <span className={styles.name}>{isMine ? '내 에이전트' : `${name || '팀원'}의 에이전트`}</span>
-          {u.answer && <Badge tone={tone}>{burden ? `${u.answer} · ${burden}` : u.answer}</Badge>}
-        </div>
+        {/* 오른쪽 내 말풍선은 누가 말했는지 뻔해서 이름을 빼고 응답 뱃지만 둔다 */}
+        {(!isMine || u.answer) && (
+          <div className={styles.who}>
+            {!isMine && <span className={styles.name}>{`${name || '팀원'}의 에이전트`}</span>}
+            {u.answer && <Badge tone={tone}>{burden ? `${u.answer} · ${burden}` : u.answer}</Badge>}
+          </div>
+        )}
         <p className={styles.text}>{u.text}</p>
       </div>
     </div>

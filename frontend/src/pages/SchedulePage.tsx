@@ -23,7 +23,7 @@ import {
   minutesBetween,
 } from '../lib/date.ts'
 import { answerLine, isAdhoc } from '../lib/meeting.ts'
-import { PATHS, pathTo } from '../lib/paths.ts'
+import { pathTo } from '../lib/paths.ts'
 import type { MeetingBrief, Schedule } from '../types/meeting.ts'
 import styles from './SchedulePage.module.css'
 
@@ -62,6 +62,14 @@ function ScheduleBody({ schedule, canStartScheduling, total }: BodyProps) {
     [user.roomId, user.id, today?.id],
   )
   const recorded = todayDetail.status === 'ready' && !!todayDetail.data && todayDetail.data.transcript.length > 0
+  // 지난 회의도 기록했는지는 회의마다 따로 본다. 시간만 지나고 기록 안 한 회의는 "기록하기"로 보낸다
+  const pastIds = past.map((m) => m.id)
+  const pastDetails = useApi(
+    () => Promise.all(pastIds.map((id) => getMeeting(user.roomId, id))),
+    [user.roomId, user.id, pastIds.join()],
+  )
+  const recordedPast = (id: string) =>
+    pastDetails.status === 'ready' ? pastDetails.data.some((d) => d.id === id && d.transcript.length > 0) : null
 
   return (
     <>
@@ -94,8 +102,7 @@ function ScheduleBody({ schedule, canStartScheduling, total }: BodyProps) {
         {upcoming.length === 0 ? (
           <EmptyState
             title="잡힌 회의가 없어요"
-            description={canStartScheduling ? '마감 전에 필요할 때 언제든 잡아요.' : '팀장이 회의를 잡으면 알려 드려요.'}
-            action={canStartScheduling ? { label: '새 회의 잡기', to: PATHS.schedulingNew } : undefined}
+            description={canStartScheduling ? '새 회의는 홈에서 잡아요.' : '팀장이 회의를 잡으면 알려 드려요.'}
           />
         ) : (
           upcoming.map((m) => (
@@ -116,27 +123,32 @@ function ScheduleBody({ schedule, canStartScheduling, total }: BodyProps) {
             description="회의를 기록하면 요약과 할 일 제안이 여기에 쌓여요."
           />
         ) : (
-          past.map((m) => (
-            <Link key={m.id} to={pathTo.meeting(m.id)} className={styles.row}>
-              <DateBlock at={m.startAt} muted />
-              <span className={styles.body}>
-                <span className="strong">{m.topic}</span>
-                <span className="meta num">
-                  {formatDuration(minutesBetween(m.startAt, m.endAt))} · {m.mode}
-                </span>
-                {m.suggestionCount > 0 && (
-                  <span className={styles.mark}>
-                    <AiMark label={`제안 ${m.suggestionCount}개`} />
-                  </span>
-                )}
-              </span>
-              {/* 줄 전체가 링크라 버튼은 모양만 낸다(링크 안에 링크를 넣지 않음) */}
-              <span className="btn small">회의록 보기</span>
-            </Link>
-          ))
+          past.map((m) => <PastRow key={m.id} meeting={m} recorded={recordedPast(m.id)} />)
         )}
       </section>
     </>
+  )
+}
+
+// 지난 회의 한 줄: 기록했으면 회의록으로, 시간만 지나고 기록 안 했으면 기록 화면으로. 확인 전(null)에는 버튼을 비운다
+function PastRow({ meeting: m, recorded }: { meeting: MeetingBrief; recorded: boolean | null }) {
+  return (
+    <Link to={recorded === false ? pathTo.record(m.id) : pathTo.meeting(m.id)} className={styles.row}>
+      <DateBlock at={m.startAt} muted />
+      <span className={styles.body}>
+        <span className="strong">{m.topic}</span>
+        <span className="meta num">
+          {formatDuration(minutesBetween(m.startAt, m.endAt))} · {m.mode}
+        </span>
+        {m.suggestionCount > 0 && (
+          <span className={styles.mark}>
+            <AiMark label={`제안 ${m.suggestionCount}개`} />
+          </span>
+        )}
+      </span>
+      {/* 줄 전체가 링크라 버튼은 모양만 낸다(링크 안에 링크를 넣지 않음) */}
+      {recorded !== null && <span className="btn small">{recorded ? '회의록 보기' : '기록하기'}</span>}
+    </Link>
   )
 }
 
@@ -180,8 +192,6 @@ function RecordNow({ todayMeeting }: { todayMeeting: MeetingBrief | null }) {
   const navigate = useNavigate()
   const [asking, setAsking] = useState(false)
   const [error, setError] = useState('')
-  const label = '지금 회의 기록하기'
-  const verb = '기록해요'
 
   const open = async (topic: string) => {
     try {
@@ -203,11 +213,11 @@ function RecordNow({ todayMeeting }: { todayMeeting: MeetingBrief | null }) {
           <Icon name="mic" />
         </span>
         <span>
-          <b>{label}</b>
+          <b>지금 회의 기록하기</b>
           <span>
             {todayMeeting
-              ? `오늘 ${formatTimeRange(todayMeeting.startAt, todayMeeting.endAt)} '${todayMeeting.topic}' 회의를 ${verb}`
-              : `잡힌 회의가 없어도 주제 한 줄만 쓰고 바로 ${verb}`}
+              ? `오늘 ${formatTimeRange(todayMeeting.startAt, todayMeeting.endAt)} ‘${todayMeeting.topic}’`
+              : '주제만 정하고 바로 시작'}
           </span>
         </span>
       </button>
@@ -219,7 +229,6 @@ function RecordNow({ todayMeeting }: { todayMeeting: MeetingBrief | null }) {
       {asking && (
         <ConfirmSheet
           title="지금 회의를 기록할까요?"
-          body="잡힌 회의가 없어도 바로 시작해요. 끝나면 지난 회의 목록에 들어가요."
           okLabel="기록 시작"
           irreversible={false}
           input={{ label: '회의 주제', placeholder: '예: 발표 순서 정하기', required: '회의 주제를 적어 주세요.' }}

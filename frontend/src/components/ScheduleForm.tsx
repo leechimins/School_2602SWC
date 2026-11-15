@@ -128,7 +128,7 @@ function OnceForm({ onSaved, onCancel }: FormProps) {
     <Sheet title="일회성 일정 추가" onClose={onCancel} actions={<Actions saving={saving} onCancel={onCancel} onSave={save} />}>
       <label className={form.label}>
         이름 (나만 보여요)
-        <input className="field" value={title} maxLength={20} placeholder="예: 병원 예약" onChange={(e) => setTitle(e.target.value)} />
+        <input className="field" value={title} maxLength={20} placeholder="예: 동아리 MT" onChange={(e) => setTitle(e.target.value)} />
       </label>
       <label className={form.label}>
         날짜

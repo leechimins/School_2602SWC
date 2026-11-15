@@ -56,9 +56,11 @@ export function addScheduleItem(input: ScheduleItemInput): Promise<void> {
         }
   return write(async () => {
     await request('/me/schedule/items', { method: 'POST', body }).catch((e: unknown) => {
-      // 일정 추가 API가 아직 없으면(404·405) "잠시 후 다시" 대신 못 한다고 알린다
-      if (e instanceof ApiError && (e.status === 404 || e.status === 405)) {
-        throw new ApiError(e.status, 'SCHEDULE_ADD_UNAVAILABLE', '지금은 일정을 직접 넣을 수 없어요.')
+      // 일정 추가 API가 아직 없으면(404·405) "잠시 후 다시" 대신 못 한다고 알린다.
+      // 서버가 아직 매주 반복만 받아서(#58) 한 번만 일정은 422(days 빠짐)가 온다. "Field required" 대신 같은 안내
+      if (e instanceof ApiError && (e.status === 404 || e.status === 405 || (input.recurrence === 'once' && e.status === 422))) {
+        const what = input.recurrence === 'once' ? '일회성 일정은' : '일정을'
+        throw new ApiError(e.status, 'SCHEDULE_ADD_UNAVAILABLE', `지금은 ${what} 직접 넣을 수 없어요.`)
       }
       throw e
     })

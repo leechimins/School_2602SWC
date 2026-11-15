@@ -20,16 +20,21 @@
   gap: 4px;
 }
 
-/* 부담 묶음 맨 위의 내 줄: 나만 보이는 줄이라 포인트 바탕 */
+/* 부담 묶음 맨 위의 내 줄: 상자 없이 한 줄, 점수만 포인트색 */
 .mine {
   display: flex;
   gap: var(--gap-2);
   align-items: center;
   justify-content: space-between;
-  margin-bottom: var(--gap-1);
-  padding: var(--gap-2) var(--gap-3);
-  border-radius: 10px;
-  background: var(--point-soft);
+  min-height: 40px;
+}
+
+.mine:not(:last-child) {
+  border-bottom: 1px solid var(--line);
+}
+
+.score {
+  color: var(--point-ink);
 }
 
 .mine > :global(.meta) {
@@ -49,35 +54,42 @@
   border-bottom: 0;
 }
 
-/* 판단 에이전트 카드: 묶음(.sec)과 같은 좌우 여백 */
-.judge {
-  margin: 10px 12px 0;
+/* 판단 근거 카드 맨 위: 판단 에이전트의 말. 노랑 글자로 AI가 한 말임을 보인다 */
+.judgeHead {
+  margin: 0;
+  color: var(--sub-ink);
+  font-size: 12px;
+  font-weight: 700;
 }
 
+.judgeSay {
+  margin: 2px 0 var(--gap-2);
+  padding-bottom: var(--gap-2);
+  border-bottom: 1px solid var(--line);
+}
+
+/* 결과 카드 아래: "N명 중 M명 수락" + 사람별 칩 */
 .responses {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: var(--gap-1);
-  margin: var(--gap-2) 0;
-  text-align: center;
-  font-size: var(--fs-meta);
-}
-
-.responses > div {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--gap-1);
+  gap: var(--gap-2);
+  margin-top: var(--gap-3);
+  padding-top: var(--gap-3);
+  border-top: 1px solid var(--line);
 }
 
-.flush {
-  margin: 0 !important;
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-meta);
+  font-weight: 600;
 }
 
 .inline {
   display: flex;
   gap: var(--gap-2);
-  margin-top: var(--gap-2);
 }
 
 .inline > :global(.field) {

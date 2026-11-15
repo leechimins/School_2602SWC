@@ -1,5 +1,6 @@
 import { useLocation, useSearchParams } from 'react-router-dom'
 import { getActivity } from '../api/notifications.ts'
+import EmptyState from '../components/EmptyState.tsx'
 import RetryBox from '../components/RetryBox.tsx'
 import Screen from '../components/Screen.tsx'
 import Segmented from '../components/Segmented.tsx'
@@ -34,11 +35,15 @@ export default function ActivityPage() {
       {res.status === 'ready' && tab === '한 일' && (
         <section className="sec">
           {res.data.agentLog.length === 0 ? (
-            <p className="meta">아직 에이전트가 한 일이 없어요.</p>
+            <EmptyState title="아직 에이전트가 한 일이 없어요" description="회의를 잡으면 에이전트가 한 일을 여기 남겨요." />
           ) : (
             res.data.agentLog.map((a) => (
+              // 무엇을 했나(제안·다시 조율·확정) 아래에 왜 그랬는지 한 줄
               <div key={a.id} className={`${styles.record} ${styles.log}`}>
-                <p className="strong">{a.what}</p>
+                <div>
+                  <p className="strong">{a.what}</p>
+                  {a.why && <p className="meta">{a.why}</p>}
+                </div>
                 <span className="meta num">{formatStamp(a.at)}</span>
               </div>
             ))
@@ -48,7 +53,8 @@ export default function ActivityPage() {
       {res.status === 'ready' && tab === '양보' && (
         <section className="sec">
           {res.data.yieldRecords.length === 0 ? (
-            <p className="meta">회의가 잡히면 누가 맞춰 줬는지 남겨요.</p>
+            // 불편 1/5(비어 있는 시간)로 잡힌 회의는 아무도 맞춰 준 게 아니라 기록이 없다
+            <EmptyState title="아직 양보 기록이 없어요" description="불편한 시간을 맞춰 준 사람이 생기면 남겨요." />
           ) : (
             res.data.yieldRecords.map((y) => (
               <div key={y.id} className={styles.record}>

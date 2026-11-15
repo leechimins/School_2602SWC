@@ -1,5 +1,6 @@
+/* 위 12px: 다른 화면 첫 카드(.sec)와 같은 높이에서 시작 */
 .head {
-  padding: 2px var(--sp) 10px;
+  padding: 12px var(--sp) 10px;
 }
 
 .topic {
@@ -76,6 +77,12 @@
   flex: 1;
   height: 1px;
   background: var(--line);
+}
+
+/* 거절 뒤 다시 조율한 라운드: 구분선 아래 왜 다시 하는지 한 줄 */
+.rerun {
+  margin: -2px 0 6px;
+  text-align: center;
 }
 
 .replay {

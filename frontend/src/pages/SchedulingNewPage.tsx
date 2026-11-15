@@ -98,13 +98,13 @@ function SchedulingForm({ room }: { room: Room }) {
           주제
           <input className="field" value={input.topic} maxLength={40} placeholder="예: 중간 점검 전 회의" onChange={(e) => set('topic', e.target.value)} />
         </label>
-        <span className={form.label}>언제부터 언제 사이에</span>
+        <span className={form.label}>기간</span>
         <div className={form.range}>
           <input className="field num" type="date" aria-label="시작하는 날" value={input.windowStart} onChange={(e) => set('windowStart', e.target.value)} />
           <span>–</span>
           <input className="field num" type="date" aria-label="끝나는 날" value={input.windowEnd} onChange={(e) => set('windowEnd', e.target.value)} />
         </div>
-        <span className={form.label}>회의 길이 (30분 단위)</span>
+        <span className={form.label}>소요 시간</span>
         <div className={form.stepper}>
           <button type="button" aria-label="30분 줄이기" disabled={input.durationMin <= STEP_MIN} onClick={() => changeLength(-STEP_MIN)}>
             −
@@ -123,11 +123,6 @@ function SchedulingForm({ room }: { room: Room }) {
             {error}
           </p>
         )}
-      </section>
-      <section className="sec">
-        <p className="meta">
-          팀원 {room.members.length}명의 에이전트가 각자의 시간표와 조건으로 조율해요. 최대 3라운드, 30초쯤 걸려요.
-        </p>
       </section>
     </Screen>
   )

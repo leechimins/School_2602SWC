@@ -37,6 +37,7 @@ export type Schedule = {
 
 export type TranscriptLine = {
   seq: number
+  speakerLabel: string | null // 녹음으로 받아적은 줄의 목소리 라벨 "A"·"B". 직접 쓴 줄은 null
   speakerId: Id | null
   speakerName: string | null // 받아적는 동안은 "목소리 A"
   text: string

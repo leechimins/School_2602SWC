@@ -48,7 +48,11 @@ export default function Screen({ title, backTo, onBack, aux, hero, dock, childre
         {hero}
         {children}
       </main>
-      {dock && <div className={styles.dock}>{dock}</div>}
+      {dock && (
+        <div className={styles.dock} data-dock>
+          {dock}
+        </div>
+      )}
     </div>
   )
 }

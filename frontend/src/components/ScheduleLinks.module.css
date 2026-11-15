@@ -6,45 +6,43 @@
   padding: 8px 0;
 }
 
-/* 직접 추가: 위 연동에 딸린 한 줄. 왼쪽 선으로 들여 쓴다 */
-.sub {
-  margin-left: 6px;
-  padding-left: 12px;
-  border-left: 2px solid var(--line);
+/* 이름 | 뱃지 줄 아래로 한 줄 전체를 쓰는 칸(에타 링크 입력) */
+.full {
+  grid-column: 1 / -1;
 }
 
-.add {
-  min-height: 30px;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--point-ink);
-  font-size: var(--fs-meta);
-  font-weight: 600;
-}
-
-/* 묶음 이름: 반복 일정 / 일회성 일정 */
+/* 묶음 제목 줄: 반복 일정 / 일회성 일정 (글자는 .sec h2) | 직접 추가 */
 .group {
-  margin: 14px 0 0;
-  color: var(--muted);
-  font-size: var(--fs-meta);
-  font-weight: 700;
+  margin-top: 18px;
 }
 
 .group:first-child {
   margin-top: 0;
 }
 
+.group h2 {
+  margin: 0;
+}
+
+.group :global(.link) {
+  min-height: 0;
+  font-size: var(--fs-meta);
+}
+
 .input {
   display: flex;
   gap: 6px;
-  margin-top: 6px;
 }
 
+/* 링크 칸은 옆 버튼(.btn.small)과 같은 높이로, 다른 줄의 버튼보다 두꺼워 보이지 않게 */
 .input :global(.field) {
   flex: 1;
   min-width: 0;
+  min-height: 34px;
+  padding: 0 12px;
+  font-size: 13px;
 }
+
 
 .msg {
   margin-top: 6px;
@@ -62,3 +60,4 @@
   background: var(--soft);
   font-size: var(--fs-meta);
 }
+
