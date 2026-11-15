@@ -16,7 +16,7 @@ const lookOf = (b: WeekBlock): Look => (b.kind === 'event' ? (b.source === 'goog
 const LEGEND: [Look, string][] = [
   ['class', '수업'],
   ['google', '캘린더'],
-  ['manual', '직접 넣음'],
+  ['manual', '직접 추가'],
   ['meeting', '팀 회의'],
   ['waiting', '회의 대기'],
 ]

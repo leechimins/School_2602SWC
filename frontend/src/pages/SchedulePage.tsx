@@ -21,7 +21,7 @@ import {
   isSameDay,
   minutesBetween,
 } from '../lib/date.ts'
-import { answerLine } from '../lib/meeting.ts'
+import { answerLine, isAdhoc } from '../lib/meeting.ts'
 import { pathTo } from '../lib/paths.ts'
 import type { MeetingBrief, Schedule } from '../types/meeting.ts'
 import styles from './SchedulePage.module.css'
@@ -130,13 +130,14 @@ function ScheduleBody({ schedule, canStartScheduling, total }: BodyProps) {
 
 type RowProps = { meeting: MeetingBrief; isToday: boolean; recorded: boolean; total: number | null }
 
-// 잡힌 회의 한 줄: 누르면 조율 결과로. 오늘 회의면 오른쪽에 기록 시작(기록했으면 회의록 보기)
+// 잡힌 회의 한 줄: 누르면 조율 결과로(바로 기록한 회의는 조율 결과가 없어 회의록으로).
+// 오늘 회의면 오른쪽에 기록 시작(기록했으면 회의록 보기)
 function UpcomingRow({ meeting: m, isToday, recorded, total }: RowProps) {
   const confirmed = m.status === 'confirmed'
   const line = answerLine(m, total)
   return (
     <div className={styles.row}>
-      <Link to={pathTo.proposal(m.id)} className={styles.main}>
+      <Link to={isAdhoc(m) ? pathTo.meeting(m.id) : pathTo.proposal(m.id)} className={styles.main}>
         <DateBlock at={m.startAt} />
         <span className={styles.body}>
           <span className="strong">{m.topic}</span>
