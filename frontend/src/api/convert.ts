@@ -409,7 +409,7 @@ export type ServerMeetingDetail = {
   status: MeetingStatus
   transcript_mode: 'stt' | 'manual' | null
   attendees: { user_id: number; name: string }[]
-  transcript: { seq: number; speaker_user_id: number | null; speaker_name: string | null; text: string }[]
+  transcript: { seq: number; speaker_label: string | null; speaker_user_id: number | null; speaker_name: string | null; text: string }[]
   minutes: ServerMinutes | null
   tasks: ServerTask[]
   done_tasks?: ServerTask[]
@@ -432,7 +432,13 @@ export const toMeetingDetail = (r: ServerMeetingDetail): MeetingDetail => ({
   mode: meetingMode(r.mode),
   status: r.status,
   attendees: r.attendees.map((a) => a.name),
-  transcript: r.transcript.map((l) => ({ seq: l.seq, speakerId: optId(l.speaker_user_id), speakerName: l.speaker_name, text: l.text })),
+  transcript: r.transcript.map((l) => ({
+    seq: l.seq,
+    speakerLabel: l.speaker_label,
+    speakerId: optId(l.speaker_user_id),
+    speakerName: l.speaker_name,
+    text: l.text,
+  })),
   minutes: r.minutes,
   tasks: r.tasks.map(toTask),
   doneTasks: (r.done_tasks ?? []).map(toTask), // "회의에서 끝난 일". 진행 중으로 되돌리면 서버가 목록에서 뺀다
