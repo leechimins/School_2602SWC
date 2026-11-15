@@ -127,7 +127,7 @@
 | MyPage | 일정 지우기 | DELETE | `/me/schedule/items/{id}` | A | Medium |  | 미착수 | 미착수 |
 | MyPage | 묶인 일정 고치기 | PUT | `/me/schedule/groups/{id}` | A | Low | 요일마다 다른 시간 | 미착수 | 미착수 |
 | MyPage | 묶인 일정 지우기 | DELETE | `/me/schedule/groups/{id}` | A | Low |  | 미착수 | 미착수 |
-| MyPage | 에브리타임 연결 | POST | `/me/integrations/everytime` | B | Low | 링크 붙여넣기. 사람 확인 단계 없음. 다시 보내면 다시 불러오기. 약 11초 | **완료** | 미착수 |
+| MyPage | 에브리타임 연결 | POST | `/me/integrations/everytime` | B | Low | 링크 붙여넣기. 사람 확인 단계 없음. 다시 보내면 다시 불러오기. 약 2~4초. 연동이 서버에 없으면 503 `EVERYTIME_NOT_CONFIGURED`(직접 입력 안내) | **완료** | 미착수 |
 | MyPage | 에브리타임 끊기 | DELETE | `/me/integrations/everytime` | B | Low | 에브리타임 수업만 지움 | **완료** | 미착수 |
 | MyPage | 구글 캘린더 연결 | POST | `/me/integrations/google-calendar` | B | Low | 읽기 권한만. 팀 전체 빼는 2순위. 약속은 제목 없이 "바쁨" | **완료** | 미착수 |
 | MyPage | 구글 캘린더 끊기 | DELETE | `/me/integrations/google-calendar` | B | Low | “ | **완료** | 미착수 |
