@@ -17,7 +17,7 @@
   font-size: var(--fs-body);
 }
 
-/* 묶음 이름: 매주 반복 / 한 번만 */
+/* 묶음 이름: 반복형 / 비반복형 */
 .group {
   margin: 14px 0 0;
   color: var(--muted);

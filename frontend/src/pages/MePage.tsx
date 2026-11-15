@@ -60,19 +60,23 @@ export default function MePage() {
     <Screen title="My">
       <div className={styles.profile}>
         <Avatar name={user.name} size="large" />
-        <div>
-          <button type="button" className={styles.nameBtn} onClick={() => setEditingName(true)} aria-label="이름 고치기">
+        <div className={styles.who}>
+          <p className={styles.nameLine}>
             <b className={styles.name}>{user.name}</b>
-            <span className="meta">고치기</span>
-          </button>{' '}
-          {user.isLeader && <Badge tone="here">팀장</Badge>}
+            {user.isLeader && <Badge tone="here">팀장</Badge>}
+          </p>
           {room.status === 'ready' && <p className="meta">{room.data.name}</p>}
         </div>
-        {prefs.status === 'ready' && (
-          <button type="button" className={`btn small ${styles.prefBtn}`} onClick={() => setEditingPrefs(true)}>
-            좋아하는 방식 바꾸기
+        <div className={styles.profileBtns}>
+          <button type="button" className="btn small" onClick={() => setEditingName(true)}>
+            이름 고치기
           </button>
-        )}
+          {prefs.status === 'ready' && (
+            <button type="button" className="btn small" onClick={() => setEditingPrefs(true)}>
+              좋아하는 방식 바꾸기
+            </button>
+          )}
+        </div>
       </div>
 
       {editingName && <NameSheet current={user.name} onClose={() => setEditingName(false)} />}
@@ -86,10 +90,7 @@ export default function MePage() {
       )}
 
       <section className="sec">
-        <div className={styles.secHead}>
-          <h2>내 일정 가져오기</h2>
-          <span>팀원에겐 바쁜지만 보여요</span>
-        </div>
+        <h2>내 일정 가져오기</h2>
         {thisWeek.status === 'error' && <RetryBox message={thisWeek.message} onRetry={thisWeek.reload} />}
         {thisWeek.status === 'ready' && <ScheduleLinks blocks={thisWeek.data.blocks} onAdd={openAdd} showLock={false} />}
       </section>

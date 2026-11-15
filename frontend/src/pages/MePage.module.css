@@ -9,17 +9,16 @@
   font-size: 18px;
 }
 
-/* 이름을 누르면 이름 고치기 시트 */
-.nameBtn {
-  display: inline-flex;
-  align-items: baseline;
+.who {
+  min-width: 0;
+}
+
+/* 이름 바로 옆에 팀장 뱃지 */
+.nameLine {
+  display: flex;
+  align-items: center;
   gap: 6px;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
+  margin: 0;
 }
 
 /* 묶음 제목 + 오른쪽 연한 안내 */
@@ -39,8 +38,11 @@
   margin-top: 8px;
 }
 
-/* 프로필 줄 오른쪽 끝 */
-.prefBtn {
+/* 프로필 줄 오른쪽 끝: 이름 고치기 · 좋아하는 방식 바꾸기를 같은 폭으로 세로로 */
+.profileBtns {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   margin-left: auto;
   flex-shrink: 0;
 }
