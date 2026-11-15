@@ -16,9 +16,9 @@ type Reading = { state: 'idle' } | { state: 'reading' } | { state: 'ok' | 'fail'
 
 const hourText = (h: number) => (Number.isInteger(h) ? `${h}` : `${Math.floor(h)}:30`)
 
-// 내 일정 가져오기: 두 묶음 × [연동 / 직접 추가]
-//   매주 반복 — 에브리타임 공유 링크(수업) · 직접 추가(알바처럼 매주 있는 일)
-//   한 번만   — 구글 캘린더(약속) · 직접 추가(그날만 있는 일)
+// 내 일정 가져오기: 두 묶음 × [연동 / 직접 추가]. 직접 추가는 그 묶음 연동 아래에 딸린 줄로 보인다
+//   매주 반복 — 에브리타임 공유 링크(수업) └ 직접 추가(알바처럼 매주 있는 일)
+//   한 번만   — 구글 캘린더(약속)         └ 직접 추가(그날만 있는 일)
 export default function ScheduleLinks({ blocks, onAdd, showLock = true }: Props) {
   const [url, setUrl] = useState('')
   const [et, setEt] = useState<Reading>({ state: 'idle' })
@@ -114,7 +114,7 @@ export default function ScheduleLinks({ blocks, onAdd, showLock = true }: Props)
 
 function ManualRow({ text, onAdd }: { text: string; onAdd: () => void }) {
   return (
-    <div className={styles.row}>
+    <div className={`${styles.row} ${styles.sub}`}>
       <div>
         <p className="strong">직접 추가</p>
         <p className="meta">{text}</p>

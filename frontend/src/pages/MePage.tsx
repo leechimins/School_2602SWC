@@ -12,7 +12,6 @@ import RetryBox from '../components/RetryBox.tsx'
 import ScheduleEditSheet from '../components/ScheduleEditSheet.tsx'
 import ScheduleForm from '../components/ScheduleForm.tsx'
 import ScheduleLinks from '../components/ScheduleLinks.tsx'
-import MoreLink from '../components/MoreLink.tsx'
 import Screen from '../components/Screen.tsx'
 import Segmented from '../components/Segmented.tsx'
 import Sheet from '../components/Sheet.tsx'
@@ -78,7 +77,6 @@ export default function MePage() {
           {editingPrefs && <PrefSheet initial={prefs.data} onClose={() => setEditingPrefs(false)} />}
         </>
       )}
-      <MoreLink to={PATHS.meActivity} label="에이전트 기록 보기" />
 
       <section className="sec">
         <div className={styles.secHead}>
@@ -93,7 +91,7 @@ export default function MePage() {
         <div className="row-between">
           <div className={styles.secHead}>
             <h2>내 시간</h2>
-            <span>직접 넣은 일정은 길게 눌러 수정</span>
+            <span>직접 넣은 일정은 눌러서 수정</span>
           </div>
           {shown.status === 'ready' && <span className="meta num">{formatRange(shown.data.weekStart, shown.data.weekEnd)}</span>}
         </div>
@@ -120,7 +118,7 @@ export default function MePage() {
 
       {room.status === 'error' && <RetryBox message={room.message} onRetry={room.reload} />}
       {room.status === 'ready' && <TeamSection room={room.data} />}
-      <button type="button" className="btn quiet block" onClick={logout}>
+      <button type="button" className="btn del block" onClick={logout}>
         로그아웃
       </button>
     </Screen>

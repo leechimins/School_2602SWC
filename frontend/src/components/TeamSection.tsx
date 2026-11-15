@@ -38,7 +38,7 @@ export default function TeamSection({ room }: { room: Room }) {
         </ul>
         <p className="meta">
           막대는 지금까지 회의 시간을 얼마나 맞춰 줬는지예요. 많이 맞춰 준 사람을 다음 조율에서 먼저 챙겨요.{' '}
-          <Link to={PATHS.notifications} className="link">
+          <Link to={`${PATHS.meActivity}?tab=yield`} className="link">
             양보 기록 보기
           </Link>
         </p>

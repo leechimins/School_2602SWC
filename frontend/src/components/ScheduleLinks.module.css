@@ -4,11 +4,17 @@
   align-items: center;
   gap: 10px;
   padding: 8px 0;
-  border-bottom: 1px solid var(--line);
 }
 
-.row:last-of-type {
-  border-bottom: 0;
+/* 직접 추가: 위 연동에 딸린 줄. 왼쪽 선으로 들여 쓴다 */
+.sub {
+  margin-left: 6px;
+  padding: 4px 0 4px 12px;
+  border-left: 2px solid var(--line);
+}
+
+.sub :global(.strong) {
+  font-size: var(--fs-body);
 }
 
 /* 묶음 이름: 매주 반복 / 한 번만 */
