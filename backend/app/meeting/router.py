@@ -51,6 +51,7 @@ from app.meeting import rerun, runner
 from app.meeting.agent_loop import REJECT_AT, award_yield, member_names, yield_totals
 from app.meeting.scorer import yield_points
 from app.meeting.service import burden, start_scheduling
+from app.minutes.record import finished_ids
 from app.room.service import yield_level
 from app.shared import demo_clock
 from app.shared.auth import current_user_id, require_member
@@ -799,6 +800,7 @@ def schedule(
         ).all()
     }
 
+    기록마침 = finished_ids(db, list(meetings))
     upcoming: list[MeetingBrief] = []
     past: list[MeetingBrief] = []
     for meeting in meetings:
@@ -814,8 +816,12 @@ def schedule(
             pending_count=대기수.get(meeting.id or 0, 0),
         )
         # 끝난 시각으로 가른다. 회의 중인 것은 아직 다가오는 것에 둔다 —
-        # 받아적기 버튼이 거기 붙는다.
-        지났나 = meeting.end_at < now or meeting.status == MeetingStatus.DONE
+        # 받아적기 버튼이 거기 붙는다. 끝 시각 전이라도 기록을 마쳤으면 지난 회의다.
+        지났나 = (
+            meeting.end_at < now
+            or meeting.status == MeetingStatus.DONE
+            or meeting.id in 기록마침
+        )
         (past if 지났나 else upcoming).append(brief)
 
     past.reverse()  # 최근 것이 위로.

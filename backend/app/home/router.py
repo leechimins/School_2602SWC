@@ -19,6 +19,7 @@ from sqlmodel import Session, col, func, select
 from app.home.schemas import Coordinating, HomeOut, MyTask, NextMeeting, TaskBucket
 from app.meeting.models import Meeting, MeetingResponse, Scheduling
 from app.minutes.models import Task
+from app.minutes.record import finished_ids
 from app.notice.models import Notification
 from app.shared import demo_clock
 from app.shared.auth import current_user_id, require_member
@@ -68,18 +69,22 @@ def _next_meeting(db: Session, room_id: int, user_id: int) -> NextMeeting | None
     """아직 안 지난 회의 중 가장 이른 것 하나.
 
     확정 대기(proposed)도 보여 준다. 아직 확정이 아니어도 다음에 있을 일이고,
-    홈에서 응답을 재촉하는 자리이기도 하다.
+    홈에서 응답을 재촉하는 자리이기도 하다. 끝 시각 전이라도 기록을 마친 회의는 뺀다.
     """
     now = demo_clock.now(db)
-    meeting = db.exec(
-        select(Meeting)
-        .where(
-            Meeting.room_id == room_id,
-            col(Meeting.status).in_([MeetingStatus.PROPOSED, MeetingStatus.CONFIRMED]),
-            Meeting.end_at >= now,
-        )
-        .order_by(col(Meeting.start_at))
-    ).first()
+    candidates = list(
+        db.exec(
+            select(Meeting)
+            .where(
+                Meeting.room_id == room_id,
+                col(Meeting.status).in_([MeetingStatus.PROPOSED, MeetingStatus.CONFIRMED]),
+                Meeting.end_at >= now,
+            )
+            .order_by(col(Meeting.start_at))
+        ).all()
+    )
+    finished = finished_ids(db, candidates)
+    meeting = next((m for m in candidates if m.id not in finished), None)
     if meeting is None or meeting.id is None:
         return None
 
