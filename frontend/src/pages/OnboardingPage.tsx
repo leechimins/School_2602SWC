@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { messageOf } from '../api/client.ts'
 import { getMyWeek, getPreferences, savePreferences } from '../api/me.ts'
 import AgentQuote from '../components/AgentQuote.tsx'
@@ -21,17 +21,36 @@ const TITLE = '내 조건 알려 주기'
 
 // 온보딩(방에 처음 들어온 뒤 한 번): 조건 네 가지 → 내 일정 연결 → 내 에이전트 준비 완료.
 // 필수는 없다. 네 칸을 다 비워도, 일정을 연결하지 않아도 다음으로 넘어간다.
+// 단계는 주소(?step=1)에 남겨 브라우저 뒤로 가기·제목줄 뒤로·"이전"이 모두 한 단계씩 돌아간다.
+// 첫 단계의 뒤로는 홈으로 간다: 방은 이미 만들었거나 들어왔고, 조건은 My 탭에서 언제든 고칠 수 있다.
 export default function OnboardingPage() {
   const prefs = useApi(getPreferences, [])
-  const [step, setStep] = useState(0)
+  const [params, setParams] = useSearchParams()
+  const location = useLocation()
+  const navigate = useNavigate()
+  const step = Math.min(Math.max(Number(params.get('step')) || 0, 0), 2)
+
+  const next = () => setParams({ step: String(step + 1) }, { state: { stepped: true } })
+  const prev = () => {
+    if (step === 0) return navigate(PATHS.home)
+    // "다음"으로 온 단계면 기록을 하나 되돌리고, 주소로 바로 연 단계면 앞 단계로 바꿔 끼운다
+    if ((location.state as { stepped?: boolean } | null)?.stepped) return navigate(-1)
+    setParams(step === 1 ? {} : { step: String(step - 1) }, { replace: true })
+  }
 
   if (prefs.status !== 'ready') {
-    return <Screen title={TITLE}>{prefs.status === 'error' && <RetryBox message={prefs.message} onRetry={prefs.reload} />}</Screen>
+    return (
+      <Screen title={TITLE} onBack={prev}>
+        {prefs.status === 'error' && <RetryBox message={prefs.message} onRetry={prefs.reload} />}
+      </Screen>
+    )
   }
-  if (step === 0) return <PrefStep initial={prefs.data} onNext={() => setStep(1)} />
-  if (step === 1) return <LinkStep onPrev={() => setStep(0)} onNext={() => setStep(2)} />
-  return <ReadyStep prefs={prefs.data} onPrev={() => setStep(1)} />
+  if (step === 0) return <PrefStep initial={prefs.data} onPrev={prev} onNext={next} />
+  if (step === 1) return <LinkStep onPrev={prev} onNext={next} />
+  return <ReadyStep prefs={prefs.data} onPrev={prev} />
 }
+
+type StepProps = { onPrev: () => void; onNext: () => void }
 
 function Question({ title, hint }: { title: string; hint: string }) {
   return (
@@ -43,7 +62,7 @@ function Question({ title, hint }: { title: string; hint: string }) {
 }
 
 // 1단계: 조건 네 가지. "다음"을 누르면 저장한다(피하고 싶은 시간을 에이전트가 다듬느라 조금 걸릴 수 있다)
-function PrefStep({ initial, onNext }: { initial: Preferences; onNext: () => void }) {
+function PrefStep({ initial, onPrev, onNext }: StepProps & { initial: Preferences }) {
   const [draft, setDraft] = useState(initial)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -65,8 +84,12 @@ function PrefStep({ initial, onNext }: { initial: Preferences; onNext: () => voi
   return (
     <Screen
       title={TITLE}
+      onBack={onPrev}
       dock={
         <div className="btn-row">
+          <button type="button" className="btn quiet" disabled={saving} onClick={onPrev}>
+            나중에 하기
+          </button>
           <button type="button" className="btn primary" disabled={saving} onClick={next}>
             {saving ? '저장하는 중…' : '다음'}
           </button>
@@ -87,7 +110,7 @@ function PrefStep({ initial, onNext }: { initial: Preferences; onNext: () => voi
 }
 
 // 2단계: 에브리타임 · 구글 캘린더 · 직접 입력. 하나도 안 했으면 버튼이 "나중에 하기"
-function LinkStep({ onPrev, onNext }: { onPrev: () => void; onNext: () => void }) {
+function LinkStep({ onPrev, onNext }: StepProps) {
   const user = useCurrentUser()
   const today = toIsoDate(useClock())
   const week = useApi(() => getMyWeek(user.roomId, today), [user.roomId, user.id, today])
@@ -98,6 +121,7 @@ function LinkStep({ onPrev, onNext }: { onPrev: () => void; onNext: () => void }
   return (
     <Screen
       title={TITLE}
+      onBack={onPrev}
       dock={
         <div className="btn-row">
           <button type="button" className="btn quiet" onClick={onPrev}>
@@ -147,6 +171,7 @@ function ReadyStep({ prefs, onPrev }: { prefs: Preferences; onPrev: () => void }
   return (
     <Screen
       title={TITLE}
+      onBack={onPrev}
       dock={
         <div className="btn-row">
           <button type="button" className="btn quiet" onClick={onPrev}>

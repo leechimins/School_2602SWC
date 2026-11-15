@@ -8,6 +8,8 @@ type Props = {
   title: string
   /** 왔던 화면을 모를 때(새로 고침·바로 연 주소) 돌아갈 주소. 있으면 제목 왼쪽에 뒤로 버튼이 생긴다 */
   backTo?: string
+  /** 뒤로 버튼이 할 일을 화면이 직접 정할 때(온보딩 단계, 로그아웃 등). 있으면 backTo보다 먼저 쓴다 */
+  onBack?: () => void
   /** 제목줄 오른쪽 (홈의 알림 종 등) */
   aux?: ReactNode
   /** 제목줄 대신 본문 맨 위에 두는 머리(홈의 보라 띠). 본문과 함께 스크롤된다 */
@@ -18,10 +20,14 @@ type Props = {
 }
 
 // 화면 한 장의 틀: 상단 제목줄 → 스크롤되는 본문 → 하단 고정 영역
-export default function Screen({ title, backTo, aux, hero, dock, children }: Props) {
+export default function Screen({ title, backTo, onBack, aux, hero, dock, children }: Props) {
   const navigate = useNavigate()
   // 왔던 화면으로 간다(lib/trail.ts). 누를 때 꺼내야 방금 바뀐 주소까지 반영된다
-  const goBack = () => backTo && navigate(takeBack() ?? backTo, { state: { back: true } })
+  const goBack = () => {
+    if (onBack) return onBack()
+    if (backTo) navigate(takeBack() ?? backTo, { state: { back: true } })
+  }
+  const hasBack = Boolean(onBack || backTo)
 
   return (
     <div className={styles.screen}>
@@ -29,7 +35,7 @@ export default function Screen({ title, backTo, aux, hero, dock, children }: Pro
         <div />
       ) : (
         <header className={styles.top}>
-          {backTo && (
+          {hasBack && (
             <button type="button" className={styles.back} aria-label="뒤로" onClick={goBack}>
               <Icon name="back" />
             </button>
