@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { messageOf } from '../api/client.ts'
 import { createRoom, getRoom } from '../api/rooms.ts'
-import { signIn, signOut } from '../api/session.ts'
+import { refreshIdentity, signOut } from '../api/session.ts'
 import RetryBox from '../components/RetryBox.tsx'
 import Screen from '../components/Screen.tsx'
 import Segmented from '../components/Segmented.tsx'
@@ -67,7 +67,7 @@ function RoomForm({ initial, onCreated }: { initial: RoomInput; onCreated: (room
     setSaving(true)
     try {
       const room = await createRoom({ ...input, name: input.name.trim(), description: input.description.trim() })
-      await signIn(null) // 실서버: 내 방 번호를 다시 받는다. 처음 온 사람은 이제야 방이 생겼다
+      await refreshIdentity() // 실서버: 내 방 번호를 다시 받는다. 처음 온 사람은 이제야 방이 생겼다
       onCreated(room)
     } catch (e) {
       setError(messageOf(e))

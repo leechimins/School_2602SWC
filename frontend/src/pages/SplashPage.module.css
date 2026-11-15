@@ -153,21 +153,6 @@
   text-align: center;
 }
 
-.demo {
-  min-height: 36px;
-  border: 0;
-  background: none;
-  color: rgb(255 255 255 / 0.85);
-  font-size: var(--fs-meta);
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-.demo:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
 /* 들어갈 때: 캐릭터는 살짝 커지며 위로, 버튼은 먼저 사라지고, 화면 전체가 흐려진다 (SplashPage.tsx LEAVE_MS) */
 .page {
   transition: opacity 0.45s ease;
