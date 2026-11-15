@@ -170,66 +170,70 @@ function SettledFeedback({ proposal: p, roomId }: { proposal: Proposal; roomId: 
   )
 }
 
-type Asking = 'accept' | 'reject' | null
-
-// 합의안: 거절(글자) | 수락(버튼). 누르면 다시 묻는 창이 뜨고(거절은 이유 한 줄), 전원이 수락하면 따로 누르지 않아도 확정된다
+// 합의안: 거절(글자) | 수락(버튼). 수락은 더 받을 것이 없어 바로 보내고, 거절만 이유 한 줄을 묻는 창이 뜬다.
+// 전원이 수락하면 따로 누르지 않아도 확정된다
 function RespondDock({ proposal: p, roomId }: { proposal: Proposal; roomId: Id }) {
   const navigate = useNavigate()
-  const [asking, setAsking] = useState<Asking>(null)
+  const [asking, setAsking] = useState(false) // 거절 이유를 묻는 창
+  const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   if (p.feedbackOnly || p.confirmed || p.myState === null) return null
   if (p.myState === '수락' && !error) return null // 수락한 뒤에는 사람별 응답 줄로 충분하다
 
-  const respond = async (accept: boolean, { ok, value }: ConfirmResult) => {
-    setAsking(null)
-    if (!ok) return
+  const respond = async (accept: boolean, feedback: string | null) => {
+    setSending(true)
+    setError(null)
     try {
-      const { rerun } = await respondProposal(roomId, p.id, { accept, feedback: value || null })
+      const { rerun } = await respondProposal(roomId, p.id, { accept, feedback })
       // 거절로 다시 조율이 시작되면 이 회의안은 취소된다. 새 조율 과정으로 바로 넘어간다
       if (rerun && p.schedulingId) navigate(pathTo.scheduling(p.schedulingId), { replace: true })
     } catch (e) {
       setError(messageOf(e))
+    } finally {
+      setSending(false)
     }
+  }
+  const reject = ({ ok, value }: ConfirmResult) => {
+    setAsking(false)
+    if (ok) respond(false, value || null)
   }
 
   return (
     <>
       {error && <p className="meta">{error}</p>}
-      <DockBody proposal={p} state={p.myState} onAsk={setAsking} />
-      {asking === 'accept' && (
-        <ConfirmSheet
-          title="이 시간으로 수락할까요?"
-          okLabel="수락하기"
-          irreversible={false}
-          onClose={(r) => respond(true, r)}
-        />
-      )}
-      {asking === 'reject' && (
+      <DockBody proposal={p} state={p.myState} sending={sending} onAccept={() => respond(true, null)} onReject={() => setAsking(true)} />
+      {asking && (
         <ConfirmSheet
           title="조율 결과를 거절할까요?"
           body="남긴 이유는 다시 조율할 때 반영돼요."
           okLabel="거절하기"
           irreversible={false}
           input={{ label: '거절 이유', placeholder: '거절 이유 (선택)' }}
-          onClose={(r) => respond(false, r)}
+          onClose={reject}
         />
       )}
     </>
   )
 }
 
-type DockBodyProps = { proposal: Proposal; state: ResponseState; onAsk: (a: Asking) => void }
+type DockBodyProps = {
+  proposal: Proposal
+  state: ResponseState
+  sending: boolean
+  onAccept: () => void
+  onReject: () => void
+}
 
-function DockBody({ proposal: p, state, onAsk }: DockBodyProps) {
+function DockBody({ proposal: p, state, sending, onAccept, onReject }: DockBodyProps) {
   if (state === '대기') {
     return (
       <div className="btn-row">
-        <button type="button" className="btn quiet" onClick={() => onAsk('reject')}>
+        <button type="button" className="btn quiet" disabled={sending} onClick={onReject}>
           거절
         </button>
-        <button type="button" className="btn primary" onClick={() => onAsk('accept')}>
-          수락
+        <button type="button" className="btn primary" disabled={sending} onClick={onAccept}>
+          {sending ? '보내는 중…' : '수락'}
         </button>
       </div>
     )

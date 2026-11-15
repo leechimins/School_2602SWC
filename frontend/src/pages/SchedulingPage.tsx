@@ -14,7 +14,7 @@ import { PATHS, pathTo } from '../lib/paths.ts'
 import { UTTERANCE_MS, later } from '../lib/timers.ts'
 import type { Tone } from '../lib/tones.ts'
 import type { Id } from '../types/common.ts'
-import type { Scheduling, SchedulingStatus, Slot } from '../types/scheduling.ts'
+import type { Scheduling, SchedulingStatus, Slot, Utterance } from '../types/scheduling.ts'
 import styles from './SchedulingPage.module.css'
 
 const MAX_ROUNDS = 3
@@ -27,6 +27,17 @@ const STATUS: Record<SchedulingStatus, { label: string; tone: Tone; title: strin
 }
 
 const slotText = (slot: Slot) => `${formatSlot(slot.startAt, slot.endAt)} · ${slot.mode}`
+
+// 사람이 회의안을 거절해서 다시 시작한 라운드들. 앞 라운드에서 개인 에이전트가 모두 수락(합의)했는데
+// 다음 라운드가 있으면 그 사이에 사람이 거절한 것이다. 누가 거절했는지는 서버도 주지 않고 화면도 말하지 않는다
+function rerunRounds(utterances: Utterance[]): Set<number> {
+  const out = new Set<number>()
+  for (const u of utterances) {
+    const prev = utterances.filter((x) => x.round === u.round - 1 && x.kind === 'answer')
+    if (prev.length > 0 && prev.every((x) => x.answer === '수락')) out.add(u.round)
+  }
+  return out
+}
 
 // 시간 정하는 과정: 왜 이 시간이 나왔는지 대화로 보여 준다. 앱에서 가장 중요한 화면이다.
 // 라운드마다 개인 에이전트 어필 → 판단 에이전트가 하나를 고름 → 개인 에이전트 수락·거절. 에이전트가 모두 수락하면 사람이 수락·거절한다
@@ -84,12 +95,16 @@ function Talk({ scheduling: s, viewerId, isLeader }: TalkProps) {
   // 말이 다 나왔어도 서버가 아직 정리 중이면 진행 중으로 둔다
   const status: SchedulingStatus = playing ? 'running' : s.status
   const lastSlot = s.utterances.findLast((u) => u.slot)?.slot ?? null
+  const reruns = rerunRounds(s.utterances)
+  // 거절 뒤 다시 조율하는 중에 처음부터 재생되면, 이미 본 앞 라운드를 건너뛰고 마지막으로 다시 시작한 곳부터 볼 수 있다
+  const skipTo = reruns.size > 0 ? s.utterances.findIndex((u) => u.round === Math.max(...reruns)) : -1
+  const skip = playing && shown < skipTo ? () => setShown(skipTo) : undefined
 
   return (
     <Screen
       title="회의 잡기"
       backTo={PATHS.home}
-      dock={<Dock scheduling={s} status={status} round={round} slot={lastSlot} isLeader={isLeader} />}
+      dock={<Dock scheduling={s} status={status} round={round} slot={lastSlot} isLeader={isLeader} onSkip={skip} />}
     >
       <div className={styles.head}>
         <p className={styles.topic}>
@@ -113,7 +128,14 @@ function Talk({ scheduling: s, viewerId, isLeader }: TalkProps) {
       <div className={styles.talk} aria-live="polite">
         {visible.map((u, i) => (
           <div key={u.seq}>
-            {u.round !== visible[i - 1]?.round && <div className={styles.roundDiv}>{u.round}라운드</div>}
+            {u.round !== visible[i - 1]?.round && (
+              <>
+                <div className={styles.roundDiv}>
+                  {u.round}라운드{reruns.has(u.round) && ' · 다시 조율'}
+                </div>
+                {reruns.has(u.round) && <p className={`meta ${styles.rerun}`}>팀원이 회의안을 거절해서, 그 시간을 빼고 다시 조율해요</p>}
+              </>
+            )}
             {u.kind === 'judge' ? (
               <JudgeBubble
                 text={u.text}
@@ -145,17 +167,25 @@ type DockProps = {
   round: number
   slot: Slot | null
   isLeader: boolean
+  onSkip?: () => void // 거절 뒤 다시 조율한 라운드로 건너뛰기. 건너뛸 앞 라운드가 재생 중일 때만
 }
 
 // 하단: 지금 어디까지 왔는지 한 줄 + 끝나면 조율 결과로 가는 버튼
-function Dock({ scheduling: s, status, round, slot, isLeader }: DockProps) {
+function Dock({ scheduling: s, status, round, slot, isLeader, onSkip }: DockProps) {
   const badge = <Badge tone={STATUS[status].tone}>{STATUS[status].label}</Badge>
 
   if (status === 'running') {
     return (
-      <p className={styles.sum}>
-        {badge} <span className="meta num">{round}라운드 진행 중 · 최대 {MAX_ROUNDS}</span>
-      </p>
+      <div className={`row-between ${styles.sum}`}>
+        <p>
+          {badge} <span className="meta num">{round}라운드 진행 중 · 최대 {MAX_ROUNDS}</span>
+        </p>
+        {onSkip && (
+          <button type="button" className="link" onClick={onSkip}>
+            다시 조율한 곳으로 건너뛰기
+          </button>
+        )}
+      </div>
     )
   }
 
