@@ -71,7 +71,7 @@ function TeamTaskList({ data, members }: { data: TeamTasks; members: Member[] })
       key={task.id}
       task={task}
       onStatusChange={(t, status: TaskStatus, reason) => changeTaskStatus(user.roomId, t.id, status, reason)}
-      onEdit={task.canEdit ? (t) => setEditingId(t.id) : undefined}
+      onEdit={task.canEdit ? (t) => setEditingId((cur) => (cur === t.id ? null : t.id)) : undefined}
     >
       {editingId === task.id ? (
         <TaskEditor
@@ -99,7 +99,7 @@ function TeamTaskList({ data, members }: { data: TeamTasks; members: Member[] })
   return (
     <>
       <section className="sec">
-        <h2>사람별 남은 할 일</h2>
+        <h2>팀원별 남은 일</h2>
         {data.counts.map((c) => (
           <div key={c.userId} className={styles.load}>
             <span>{c.name}</span>
@@ -128,7 +128,6 @@ function TeamTaskList({ data, members }: { data: TeamTasks; members: Member[] })
           </button>
         ))}
       </div>
-      <p className={`meta ${styles.guide}`}>길게 누르거나 우클릭하면 고치기</p>
       {groups.map((g) => (
         <section key={g.id ?? 'none'} className="sec">
           <span className="cat">
