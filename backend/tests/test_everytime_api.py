@@ -252,7 +252,7 @@ def test_링크_모양이_아니면_400이고_읽지도_않는다(client, fake, 
     assert res.status_code == 400
     assert res.json() == {
         "code": "EVERYTIME_LINK_INVALID",
-        "message": "everytime.kr/@아이디 모양의 링크를 붙여 넣어 주세요.",
+        "message": "에타 시간표에서 복사한 공유 링크를 붙여 넣어 주세요.",
     }
     assert fake.calls == []
     assert _link(seeded, jisu.id) is None
