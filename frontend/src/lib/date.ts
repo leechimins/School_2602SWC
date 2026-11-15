@@ -2,7 +2,7 @@ import dayjs, { type Dayjs } from 'dayjs'
 import type { IsoDate } from '../types/common.ts'
 
 // 날짜·시각을 화면 글자로 바꾸는 곳은 이 파일 하나다. 화면마다 따로 만들면 표기가 갈린다.
-// "지금"은 인자로 받는다(useClock·getNow). 여기서 인자 없는 dayjs()를 부르지 않는다.
+// "지금"은 인자로 받는다(useClock). 여기서 인자 없는 dayjs()를 부르지 않는다.
 
 type DateInput = string | Dayjs
 

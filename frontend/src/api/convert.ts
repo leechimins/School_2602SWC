@@ -131,7 +131,6 @@ export const toTask = (t: ServerTask): Task => ({
   assigneeId: optId(t.assignee_user_id),
   assigneeName: t.assignee_name,
   status: TASK_STATE[t.state],
-  blockedReason: null, // 서버가 아직 막힌 이유를 주지 않는다 (백엔드 요청 거리)
   source: t.source ? { meetingId: id(t.source.meeting_id), heldOn: t.source.held_on, topic: t.source.topic } : null,
   confirmedByName: t.confirmed_by_name,
   confirmedAt: t.confirmed_at,
@@ -246,7 +245,6 @@ export const toHome = (r: ServerHome, roomName: string, me: { id: Id; name: stri
     assigneeId: me.id,
     assigneeName: me.name,
     status: TASK_STATE[t.state],
-    blockedReason: null,
     source: null,
     confirmedByName: null,
     confirmedAt: null,
@@ -310,7 +308,6 @@ const toUtterance = (u: ServerUtterance, judgeSeq: Map<number, number>, mode: Se
   burden: u.burden ? BURDEN[u.burden] : null,
   myScore: u.my_score,
   slot: u.slot_start_at && u.slot_end_at ? { startAt: u.slot_start_at, endAt: u.slot_end_at, mode: meetingMode(mode) } : null,
-  yieldChanges: [],
 })
 
 export const toScheduling = (r: ServerScheduling): Scheduling => {
@@ -374,7 +371,6 @@ export const toProposal = (r: ServerProposal): Proposal => ({
   myState: r.my_state ? RESPONSE[r.my_state] : null,
   canRespond: r.can_respond,
   feedbackOnly: r.feedback_only,
-  absentName: null, // 불참안의 빠진 사람 (백엔드 요청 거리)
   responders: r.responders.map((x) => ({
     userId: id(x.user_id),
     name: x.name,
@@ -384,8 +380,6 @@ export const toProposal = (r: ServerProposal): Proposal => ({
     yieldLevel: YIELD[x.yield_level],
     feedback: x.feedback,
   })),
-  yieldGetter: null, // 양보 점수 받는 사람의 단계 변화 (백엔드 요청 거리)
-  myFeedback: null, // 남긴 말로 바뀐 선호 (백엔드 요청 거리)
 })
 
 // ── 회의록 ──────────────────────────────────────────────
@@ -443,7 +437,6 @@ export const toMeetingDetail = (r: ServerMeetingDetail): MeetingDetail => ({
   tasks: r.tasks.map(toTask),
   doneTasks: (r.done_tasks ?? []).map(toTask), // "회의에서 끝난 일". 진행 중으로 되돌리면 서버가 목록에서 뺀다
   suggestions: r.suggestions.map(toSuggestion),
-  unneededTasks: [], // 서버에 없는 목록(AI가 고르지 않는다). 실서버에서는 이 칸이 안 보인다
 })
 
 // ── 에이전트가 한 일 · 양보 기록 ─────────────────────────────

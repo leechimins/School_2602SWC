@@ -22,8 +22,6 @@ export const PATHS = {
   start: '/start', // 방 만들기(팀장)
   join: '/join', // 초대 코드로 들어가기(팀원)
   onboarding: '/onboarding',
-  // 시연 화면
-  demo: '/demo',
 } as const
 
 export const pathTo = {

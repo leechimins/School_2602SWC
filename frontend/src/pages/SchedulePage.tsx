@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { messageOf } from '../api/client.ts'
-import { canRecordLive, createMeeting, getMeeting } from '../api/records.ts'
+import { createMeeting, getMeeting } from '../api/records.ts'
 import { getRoom } from '../api/rooms.ts'
 import { getSchedule } from '../api/scheduling.ts'
 import AiMark from '../components/AiMark.tsx'
@@ -161,16 +161,14 @@ function UpcomingRow({ meeting: m, isToday, recorded, total }: RowProps) {
   )
 }
 
-// 지금 회의 받아적기(실서버는 기록하기): 오늘 잡힌 회의가 있으면 거기에 붙고, 없으면 주제 한 줄(필수)만 받고 바로 연다
+// 지금 회의 기록하기: 오늘 잡힌 회의가 있으면 거기에 붙고, 없으면 주제 한 줄(필수)만 받고 바로 연다
 function RecordNow({ todayMeeting }: { todayMeeting: MeetingBrief | null }) {
   const user = useCurrentUser()
   const navigate = useNavigate()
   const [asking, setAsking] = useState(false)
   const [error, setError] = useState('')
-  // 실서버는 받아적기가 없어 직접 쓰기만 연다(api/records.ts canRecordLive). 문구도 그에 맞춘다
-  const live = canRecordLive()
-  const label = live ? '지금 회의 받아적기' : '지금 회의 기록하기'
-  const verb = live ? '받아적어요' : '기록해요'
+  const label = '지금 회의 기록하기'
+  const verb = '기록해요'
 
   const open = async (topic: string) => {
     try {

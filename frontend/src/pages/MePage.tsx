@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { isRealServer, messageOf } from '../api/client.ts'
+import { messageOf } from '../api/client.ts'
 import { getMyWeek, getPreferences, savePreferences } from '../api/me.ts'
 import { getRoom } from '../api/rooms.ts'
 import { signOut } from '../api/session.ts'
@@ -120,12 +120,9 @@ export default function MePage() {
 
       {room.status === 'error' && <RetryBox message={room.message} onRetry={room.reload} />}
       {room.status === 'ready' && <TeamSection room={room.data} />}
-      {/* 목 모드에는 로그인이 없어서 숨긴다 */}
-      {isRealServer() && (
-        <button type="button" className="btn quiet block" onClick={logout}>
-          로그아웃
-        </button>
-      )}
+      <button type="button" className="btn quiet block" onClick={logout}>
+        로그아웃
+      </button>
     </Screen>
   )
 }

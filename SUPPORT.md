@@ -10,7 +10,7 @@
 | :--- | :--- |
 | 프론트엔드 (`frontend/`) | React + TypeScript (Vite), Node.js 24 LTS |
 | 백엔드 (`backend/`) | (스택 확정 후 기입) |
-| 시연 | 노트북 한 대의 Chrome에서 `/demo` 페이지: 휴대폰 화면 2개 + 시연 장치 |
+| 시연 | 배포한 서버에 노트북(팀장)·휴대폰(팀원)으로 각각 로그인 |
 
 ---
 
@@ -22,7 +22,7 @@ cd frontend
 npm install
 npm run dev
 ```
-- 백엔드 없이도 목 데이터로 모든 화면이 열립니다. 시연 화면은 `http://localhost:5173/demo`, 실서버 전환(`VITE_API_URL`)은 [`frontend/README.md`](frontend/README.md)를 봅니다.
+- 백엔드(`localhost:8000`)를 먼저 띄웁니다. 개발 서버가 `/api`를 백엔드로 넘깁니다. 서버 주소(`VITE_API_URL`)는 [`frontend/README.md`](frontend/README.md)를 봅니다.
 - 시연 당일에는 개발 서버 대신 빌드본으로 띄웁니다: `npm run build` 후 `npm run preview`
 
 ### 백엔드

@@ -54,23 +54,6 @@
   margin: 10px 12px 0;
 }
 
-/* 판단 에이전트 카드 안의 양보 점수 상자 */
-.box {
-  margin-top: var(--gap-2);
-  padding: var(--gap-2) var(--gap-3);
-  border-radius: 10px;
-  background: var(--sub-wash);
-}
-
-.yrow {
-  display: grid;
-  grid-template-columns: auto auto 1fr;
-  gap: var(--gap-2);
-  align-items: center;
-  min-height: 24px;
-  font-size: var(--fs-meta);
-}
-
 .responses {
   display: grid;
   grid-template-columns: repeat(4, 1fr);

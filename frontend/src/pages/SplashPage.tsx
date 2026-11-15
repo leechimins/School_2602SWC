@@ -1,8 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { isRealServer, messageOf } from '../api/client.ts'
+import { messageOf } from '../api/client.ts'
 import { getIdentity, signIn, signInWithGoogle } from '../api/session.ts'
-import { currentUserName } from '../hooks/useCurrentUser.ts'
 import { markBooted } from '../lib/boot.ts'
 import { PATHS } from '../lib/paths.ts'
 import styles from './SplashPage.module.css'
@@ -11,6 +10,7 @@ const SPLASH_MS = 2000 // 로그인돼 있을 때 캐릭터를 보여 주는 시
 const BUTTON_MS = 1000 // 로그인이 필요할 때 버튼이 나타나기까지
 const LEAVE_MS = 450 // 들어갈 때 스플래시가 걷히는 시간 (SplashPage.module.css .leaving과 같게)
 const CLIENT_ID = (import.meta.env.VITE_GOOGLE_CLIENT_ID ?? '').trim()
+const DEMO_LEADER = '지수' // 서버 시드(backend/tools/seed.py)의 팀장. "시연 계정으로 둘러보기"가 이 사람으로 들어간다
 
 // 스플래시 + 구글 로그인. 앱을 열면 캐릭터가 둥둥 뜨고,
 // 로그인돼 있으면(쿠키) 2초 뒤 원래 가려던 곳으로, 아니면 1초 뒤 캐릭터 아래에 로그인 버튼이 나타난다.
@@ -26,7 +26,7 @@ export default function SplashPage() {
   // 로그인이 끝났다: 방이 없으면(구글로 처음 온 사람) 방 만들기, 있으면 원래 가려던 곳.
   // 바로 바꾸면 화면이 확 바뀌어서, 스플래시를 먼저 흐리게 걷고(LEAVE_MS) 넘어간다. 앱 틀은 들어오며 페이드인한다(AppShell).
   const enter = (isNew = false) => {
-    const noRoom = isRealServer() && !getIdentity()?.roomId
+    const noRoom = !getIdentity()?.roomId
     setLeaving(true)
     document.body.classList.remove('brand') // 걷히는 동안 뒤에 비치는 색을 앱 바탕 쪽으로
     window.setTimeout(() => {
@@ -50,12 +50,18 @@ export default function SplashPage() {
     const timers: number[] = []
     const after = (ms: number, fn: () => void) => timers.push(window.setTimeout(fn, Math.max(0, ms - (Date.now() - opened))))
     const run = { alive: true } // 화면을 떠난 뒤 늦게 끝나도 이동하지 않게
-    void signIn(null).then(() => {
-      if (!run.alive) return
-      // 목 모드거나 서버가 안 닿아 목으로 넘어갔으면 로그인 없이 들어간다
-      if (!isRealServer() || getIdentity()) after(SPLASH_MS, () => enterRef.current())
-      else after(BUTTON_MS, () => setNeedLogin(true))
-    })
+    signIn(null).then(
+      () => {
+        if (!run.alive) return
+        if (getIdentity()) after(SPLASH_MS, () => enterRef.current())
+        else after(BUTTON_MS, () => setNeedLogin(true))
+      },
+      (e: unknown) => {
+        if (!run.alive) return
+        setError(messageOf(e)) // 서버가 안 닿는다: 로그인 버튼과 함께 한 줄로 알린다
+        after(BUTTON_MS, () => setNeedLogin(true))
+      },
+    )
     return () => {
       run.alive = false
       timers.forEach(clearTimeout)
@@ -76,8 +82,13 @@ export default function SplashPage() {
   const onDemo = async () => {
     setBusy(true)
     setError(null)
-    await signIn(currentUserName()) // 시드의 팀장으로 들어간다
-    if (!isRealServer() || getIdentity()) return enterRef.current()
+    try {
+      await signIn(DEMO_LEADER)
+    } catch (e) {
+      setError(messageOf(e))
+      return setBusy(false)
+    }
+    if (getIdentity()) return enterRef.current()
     setError('시연 계정으로 들어가지 못했어요. 서버에 시드가 들어 있는지 확인해 주세요.')
     setBusy(false)
   }

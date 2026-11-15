@@ -1,18 +1,16 @@
 import { useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { messageOf } from '../api/client.ts'
-import { getProposal, respondProposal, undoFeedbackChange } from '../api/scheduling.ts'
+import { getProposal, respondProposal } from '../api/scheduling.ts'
 import Avatar from '../components/Avatar.tsx'
 import Badge from '../components/Badge.tsx'
 import ConfirmSheet, { type ConfirmResult } from '../components/ConfirmSheet.tsx'
 import JudgeBubble from '../components/JudgeBubble.tsx'
 import RetryBox from '../components/RetryBox.tsx'
 import Screen from '../components/Screen.tsx'
-import YieldSteps from '../components/YieldSteps.tsx'
 import { useApi } from '../hooks/useApi.ts'
 import { useCurrentUser } from '../hooks/useCurrentUser.ts'
 import { formatSlot } from '../lib/date.ts'
-import { withJosa } from '../lib/korean.ts'
 import { PATHS, pathTo } from '../lib/paths.ts'
 import { BURDEN_LABEL, BURDEN_TONE } from '../lib/tones.ts'
 import type { Id } from '../types/common.ts'
@@ -47,13 +45,10 @@ export default function ProposalPage() {
       <ResultSummary proposal={p} />
       <Burdens proposal={p} viewerId={user.id} />
       <div className={styles.judge}>
-        <JudgeBubble text={p.rationale}>
-          <YieldGetterBox proposal={p} />
-        </JudgeBubble>
+        <JudgeBubble text={p.rationale} />
       </div>
       <Responses proposal={p} viewerId={user.id} />
-      {p.feedbackOnly && !p.myFeedback && <SettledFeedback proposal={p} roomId={user.roomId} />}
-      {p.myFeedback && <MyFeedbackCard proposal={p} />}
+      {p.feedbackOnly && <SettledFeedback proposal={p} roomId={user.roomId} />}
       {p.schedulingId && (
         <div className={styles.center}>
           <Link to={pathTo.scheduling(p.schedulingId)} className="link">
@@ -82,8 +77,7 @@ function ResultSummary({ proposal: p }: { proposal: Proposal }) {
         <span className={styles.mode}>{p.mode}</span> {formatSlot(p.startAt, p.endAt)}
       </b>
       {p.settled && <p className="meta num">{p.roundsUsed ? `${p.roundsUsed}라운드 뒤 ` : ''}판단 에이전트가 정했어요</p>}
-      {p.absentName && <p className="meta">{p.absentName} 빠짐 · 회의록 요약을 따로 보내요</p>}
-      {p.confirmed && !p.settled && <p className="meta">{p.absentName ? '빠진 사람 말고 모두' : '모두'} 수락해서 회의가 확정됐어요</p>}
+      {p.confirmed && !p.settled && <p className="meta">모두 수락해서 회의가 확정됐어요</p>}
       {p.cancelled && <p className="meta">누군가 거절해서 이 시간은 취소됐어요. 남은 라운드로 다시 조율해요</p>}
     </section>
   )
@@ -117,47 +111,6 @@ function Burdens({ proposal: p, viewerId }: { proposal: Proposal; viewerId: Id }
   )
 }
 
-// 이번에 양보 점수를 받는 사람: 누적은 단계로만, 내가 받을 때만 숫자와 근거 한 줄
-function YieldGetterBox({ proposal: p }: { proposal: Proposal }) {
-  const g = p.yieldGetter
-  // 취소된 회의는 열리지 않으니 양보 점수도 생기지 않는다(점수는 확정 때 준다)
-  if (!g || p.cancelled) return null
-  const name = g.isMe ? '나' : g.name
-  return (
-    <div className={styles.box}>
-      <p className="meta">이번에 양보 점수 받는 사람</p>
-      <div className={styles.yrow}>
-        <b>
-          {name}
-          {g.isMe && <span className="num"> +{p.myYieldPoints}</span>}
-        </b>
-        <YieldSteps level={g.to} />
-        <span>
-          {g.from === g.to ? (
-            <>
-              <b>{g.to}</b> · 가장 높은 단계라 그대로
-            </>
-          ) : (
-            <>
-              {g.from} → <b>{g.to}</b>
-            </>
-          )}
-        </span>
-      </div>
-      <p className="meta">
-        {g.isMe ? (
-          <>
-            내 불편 <span className="num">{p.myScore}/5</span>만큼 맞춰 줘서 <span className="num">+{p.myYieldPoints}</span>이에요.
-            조금 불편하면 +1, 많이 불편하면 +2를 받아요.
-          </>
-        ) : (
-          `${withJosa(g.name, '은/는')} ${g.burden === '많이' ? '많이' : '조금'} 불편한 시간을 맞춰 줬어요. 불편한 만큼 양보 점수를 더 받아요.`
-        )}
-      </p>
-    </div>
-  )
-}
-
 function Responses({ proposal: p, viewerId }: { proposal: Proposal; viewerId: Id }) {
   // 조정안은 응답을 받지 않으므로 사람별 응답 줄이 없다
   if (p.feedbackOnly) return null
@@ -183,37 +136,27 @@ function Responses({ proposal: p, viewerId }: { proposal: Proposal; viewerId: Id
   )
 }
 
-// 내가 남긴 한 줄과 반영 결과. 선호가 바뀌었으면 무엇이 바뀌었는지 보여 주고 되돌릴 수 있다
-function MyFeedbackCard({ proposal: p }: { proposal: Proposal }) {
-  const f = p.myFeedback
-  if (!f) return null
-  return (
-    <section className="sec">
-      <p className="strong">“{f.text}”</p>
-      {!f.change ? (
-        <p className="meta">시간 얘기는 아니라서 선호는 그대로 뒀어요.</p>
-      ) : (
-        <div className="row-between">
-          <span className="meta">{f.undone ? '되돌렸어요. 선호는 그대로예요.' : f.change}</span>
-          {!f.undone && (
-            <button type="button" className="link" onClick={() => undoFeedbackChange(p.id)}>
-              되돌리기
-            </button>
-          )}
-        </div>
-      )}
-    </section>
-  )
-}
-
 // ── 확정 방식(응답 영역) ─────────────────────────────────
 
 // 조정안: 이미 확정이라 수락·거절 창 없이 피드백 칸이 화면에 바로 보인다
 function SettledFeedback({ proposal: p, roomId }: { proposal: Proposal; roomId: Id }) {
   const [text, setText] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [sent, setSent] = useState(false)
   const send = () =>
-    respondProposal(roomId, p.id, { accept: true, feedback: text.trim() || null }).catch((e: unknown) => setError(messageOf(e)))
+    respondProposal(roomId, p.id, { accept: true, feedback: text.trim() || null }).then(
+      () => setSent(true),
+      (e: unknown) => setError(messageOf(e)),
+    )
+
+  if (sent) {
+    return (
+      <section className="sec">
+        <p className="strong">“{text.trim()}”</p>
+        <p className="meta">남겼어요. 내 에이전트가 다음 회의부터 참고해요.</p>
+      </section>
+    )
+  }
 
   return (
     <section className="sec">
