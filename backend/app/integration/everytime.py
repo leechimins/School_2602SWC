@@ -3,16 +3,17 @@
 링크 → 공유 아이디 → 시간표 XML → `Timetable`. 무엇을 어떻게 넣을지는
 timetable.py가 정한다. 테스트는 `fetch_xml`만 가짜로 바꿔 끼운다.
 
-**읽는 방법.** 서버에서 바로 요청하면 403이다(11/5·11/6 확인). 헤드리스 크롬으로
-공유 페이지를 열고, 페이지가 스스로 부르는 `find/timetable/table/friend`의 응답을
-가로챈다. 자동화 표시(브라우저 이름의 Headless, webdriver 플래그)를 지워야 열린다.
-사용자가 "불러오기"를 누를 때만 한 번 연다 — 주기 동기화는 하지 않는다(차단 위험).
+**읽는 방법.** 공유 페이지가 스스로 부르는 `find/timetable/table/friend`에 POST를
+한 번 보낸다. 일반 HTTP 클라이언트로 보내면 403인데(11/5·11/6) 원인은 TLS 지문이라,
+`curl_cffi`로 크롬의 TLS 지문을 흉내 내면 열린다(11/15 확인, 로컬·Colab 모두 200).
+페이지를 먼저 열거나 쿠키를 받을 필요는 없다. 예전에는 헤드리스 크롬으로 페이지를
+열어 응답을 가로챘다(#65에서 교체).
+사용자가 "불러오기"를 누를 때만 한 번 부른다 — 주기 동기화는 하지 않는다(차단 위험).
 
-**나중에 캡처(이미지 → AI)로 바꿀 때**는 이 파일 대신 이미지에서 `Timetable`을
-만드는 파일을 두고, everytime_service.connect에서 부르는 함수만 바꾸면 된다.
+**캡처(이미지 → AI)를 붙일 때**는 이미지에서 `Timetable`을 만드는 파일을 따로 두고,
+everytime_service.connect에 reader로 넘기면 된다(#66).
 
-Playwright가 없거나 크롬이 안 깔려 있으면 `configured()`가 False이고 연동만 빠진다.
-설치: `pip install playwright && python -m playwright install chromium`
+`curl_cffi`가 없으면 `configured()`가 False이고 연동만 빠진다.
 """
 
 from __future__ import annotations
@@ -23,10 +24,15 @@ from importlib.util import find_spec
 
 from app.integration.timetable import ClassTime, Course, Timetable
 
-SHARE_PAGE = "https://everytime.kr/@{share_id}"
-XML_PATH = "/find/timetable/table/friend"
-# 11/8 실측: 공유 페이지 응답 5초 + 시간표 응답 5초 = 약 11초. 에브리타임 쪽이 느리다.
-TIMEOUT_MS = 25_000
+XML_URL = "https://api.everytime.kr/find/timetable/table/friend"
+# 공유 페이지에서 부르는 것처럼 보이게 한다.
+_HEADERS = {
+    "Origin": "https://everytime.kr",
+    "Referer": "https://everytime.kr/",
+    "Accept-Language": "ko-KR,ko;q=0.9",
+}
+# 11/15 실측: 로컬 2초, Colab(해외 데이터센터) 4초.
+TIMEOUT_S = 15
 
 # everytime.kr/@아이디. 앞의 https://·www.·m. 과 뒤의 / ?쿼리는 있어도 된다.
 # 휴대폰 앱에서 공유하면 everytime.kr/app/@아이디 로 나온다.
@@ -54,11 +60,12 @@ class TimetableNotFound(LinkInvalid):
 
 
 class Unavailable(EverytimeError):
-    """막혔거나 시간이 넘었거나 크롬이 없다. 잠시 후 다시 하면 된다."""
+    """막혔거나 시간이 넘었거나 네트워크가 끊겼다. 잠시 후 다시 하면 된다."""
 
 
 def configured() -> bool:
-    return find_spec("playwright") is not None
+    """`curl_cffi`가 깔려 있나. 없으면 다시 해도 안 되니 라우터가 다른 코드로 답한다."""
+    return find_spec("curl_cffi") is not None
 
 
 def share_id(link: str) -> str:
@@ -70,55 +77,28 @@ def share_id(link: str) -> str:
 
 
 def fetch_xml(share: str) -> str:
-    """공유 페이지를 열어 시간표 XML을 받아 온다."""
+    """시간표 XML을 받아 온다. 없는 아이디·비공개도 200(`<response>-1</response>`)이라
+    여기서는 가리지 않고 parse가 TimetableNotFound로 거른다."""
     try:
-        from playwright.sync_api import Error as PlaywrightError
-        from playwright.sync_api import sync_playwright
+        from curl_cffi import CurlError
+        from curl_cffi import requests as http
     except ImportError:
-        raise Unavailable("playwright") from None
+        raise Unavailable("curl_cffi") from None
 
     try:
-        with sync_playwright() as p:
-            browser = p.chromium.launch(
-                headless=True,
-                args=["--disable-blink-features=AutomationControlled"],
-            )
-            try:
-                # 헤드리스 크롬은 이름에 HeadlessChrome을 단다. 일반 크롬 이름으로 바꾼다.
-                agent = (
-                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                    f"(KHTML, like Gecko) Chrome/{browser.version} Safari/537.36"
-                )
-                context = browser.new_context(user_agent=agent, locale="ko-KR")
-                context.add_init_script(
-                    "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
-                )
-                page = context.new_page()
-                with page.expect_response(
-                    lambda r: XML_PATH in r.url, timeout=TIMEOUT_MS
-                ) as caught:
-                    # load까지 기다리면 광고·분석 스크립트 때문에 시간을 넘길 때가 있다.
-                    # 시간표 요청은 페이지 스크립트가 보내므로 DOM까지만 기다린다.
-                    opened = page.goto(
-                        SHARE_PAGE.format(share_id=share),
-                        timeout=TIMEOUT_MS,
-                        wait_until="domcontentloaded",
-                    )
-                    if opened is not None and opened.status == 404:
-                        raise TimetableNotFound("page 404")
-                    if opened is not None and opened.status >= 400:
-                        raise Unavailable(f"page {opened.status}")
-                res = caught.value
-                if res.status != 200:
-                    raise Unavailable(f"xml {res.status}")
-                return res.text()
-            finally:
-                browser.close()
-    except EverytimeError:
-        raise
-    except PlaywrightError as exc:
-        # 시간 초과·크롬 미설치·네트워크 끊김이 다 여기로 온다.
+        res = http.post(
+            XML_URL,
+            data={"identifier": share, "friendInfo": "true"},
+            headers=_HEADERS,
+            impersonate="chrome",
+            timeout=TIMEOUT_S,
+        )
+    except CurlError as exc:
+        # 시간 초과·연결 끊김·TLS 오류가 다 여기로 온다(requests 쪽 예외도 CurlError 하위).
         raise Unavailable(type(exc).__name__) from None
+    if res.status_code != 200:
+        raise Unavailable(f"xml {res.status_code}")
+    return res.text
 
 
 def _int(value: str | None) -> int | None:

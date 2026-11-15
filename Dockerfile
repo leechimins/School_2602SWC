@@ -13,8 +13,8 @@ FROM python:3.13-slim
 WORKDIR /app
 ENV PYTHONUNBUFFERED=1 STATIC_DIR=/app/static
 COPY backend/requirements.txt ./
-# playwright(에브리타임)는 크롬까지 받아 무겁고, pytest는 운영에 필요 없다. 없으면 에브리타임 연동만 빠진다
-RUN grep -vE '^(playwright|pytest)' requirements.txt > req.txt && pip install --no-cache-dir -r req.txt
+# pytest는 운영에 필요 없다
+RUN grep -vE '^pytest' requirements.txt > req.txt && pip install --no-cache-dir -r req.txt
 COPY backend/ ./
 COPY --from=web /web/dist ./static
 CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

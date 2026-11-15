@@ -317,6 +317,92 @@ def test_크롬이_없으면_503이고_직접_입력하라고_한다(client, fak
     assert fake.calls == []
 
 
+def test_configured는_curl_cffi_설치_여부를_본다(monkeypatch):
+    seen: list[str] = []
+    monkeypatch.setattr(everytime, "find_spec", lambda name: seen.append(name) or object())
+    assert everytime.configured() is True
+    assert seen == ["curl_cffi"]
+    monkeypatch.setattr(everytime, "find_spec", lambda name: None)
+    assert everytime.configured() is False
+
+
+# ── 시간표 요청 (curl_cffi를 가짜로) ───────────────────────────────────
+
+
+class FakeHttp:
+    """curl_cffi.requests.post 자리. 받은 인자를 남기고 정해 둔 응답이나 예외를 낸다."""
+
+    def __init__(self) -> None:
+        self.status = 200
+        self.text = XML
+        self.error: Exception | None = None
+        self.calls: list[tuple[str, dict]] = []
+
+    def post(self, url: str, **kw):
+        self.calls.append((url, kw))
+        if self.error:
+            raise self.error
+        return type("Res", (), {"status_code": self.status, "text": self.text})()
+
+
+@pytest.fixture
+def http(monkeypatch: pytest.MonkeyPatch) -> FakeHttp:
+    from curl_cffi import requests as cffi
+
+    fake = FakeHttp()
+    monkeypatch.setattr(cffi, "post", fake.post)
+    monkeypatch.setattr(everytime, "configured", lambda: True)
+    return fake
+
+
+def test_시간표_요청은_크롬_흉내로_공유_아이디를_POST(http):
+    assert everytime.fetch_xml("AbCd1234") == XML
+    [(url, kw)] = http.calls
+    assert url == "https://api.everytime.kr/find/timetable/table/friend"
+    assert kw["data"] == {"identifier": "AbCd1234", "friendInfo": "true"}
+    assert kw["impersonate"] == "chrome"  # 빼면 403(TLS 지문)
+    assert kw["timeout"] == everytime.TIMEOUT_S
+
+
+@pytest.mark.parametrize("status", [403, 500])
+def test_시간표_요청이_200이_아니면_Unavailable(http, status):
+    http.status, http.text = status, "The server detected abnormal access"
+    with pytest.raises(everytime.Unavailable):
+        everytime.fetch_xml("AbCd1234")
+
+
+def test_시간표_요청이_시간을_넘기면_Unavailable(http):
+    from curl_cffi.requests.exceptions import Timeout
+
+    http.error = Timeout("timed out")
+    with pytest.raises(everytime.Unavailable):
+        everytime.fetch_xml("AbCd1234")
+
+
+def test_API_에브리타임이_403이면_503_다시_하기(client, http, jisu, seeded):
+    http.status = 403
+    res = _connect(client)
+    assert res.status_code == 503
+    assert res.json()["code"] == "EVERYTIME_UNAVAILABLE"
+    assert _link(seeded, jisu.id) is None
+
+
+def test_API_없는_아이디_비공개는_400_시간표_없음(client, http, jisu):
+    # 11/15 실측: 없는 아이디도 200 + <response>-1</response>
+    http.text = '<?xml version="1.0" encoding="UTF-8"?>\n<response>-1</response>'
+    res = _connect(client)
+    assert res.status_code == 400
+    assert res.json()["code"] == "EVERYTIME_LINK_INVALID"
+    assert "전체 공개" in res.json()["message"]
+
+
+def test_API_실제_요청_경로로_수업이_들어온다(client, http, jisu, seeded):
+    res = _connect(client)
+    assert res.status_code == 200
+    assert http.calls[0][1]["data"]["identifier"] == "AbCd1234"
+    assert len(_rows(seeded, jisu.id, ScheduleSource.EVERYTIME)) == 3
+
+
 def test_로그인_안_하면_401(client, fake, seeded):
     assert _connect(client).status_code == 401
 
