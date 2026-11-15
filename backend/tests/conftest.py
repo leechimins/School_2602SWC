@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Iterator
+from datetime import date
 
 import pytest
 from dotenv import load_dotenv
@@ -146,6 +147,9 @@ def login(client: TestClient):
 
 @pytest.fixture
 def seeded(session: Session) -> Session:
-    """시연 시드가 들어간 DB. 팀원 4명과 방, 회의록, 할 일이 있다."""
-    seed(session)
+    """시연 시드가 들어간 DB. 팀원 4명과 방, 회의록, 할 일이 있다.
+
+    할 일 기한은 테스트들이 전제하는 오늘(11/10) 기준으로 넣는다.
+    """
+    seed(session, today=date(2026, 11, 10))
     return session

@@ -13,7 +13,7 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from sqlmodel import Session
 
@@ -21,6 +21,7 @@ from app.demo.models import DemoState
 from app.me.models import Preference, ScheduleItem
 from app.meeting.models import Meeting, MeetingResponse, YieldEntry
 from app.minutes.models import Minutes, MinutesItem, Task, TranscriptSegment
+from app.shared import demo_clock
 from app.shared.base import KST
 from app.shared.enums import (
     Daypart,
@@ -54,8 +55,12 @@ def hm(hour: int, minute: int = 0) -> int:
     return hour * 60 + minute
 
 
-def seed(session: Session) -> None:
+def seed(session: Session, today: date | None = None) -> None:
+    """today: 할 일 기한의 기준일. 비우면 시연 시계의 오늘(시계가 없으면 실제 오늘)."""
     session.add(DemoState(id=1, now_at=None))
+    session.flush()
+    if today is None:
+        today = demo_clock.now(session).date()
 
     # --- 사람 ---
     jisu = User(name="지수")
@@ -255,7 +260,9 @@ def seed(session: Session) -> None:
         ]
     )
 
-    _seed_minutes_and_tasks(session, room, second, first, jisu, minji, hyunwoo, seoyeon)
+    _seed_minutes_and_tasks(
+        session, room, second, first, jisu, minji, hyunwoo, seoyeon, today=today
+    )
 
     session.commit()
 
@@ -269,14 +276,22 @@ def _seed_minutes_and_tasks(
     minji: User,
     hyunwoo: User,
     seoyeon: User,
+    *,
+    today: date,
 ) -> None:
     """레인 B 시드. 지난 회의(10/31)의 회의록과 그 회의에서 나온 할 일.
 
-    기준 시점은 시연 시계의 오늘, 2026-11-10이다. 기한이 그보다 앞서고
+    할 일 기한은 today에서 며칠 앞뒤로 잡는다. 시연 시계를 없애 실제 날짜로
+    보므로, 날짜를 박아 두면 본선 날에는 전부 늦음이 된다. 간격은 처음 잡은
+    기준일 11/10에서 잰 그대로라 today=11/10이면 예전 시드와 같다.
+    기한이 today보다 앞서고
     끝나지 않은 할 일이 하나 있어야 늦음 뱃지가 보이고, 담당자 없는 할
     일이 있어야 "담당자 없음" 묶음이 보인다. 그 전 회의(10/27)에서 나와
     10/31 회의에서 끝난 일이 하나 있어야 회의록의 "회의에서 끝난 일"이 보인다.
     """
+    def day(offset: int) -> date:
+        return today + timedelta(days=offset)
+
     held = at(2026, 10, 31, 12)  # 회의가 끝난 시각 이후로 모든 기록을 찍는다
 
     # --- 원문 ---
@@ -347,16 +362,16 @@ def _seed_minutes_and_tasks(
 
     session.add_all(
         [
-            # 기한(11/8)이 오늘(11/10)보다 앞서고 끝나지 않았다 → 늦음
+            # 기한이 오늘보다 앞서고 끝나지 않았다 → 늦음
             confirmed(
-                "사용자 인터뷰 정리", date(2026, 11, 8), jisu, TaskState.DOING, by=jisu
+                "사용자 인터뷰 정리", day(-2), jisu, TaskState.DOING, by=jisu
             ),
             confirmed(
-                "발표 슬라이드 초안", date(2026, 11, 13), minji, TaskState.TODO, by=jisu
+                "발표 슬라이드 초안", day(3), minji, TaskState.TODO, by=jisu
             ),
             confirmed(
                 "프로토타입 화면 구현",
-                date(2026, 11, 15),
+                day(5),
                 hyunwoo,
                 TaskState.BLOCKED,
                 by=jisu,
@@ -364,7 +379,7 @@ def _seed_minutes_and_tasks(
             # 10/27 회의에서 나와 10/31 회의에서 "끝났다"고 한 일 → 회의에서 끝난 일
             confirmed(
                 "참고 사례 조사",
-                date(2026, 11, 5),
+                date(2026, 11, 5),  # 10/31 회의에서 이미 끝났다. 늦음과 상관없어 날짜 그대로
                 jisu,
                 TaskState.DONE,
                 by=jisu,
@@ -372,11 +387,11 @@ def _seed_minutes_and_tasks(
                 done_in=meeting,
             ),
             # 담당자 없음은 오류가 아니라 정상 시작 상태다
-            confirmed("발표 대본 작성", date(2026, 11, 17), None, TaskState.TODO, by=jisu),
+            confirmed("발표 대본 작성", day(7), None, TaskState.TODO, by=jisu),
             # 직접 추가한 할 일. 출처 회의가 없다.
             confirmed(
                 "대면 회의 장소 예약",
-                date(2026, 11, 12),
+                day(2),
                 jisu,
                 TaskState.TODO,
                 by=jisu,
@@ -403,9 +418,9 @@ def _seed_minutes_and_tasks(
     session.add_all(
         [
             # 회의록에 "제가 볼게요"가 분명해서 담당자가 채워진 제안
-            proposal("디자인 시안 정리", date(2026, 11, 14), seoyeon),
+            proposal("디자인 시안 정리", day(4), seoyeon),
             # 담당자가 불분명해 비어 있는 제안
-            proposal("최종 발표 리허설 일정 잡기", date(2026, 11, 18)),
+            proposal("최종 발표 리허설 일정 잡기", day(8)),
             proposal("시연 영상 촬영 계획", None),
         ]
     )
