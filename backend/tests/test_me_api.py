@@ -66,14 +66,6 @@ def test_로그인하면_이름과_id가_온다(client: TestClient, 지수: User
     assert res.json() == {"user_id": 지수.id, "name": "지수"}
 
 
-def test_없는_이름으로는_로그인이_안_된다(client: TestClient, 지수: User) -> None:
-    res = client.post(f"{API}/sessions", json={"name": "없는사람"})
-    assert res.status_code == 404
-    # 명세 권장 규칙 1 — message는 화면에 그대로 띄울 한국어 한 줄이다.
-    assert res.json()["code"] == "NOT_FOUND"
-    assert "팀원" in res.json()["message"]
-
-
 def test_로그인_없이는_선호를_못_읽는다(client: TestClient) -> None:
     res = client.get(f"{API}/me/preferences")
     assert res.status_code == 401

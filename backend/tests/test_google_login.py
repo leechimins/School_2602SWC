@@ -94,11 +94,13 @@ def test_긴_이름은_20자로(client: TestClient, session: Session, 구글) ->
     assert _google(client, "tok-long").json()["name"] == "가" * 20
 
 
-def test_구글로_만든_사람은_이름으로_못_들어온다(client: TestClient, session: Session, 구글) -> None:
-    _google(client, "tok-a")
-    client.delete(f"{API}/sessions")
-    res = client.post(f"{API}/sessions", json={"name": "김관객"})
-    assert res.status_code == 404
+def test_이름_로그인은_운영_앱에_없다() -> None:
+    """11/15에 지웠다. 테스트의 POST /sessions는 conftest가 테스트에서만 붙인 것이다."""
+    from app.shared.auth import router
+
+    assert all(
+        not (route.path == "/sessions" and "POST" in route.methods) for route in router.routes
+    )
 
 
 # ── 토큰 확인 자체 ──────────────────────────────────────────────────

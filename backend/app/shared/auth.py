@@ -1,12 +1,8 @@
 """로그인과 "내가 누구인지".
 
-Room 도메인이라 레인 표대로면 B(장연우) 것이다. 그런데 /me/* 전부가 사용자
-없이는 아예 돌지 않아서 A가 먼저 깔았다. user 테이블은 건드리지 않았다 —
-비밀번호 열을 더하는 것은 B의 일이고, 그 자리는 login() 안에 적어 뒀다.
-
-지금은 인증이 아니라 사용자 선택이다. 이름을 보내면 그 사람이 된다.
-시드 4명으로 시연하는 동안은 이게 충분하고, 비밀번호가 생기면 login()에
-검사 한 줄이 들어갈 뿐 나머지는 그대로다.
+로그인은 구글 하나다(POST /sessions/google). 11/15에 이름 로그인(POST /sessions에
+이름만 보내면 그 사람이 되던 길)을 지웠다 — 배포 주소에서는 누구든 시드 이름을 쳐서
+그 사람이 될 수 있어서다. 테스트는 conftest.py가 테스트에서만 같은 주소를 붙여 쓴다.
 
 쿠키는 main.py의 SessionMiddleware가 서명한다. 서명하지 않으면 쿠키 값이
 그냥 "1"이라 누구나 다른 사람으로 바꿔 넣는다. db-설계.md가 "서명 쿠키를
@@ -17,7 +13,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.exc import IntegrityError
-from sqlmodel import Session, SQLModel, col, select
+from sqlmodel import Session, SQLModel, select
 
 from app.integration import google_calendar as google
 from app.shared.db import session_dep
@@ -27,10 +23,6 @@ router = APIRouter(prefix="/sessions", tags=["auth"])
 
 # 쿠키 안에 들어가는 키. 서명된 세션 딕셔너리의 한 칸이다.
 SESSION_KEY = "user_id"
-
-
-class LoginIn(SQLModel):
-    name: str
 
 
 class LoginOut(SQLModel):
@@ -78,32 +70,6 @@ def require_member(db: Session, room_id: int, user_id: int) -> None:
             status.HTTP_403_FORBIDDEN,
             detail={"code": "FORBIDDEN", "message": "이 방의 팀원이 아닙니다."},
         )
-
-
-@router.post("", status_code=status.HTTP_201_CREATED)
-def login(
-    body: LoginIn,
-    request: Request,
-    db: Session = Depends(session_dep),
-) -> LoginOut:
-    # 구글로 만든 사람은 이름으로 못 들어온다. 막지 않으면 관객이 다른 관객의 구글 이름을
-    # 쳐서 그 사람이 된다. 시드 4명(시연 폰)만 이 길이다.
-    user = db.exec(
-        select(User).where(User.name == body.name, col(User.google_sub).is_(None))
-    ).first()
-    if user is None:
-        raise HTTPException(
-            status.HTTP_404_NOT_FOUND,
-            detail={"code": "NOT_FOUND", "message": "그 이름의 팀원이 없습니다."},
-        )
-
-    # 비밀번호가 생기면 바로 여기에 검사가 들어간다 (레인 B):
-    #     if not verify(body.password, user.password_hash): raise 401
-    # user 테이블에 열을 더하는 것까지가 B의 몫이라 지금은 비워 둔다.
-
-    assert user.id is not None  # DB에서 읽어 온 행이라 항상 있다
-    request.session[SESSION_KEY] = user.id
-    return LoginOut(user_id=user.id, name=user.name)
 
 
 @router.delete("", status_code=status.HTTP_204_NO_CONTENT)

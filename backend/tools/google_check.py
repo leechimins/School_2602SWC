@@ -36,10 +36,9 @@ PAGE = """<!doctype html><meta charset="utf-8"><title>구글 연동 확인</titl
 <p>구글 로그인: <span id="g"></span>
 <button onclick="call('GET','/api/v1/me')">내 계정 보기</button></p>
 <p>
-<button onclick="call('POST','/api/v1/sessions',{name:'지수'})">1. 지수로 로그인</button>
-<button id="c">2. 구글 연결</button>
-<button onclick="call('POST','/api/v1/me/integrations/google-calendar/sync')">3. 동기화</button>
-<button onclick="call('DELETE','/api/v1/me/integrations/google-calendar')">4. 끊기</button>
+<button id="c">1. 구글 연결</button>
+<button onclick="call('POST','/api/v1/me/integrations/google-calendar/sync')">2. 동기화</button>
+<button onclick="call('DELETE','/api/v1/me/integrations/google-calendar')">3. 끊기</button>
 </p>
 <pre id="o" style="white-space:pre-wrap;background:#f4f4f4;padding:8px"></pre>
 <script>

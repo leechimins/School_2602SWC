@@ -26,10 +26,8 @@ def test_로그인_헬퍼로_시드_팀원이_로그인한다(client: TestClient
     assert res.status_code == 200
 
 
-def test_시드에_없는_이름은_404이고_에러는_code_message_모양이다(
-    client: TestClient, seeded
-) -> None:
-    res = client.post(f"{API}/sessions", json={"name": "없는사람"})
+def test_에러는_code_message_모양이다(client: TestClient, seeded) -> None:
+    res = client.get(f"{API}/me/preferences")  # 로그인 안 함
 
-    assert res.status_code == 404
+    assert res.status_code == 401
     assert set(res.json()) == {"code", "message"}
