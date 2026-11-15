@@ -22,7 +22,8 @@ from sqlmodel import Session, select
 from app.meeting.agent_loop import run_rounds
 from app.meeting.models import CandidateSlot, Meeting, Scheduling, SlotCost
 from app.shared.base import KST
-from app.shared.enums import MeetingStatus, Mode, SchedulingPhase, SchedulingStatus
+from app.notice.models import Notification
+from app.shared.enums import MeetingStatus, Mode, NotificationKind, SchedulingPhase, SchedulingStatus
 from app.shared.models import Membership, Room, User
 
 API = "/api/v1"
@@ -187,6 +188,29 @@ def test_거절하면_다시_조율한다는_줄이_남는다(
     assert 다시["why"] == "현우 님이 그 시간은 어렵다고 했어요"
     # 다시 돈 조율이 대안 16시로 새로 제안한 줄도 남는다
     assert "발표 리허설 제안 · 11월 9일(월) 16:00–18:00" in whats
+
+
+def test_다시_조율한_일정_알림은_처음과_문구가_다르다(
+    client: TestClient, session: Session, 방: 팀, login
+) -> None:
+    """이미 답한 사람이 왜 또 답해야 하는지 알 수 있게."""
+    meeting = _합의(session, 방, 대안=True)
+    login("현우")
+    client.post(
+        f"{API}/rooms/{방.id}/proposals/{meeting.id}/respond", json={"accept": False}
+    )
+
+    reasons = {
+        n.reason
+        for n in session.exec(
+            select(Notification).where(
+                Notification.kind == NotificationKind.MEETING_PROPOSED
+            )
+        ).all()
+    }
+
+    assert "발표 리허설 일정이 나왔어요. 수락/거절해 주세요." in reasons
+    assert "발표 리허설 일정이 다시 나왔어요. 다시 수락/거절해 주세요." in reasons
 
 
 # ── 양보 기록 ────────────────────────────────────────────────────────

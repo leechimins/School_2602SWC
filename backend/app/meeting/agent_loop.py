@@ -570,6 +570,23 @@ def _from_template(
 # ── 합의 ────────────────────────────────────────────────────────────
 
 
+def _is_rerun(db: Session, scheduling: Scheduling) -> bool:
+    """누가 거절해서 다시 돈 조율인가. 앞서 낸 회의가 취소돼 남아 있으면 그렇다.
+
+    알림 문구를 가른다 — 같은 "일정이 나왔어요"가 두 번 오면 이미 답한
+    사람이 왜 또 답해야 하는지 모른다.
+    """
+    return (
+        db.exec(
+            select(Meeting.id).where(
+                Meeting.scheduling_id == scheduling.id,
+                Meeting.status == MeetingStatus.CANCELLED,
+            )
+        ).first()
+        is not None
+    )
+
+
 def _propose(
     db: Session,
     scheduling: Scheduling,
@@ -599,7 +616,9 @@ def _propose(
         meeting.id,
         [c.user_id for c in costs],
         NotificationKind.MEETING_PROPOSED,
-        f"{scheduling.topic} 일정이 나왔어요. 수락/거절해 주세요.",
+        f"{scheduling.topic} 일정이 다시 나왔어요. 다시 수락/거절해 주세요."
+        if _is_rerun(db, scheduling)
+        else f"{scheduling.topic} 일정이 나왔어요. 수락/거절해 주세요.",
     )
     record(
         db,
