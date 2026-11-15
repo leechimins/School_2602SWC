@@ -43,7 +43,14 @@ class EverytimeError(Exception):
 
 
 class LinkInvalid(EverytimeError):
-    """링크 모양이 아니거나, 열었는데 시간표가 없다(비공개·삭제)."""
+    """링크 모양이 아니다. 에브리타임 페이지를 열기 전에 걸러진다."""
+
+
+class TimetableNotFound(LinkInvalid):
+    """링크 모양은 맞는데 열어 보니 시간표가 없다(비공개·삭제·없는 아이디).
+
+    에브리타임 응답만으로는 비공개와 없는 아이디를 가를 수 없어 하나로 둔다.
+    """
 
 
 class Unavailable(EverytimeError):
@@ -98,7 +105,7 @@ def fetch_xml(share: str) -> str:
                         wait_until="domcontentloaded",
                     )
                     if opened is not None and opened.status == 404:
-                        raise LinkInvalid("page 404")
+                        raise TimetableNotFound("page 404")
                     if opened is not None and opened.status >= 400:
                         raise Unavailable(f"page {opened.status}")
                 res = caught.value
@@ -127,7 +134,7 @@ def _value(subject: ET.Element, tag: str) -> str:
 
 
 def parse(xml: str) -> Timetable:
-    """시간표 XML → Timetable. 시간표가 없으면 LinkInvalid.
+    """시간표 XML → Timetable. 시간표가 없으면 TimetableNotFound.
 
     <table year="2024" semester="2">
       <subject>
@@ -140,11 +147,11 @@ def parse(xml: str) -> Timetable:
     try:
         root = ET.fromstring(xml)
     except ET.ParseError:
-        raise LinkInvalid("xml") from None
+        raise TimetableNotFound("xml") from None
     table = root if root.tag == "table" else root.find(".//table")
     if table is None:
         # 비공개·없는 공유 아이디면 <response>만 온다.
-        raise LinkInvalid("no table")
+        raise TimetableNotFound("no table")
 
     courses: list[Course] = []
     for subject in table.iter("subject"):
@@ -166,5 +173,5 @@ def parse(xml: str) -> Timetable:
 
 
 def read(link: str) -> Timetable:
-    """붙여 넣은 링크 하나로 시간표까지. LinkInvalid · Unavailable을 올린다."""
+    """붙여 넣은 링크 하나로 시간표까지. LinkInvalid(TimetableNotFound 포함) · Unavailable을 올린다."""
     return parse(fetch_xml(share_id(link)))
