@@ -63,7 +63,7 @@ export default function HomePage() {
       {home.status === 'ready' && (
         <>
           <div className={styles.lift}>
-            <img className={styles.somsom} src="/brand/somsom-face.webp" alt="" />
+            <img className={styles.somsom} src="/brand/somsom-peek.webp" alt="" />
             <PeriodCard startDate={home.data.startDate} dueDate={home.data.dueDate} today={home.data.today} />
           </div>
           <NextMeeting home={home.data} />
