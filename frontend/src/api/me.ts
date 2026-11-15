@@ -92,21 +92,53 @@ export function deleteScheduleItem(itemId: Id): Promise<void> {
   })
 }
 
-type ServerIntegration = { imported_count: number }
+type ServerIntegration = { imported_count: number; term?: string | null }
 
 /** 에브리타임 공유 링크로 수업 불러오기. 이미 연결돼 있으면 다시 불러온다 */
 export function connectEverytime(url: string): Promise<LinkResult> {
   return write(async () => {
-    // 브라우저로 공유 페이지를 열어 읽어서 몇 초 걸린다
-    const r = await request<ServerIntegration>('/me/integrations/everytime', { method: 'POST', body: { url }, timeoutMs: 30_000 })
-    return { count: r.imported_count }
+    // 서버가 브라우저로 공유 페이지를 열어 읽는다. 에브리타임이 느려 10초 넘게 걸리기도 한다(서버 한도 25초)
+    const r = await request<ServerIntegration>('/me/integrations/everytime', { method: 'POST', body: { url }, timeoutMs: 40_000 })
+    return { count: r.imported_count, term: r.term ?? null }
+  })
+}
+
+const GOOGLE_CLIENT_ID = (import.meta.env.VITE_GOOGLE_CLIENT_ID ?? '').trim()
+const CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.readonly' // 읽기 권한만
+const GOOGLE_OFF = '지금은 구글 캘린더를 연결할 수 없어요. 시간표를 직접 넣어 주세요.'
+
+/** 구글 권한 팝업을 열어 인증 코드를 받는다. 팝업을 닫으면 CANCELLED */
+function askGoogleCode(): Promise<string> {
+  const oauth2 = window.google?.accounts.oauth2 // index.html의 GSI 스크립트
+  if (!GOOGLE_CLIENT_ID || !oauth2) return Promise.reject(new ApiError(503, 'GOOGLE_NOT_READY', GOOGLE_OFF))
+  return new Promise((resolve, reject) => {
+    oauth2
+      .initCodeClient({
+        client_id: GOOGLE_CLIENT_ID,
+        scope: CALENDAR_SCOPE,
+        ux_mode: 'popup',
+        access_type: 'offline', // 서버가 나중에 다시 읽으려면 갱신 토큰이 있어야 한다
+        prompt: 'consent', // 전에 허락했어도 갱신 토큰을 다시 받는다
+        callback: (res) =>
+          res.code ? resolve(res.code) : reject(new ApiError(400, 'GOOGLE_DENIED', '캘린더 읽기를 허락해야 연결돼요.')),
+        error_callback: () => reject(new ApiError(400, 'CANCELLED', '구글 연결을 끝내지 않았어요.')),
+      })
+      .requestCode()
   })
 }
 
 /**
- * 구글 캘린더 연결. 서버는 구글 팝업(Google Identity Services)에서 받은 코드를 받아야 하는데,
- * 프론트에 구글 캘린더 권한 팝업이 아직 없어 열지 않는다. 그동안은 직접 입력으로 이어 가라고 안내한다.
+ * 구글 캘린더 연결. 팝업에서 받은 코드를 서버에 넘기면 서버가 앞으로 5주 약속을 "바쁨"으로 읽어 온다.
+ * 팝업은 클릭 직후에 열어야 막히지 않으므로 버튼 클릭에서 바로 부른다(앞에 await를 두지 않는다).
  */
 export function connectGoogle(): Promise<LinkResult> {
-  return Promise.reject(new ApiError(400, 'GOOGLE_NOT_READY', '지금은 구글 캘린더를 연결할 수 없어요. 시간표를 직접 넣어 주세요.'))
+  const code = askGoogleCode()
+  return write(async () => {
+    const r = await request<ServerIntegration>('/me/integrations/google-calendar', {
+      method: 'POST',
+      body: { code: await code },
+      timeoutMs: 25_000, // 토큰 교환 + 약속 읽기(구글 호출 각 10초 한도)
+    })
+    return { count: r.imported_count, term: null }
+  })
 }
