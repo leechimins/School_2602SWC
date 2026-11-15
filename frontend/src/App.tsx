@@ -56,6 +56,7 @@ export default function App() {
         <Route path={PATHS.tasks} element={<TasksPage />} />
         {/* 나 탭 */}
         <Route path={PATHS.me} element={<MePage />} />
+        <Route path={PATHS.meActivity} element={<ActivityPage />} />
       </Route>
       {/* 처음 화면: 하단 탭 없이 휴대폰 폭 틀만 */}
       <Route

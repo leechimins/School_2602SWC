@@ -6,7 +6,7 @@ export const PATHS = {
   // 홈 탭
   home: '/',
   notifications: '/notifications',
-  activity: '/notifications/activity', // 에이전트 기록(한 일·양보). 알림과 My에서 들어온다
+  activity: '/notifications/activity', // 에이전트 기록(한 일·양보). 알림에서 들어올 때
   schedulingNew: '/scheduling/new',
   scheduling: '/scheduling/:schedulingId',
   proposal: '/proposals/:proposalId',
@@ -18,6 +18,7 @@ export const PATHS = {
   tasks: '/tasks',
   // 나 탭
   me: '/me',
+  meActivity: '/me/activity', // 같은 에이전트 기록을 My에서 들어올 때. 하단 탭이 My로 남는다
   // 탭 밖 (처음 한 번)
   login: '/login', // 스플래시 + 구글 로그인
   start: '/start', // 방 만들기(팀장)

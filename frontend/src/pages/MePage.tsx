@@ -78,7 +78,7 @@ export default function MePage() {
           {editingPrefs && <PrefSheet initial={prefs.data} onClose={() => setEditingPrefs(false)} />}
         </>
       )}
-      <MoreLink to={PATHS.activity} label="에이전트 기록 보기" />
+      <MoreLink to={PATHS.meActivity} label="에이전트 기록 보기" />
 
       <section className="sec">
         <div className={styles.secHead}>

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { getActivity } from '../api/notifications.ts'
 import RetryBox from '../components/RetryBox.tsx'
 import Screen from '../components/Screen.tsx'
@@ -14,14 +15,16 @@ const TABS = ['한 일', '양보'] as const
 type Tab = (typeof TABS)[number]
 
 // 에이전트 기록: 에이전트가 무엇을 왜 했는지(한 일)와 누가 시간을 맞춰 줬는지(양보).
-// 알림 화면 아래와 My 탭에서 들어온다. 알림은 "먼저 챙길 것"만 두고, 쌓이는 기록은 여기서 본다.
+// 알림 화면 아래(/notifications/activity)와 My 탭(/me/activity)에서 들어온다. 주소가 둘이라 들어온 탭이 그대로 켜진다.
+// 알림은 "먼저 챙길 것"만 두고, 쌓이는 기록은 여기서 본다.
 export default function ActivityPage() {
   const user = useCurrentUser()
   const res = useApi(() => getActivity(user.roomId), [user.roomId, user.id])
   const [tab, setTab] = useState<Tab>('한 일')
+  const fromMe = useLocation().pathname.startsWith(PATHS.me)
 
   return (
-    <Screen title="에이전트 기록" backTo={PATHS.notifications}>
+    <Screen title="에이전트 기록" backTo={fromMe ? PATHS.me : PATHS.notifications}>
       <div className={styles.tabs}>
         <Segmented label="기록 종류" options={TABS} value={tab} onChange={setTab} />
       </div>
