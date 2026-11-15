@@ -5,8 +5,9 @@
   padding: 4px 0;
 }
 
+/* 제목 + 다음 행동 두 줄 높이에 맞춘다. 모든 빈 화면이 이 크기 하나를 쓴다 */
 .art {
-  width: 64px;
+  width: 48px;
   flex: none;
 }
 
