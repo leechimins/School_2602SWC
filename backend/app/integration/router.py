@@ -14,6 +14,7 @@ from app.integration import google_calendar as google
 from app.integration import service as integration
 from app.integration.schemas import EverytimeConnectIn, GoogleConnectIn, IntegrationOut
 from app.minutes.models import CalendarLink
+from app.shared import demo_clock
 from app.shared.auth import current_user_id
 from app.shared.db import session_dep
 from app.shared.enums import CalendarKind
@@ -89,6 +90,7 @@ def connect_everytime(
     - 에브리타임이 응답하지 않거나 막으면 503 `EVERYTIME_UNAVAILABLE`. 다시 하면 될 수 있습니다.
     - 서버에 연동이 깔려 있지 않으면 503 `EVERYTIME_NOT_CONFIGURED`. 다시 해도 안 되니 직접 입력으로 안내합니다.
     - 실패하면 전에 들어온 수업은 남고, 연결돼 있었다면 상태가 `failed`가 됩니다.
+    - 지난 학기 시간표도 거절하지 않고 넣습니다(조율은 학기 범위 밖을 안 셉니다). 대신 `term_state`가 `past`이니 이번 학기 링크를 넣으라고 안내합니다.
     - 읽는 데 2~4초 걸립니다.
     """
     if not everytime.configured():
@@ -118,6 +120,7 @@ def connect_everytime(
         last_synced_at=link.last_synced_at,
         imported_count=timetable.class_count(db, user_id),
         term=timetable.term_label(table),
+        term_state=timetable.term_state(table, demo_clock.now(db).date()),
     )
 
 

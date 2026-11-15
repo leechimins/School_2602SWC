@@ -17,9 +17,11 @@ from app.integration import everytime_service as service
 from app.integration.timetable import (
     ClassTime,
     Course,
+    TermState,
     Timetable,
     term_label,
     term_range,
+    term_state,
 )
 from app.me.models import ScheduleItem
 from app.minutes.models import CalendarLink
@@ -155,6 +157,7 @@ def test_연결하면_수업이_요일마다_한_줄로_들어간다(client, fak
     assert body["account"] == "everytime.kr/@AbCd1234"
     assert body["imported_count"] == 2  # 시간 없는 온라인 강의는 빠진다
     assert body["term"] == "2026년 2학기"
+    assert body["term_state"] == "current"
     assert body["last_synced_at"] is not None
     assert fake.calls == ["AbCd1234"]
 
@@ -442,10 +445,31 @@ def test_파서는_시각_밖의_것을_버린다():
 def test_학기_범위와_이름():
     assert term_range(Timetable(2026, "1", ())) == (date(2026, 3, 1), date(2026, 6, 30))
     assert term_range(Timetable(2026, "2", ())) == (date(2026, 9, 1), date(2026, 12, 31))
-    # 계절학기처럼 모르는 값은 범위 없이 넣는다
-    assert term_range(Timetable(2026, "S", ())) == (None, None)
+    # 계절학기처럼 모르는 학기 값은 그 해 전체. 연도도 모르면 범위 없음
+    assert term_range(Timetable(2026, "S", ())) == (date(2026, 1, 1), date(2026, 12, 31))
+    assert term_range(Timetable(2026, None, ())) == (date(2026, 1, 1), date(2026, 12, 31))
+    assert term_range(Timetable(None, "2", ())) == (None, None)
     assert term_label(Timetable(2026, "S", ())) == "2026년 S"
     assert term_label(Timetable(None, None, ())) is None
+
+
+@pytest.mark.parametrize(
+    ("year", "semester", "today", "state"),
+    [
+        (2026, "2", date(2026, 11, 10), TermState.CURRENT),
+        (2026, "2", date(2026, 9, 1), TermState.CURRENT),  # 첫날
+        (2026, "2", date(2026, 12, 31), TermState.CURRENT),  # 마지막 날
+        (2026, "1", date(2026, 11, 10), TermState.PAST),
+        (2024, "2", date(2026, 11, 10), TermState.PAST),
+        (2026, "2", date(2026, 8, 20), TermState.UPCOMING),  # 방학 중에 다음 학기를 미리
+        (2027, "1", date(2026, 12, 20), TermState.UPCOMING),
+        (2025, "S", date(2026, 7, 10), TermState.PAST),  # 지난 해 계절학기
+        (2026, "S", date(2026, 7, 10), TermState.CURRENT),  # 올해 계절학기, 지금이 계절학기
+        (None, None, date(2026, 11, 10), None),
+    ],
+)
+def test_학기_상태는_오늘이_학기_범위의_어디인지(year, semester, today, state):
+    assert term_state(Timetable(year, semester, ()), today) == state
 
 
 def test_제약에_걸릴_시각은_버리고_나머지는_넣는다(client, fake, jisu, seeded):
@@ -469,6 +493,28 @@ def test_지난_학기_링크면_이번_학기_조율을_막지_않는다(client
     fake.xml = XML.replace('year="2026" semester="2"', 'year="2024" semester="2"')
     body = _connect(client).json()
     assert body["term"] == "2024년 2학기"
+    assert body["term_state"] == "past"  # 저장은 하고 화면이 이번 학기 링크를 안내
+    assert body["imported_count"] == 2
     rows = _rows(seeded, jisu.id, ScheduleSource.EVERYTIME)
     start = TODAY.replace(hour=0)
     assert expand_busy(rows, start, start + timedelta(days=7)) == []
+
+
+def test_지난_해_계절학기_링크도_이번_주_조율을_막지_않는다(client, fake, jisu, seeded):
+    from datetime import timedelta
+
+    from app.meeting.slots import expand_busy
+
+    fake.xml = XML.replace('year="2026" semester="2"', 'year="2025" semester="S"')
+    body = _connect(client).json()
+    assert body["term_state"] == "past"
+    rows = _rows(seeded, jisu.id, ScheduleSource.EVERYTIME)
+    start = TODAY.replace(hour=0)
+    assert expand_busy(rows, start, start + timedelta(days=7)) == []
+
+
+def test_학기를_모르면_term_state는_null(client, fake, jisu):
+    fake.xml = XML.replace(' year="2026" semester="2"', "")
+    body = _connect(client).json()
+    assert body["term"] is None
+    assert body["term_state"] is None

@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
+from enum import StrEnum
 
 from sqlalchemy import delete, func
 from sqlmodel import Session, select
@@ -50,18 +51,41 @@ class Timetable:
 
 # 학기 범위. 조율(meeting/slots.py)이 이 범위 밖의 주는 수업을 안 센다 —
 # 지난 학기 링크를 넣어도 이번 학기 후보를 막지 않는다.
-# 계절학기 등 모르는 값은 범위 없이 넣는다(매주 반복으로 센다).
+# 계절학기 등 모르는 학기 값은 그 해 전체로 둔다. 지난 해 시간표가 지금을 막지 않게
+# 하는 게 목적이라 정확한 기간까지는 안 맞춘다(계절학기 값은 실제 링크로 본 적이 없다).
+# 연도도 모르면 범위 없이 넣는다(매주 반복으로 센다).
 _TERMS: dict[str, tuple[tuple[int, int], tuple[int, int]]] = {
     "1": ((3, 1), (6, 30)),
     "2": ((9, 1), (12, 31)),
 }
+_WHOLE_YEAR = ((1, 1), (12, 31))
+
+
+class TermState(StrEnum):
+    """읽어 온 시간표의 학기가 오늘(시연 시계) 기준으로 어디에 있나."""
+
+    CURRENT = "current"
+    PAST = "past"
+    UPCOMING = "upcoming"
 
 
 def term_range(table: Timetable) -> tuple[date | None, date | None]:
-    if table.year is None or table.semester not in _TERMS:
+    if table.year is None:
         return None, None
-    (fm, fd), (tm, td) = _TERMS[table.semester]
+    (fm, fd), (tm, td) = _TERMS.get(table.semester or "", _WHOLE_YEAR)
     return date(table.year, fm, fd), date(table.year, tm, td)
+
+
+def term_state(table: Timetable, today: date) -> TermState | None:
+    """학기를 모르면 None. 방학 중에 다음 학기 시간표를 미리 넣으면 UPCOMING."""
+    start, end = term_range(table)
+    if start is None or end is None:
+        return None
+    if today < start:
+        return TermState.UPCOMING
+    if today > end:
+        return TermState.PAST
+    return TermState.CURRENT
 
 
 def term_label(table: Timetable) -> str | None:

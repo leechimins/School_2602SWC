@@ -6,6 +6,7 @@ from datetime import datetime
 
 from sqlmodel import Field, SQLModel
 
+from app.integration.timetable import TermState
 from app.shared.enums import CalendarKind, LinkStatus
 
 
@@ -48,4 +49,12 @@ class IntegrationOut(SQLModel):
     term: str | None = Field(
         default=None,
         description="에브리타임만. 읽어 온 시간표의 학기(예: '2026년 2학기'). 지난 학기 링크인지 알려 줄 때 쓴다",
+    )
+    term_state: TermState | None = Field(
+        default=None,
+        description=(
+            "에브리타임만. 오늘 기준으로 그 학기가 current(이번 학기)·past(지난 학기)·"
+            "upcoming(다음 학기를 미리 넣음). 학기를 모르면 null. "
+            "past여도 저장은 되고 조율에서 안 셀 뿐이라, 화면에서 이번 학기 링크를 넣으라고 안내한다"
+        ),
     )
