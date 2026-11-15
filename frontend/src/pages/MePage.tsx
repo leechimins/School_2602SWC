@@ -89,7 +89,6 @@ export default function MePage() {
       )}
 
       <section className="sec">
-        <h2>내 일정 가져오기</h2>
         {thisWeek.status === 'error' && <RetryBox message={thisWeek.message} onRetry={thisWeek.reload} />}
         {thisWeek.status === 'ready' && <ScheduleLinks blocks={thisWeek.data.blocks} onAdd={openAdd} showLock={false} />}
       </section>

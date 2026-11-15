@@ -13,7 +13,8 @@ type Props = {
 
 type Reading = { state: 'idle' } | { state: 'reading' } | { state: 'ok' | 'fail'; message: string }
 
-// 내 일정 가져오기: 두 묶음 × 두 방식 [연동 / 직접 추가]. 두 방식은 같은 모양의 줄로 나란히 보인다
+// 내 일정 가져오기: 두 묶음 × 두 방식 [연동 / 직접 추가]. 묶음 제목이 카드 제목을 대신하고,
+// 연동이 먼저라 연동은 줄로, 직접 추가는 제목 오른쪽 작은 링크로 둔다
 //   반복 일정(매주)   — 에브리타임 공유 링크(수업) / 직접 추가(알바처럼 매주 있는 일)
 //   일회성 일정(그날) — 구글 캘린더(약속)         / 직접 추가(그날만 있는 일)
 // 아직 아무것도 없으면 설명 문구 없이 제목과 버튼만 보인다
@@ -48,7 +49,7 @@ export default function ScheduleLinks({ blocks, onAdd, showLock = true }: Props)
 
   return (
     <>
-      <p className={styles.group}>반복 일정</p>
+      <GroupHead title="반복 일정" onAdd={() => onAdd('weekly')} />
       {/* 다른 줄처럼 이름 | 오른쪽 뱃지, 링크 칸은 그 아래 한 줄 전체 */}
       <div className={styles.row}>
         <div>
@@ -77,9 +78,8 @@ export default function ScheduleLinks({ blocks, onAdd, showLock = true }: Props)
           )}
         </div>
       </div>
-      <ManualRow what="에타에 없는 매주 일정" onAdd={() => onAdd('weekly')} />
 
-      <p className={styles.group}>일회성 일정</p>
+      <GroupHead title="일회성 일정" onAdd={() => onAdd('once')} />
       <div className={styles.row}>
         <div>
           <p className="strong">구글 캘린더</p>
@@ -99,7 +99,6 @@ export default function ScheduleLinks({ blocks, onAdd, showLock = true }: Props)
           </button>
         )}
       </div>
-      <ManualRow what="캘린더에 없는 약속" onAdd={() => onAdd('once')} />
 
       {showLock && (
         <p className={styles.lock}>
@@ -110,15 +109,15 @@ export default function ScheduleLinks({ blocks, onAdd, showLock = true }: Props)
   )
 }
 
-// 직접 추가: 연동이 먼저고 이것은 보조라, 연동 줄 아래 들여 쓴 작은 한 줄로 딸려 보인다.
+// 묶음 제목(카드 제목 크기) | 오른쪽 "직접 추가". 연동이 먼저고 직접 추가는 보조라 제목 옆 작은 링크로 둔다.
 // 넣은 일정은 위 시간표에 보이므로 여기 다시 늘어놓지 않는다
-function ManualRow({ what, onAdd }: { what: string; onAdd: () => void }) {
+function GroupHead({ title, onAdd }: { title: string; onAdd: () => void }) {
   return (
-    <p className={`meta ${styles.manual}`}>
-      {what}은{' '}
+    <div className={`row-between ${styles.group}`}>
+      <h2>{title}</h2>
       <button type="button" className="link" onClick={onAdd}>
         직접 추가
       </button>
-    </p>
+    </div>
   )
 }

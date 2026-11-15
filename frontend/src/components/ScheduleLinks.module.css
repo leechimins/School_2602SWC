@@ -11,15 +11,22 @@
   grid-column: 1 / -1;
 }
 
-/* 묶음 이름: 반복 일정 / 일회성 일정 */
+/* 묶음 제목 줄: 반복 일정 / 일회성 일정 (글자는 .sec h2) | 직접 추가 */
 .group {
-  margin: 18px 0 2px;
-  font-size: var(--fs-body);
-  font-weight: 800;
+  margin-top: 18px;
 }
 
 .group:first-child {
   margin-top: 0;
+}
+
+.group h2 {
+  margin: 0;
+}
+
+.group :global(.link) {
+  min-height: 0;
+  font-size: var(--fs-meta);
 }
 
 .input {
@@ -36,10 +43,6 @@
   font-size: 13px;
 }
 
-/* 직접 추가: 연동 줄에 딸린 보조 한 줄. 작은 회색 글자로만 딸려 보인다 */
-.manual {
-  margin: 0 0 4px;
-}
 
 .msg {
   margin-top: 6px;
@@ -58,7 +61,3 @@
   font-size: var(--fs-meta);
 }
 
-.manual :global(.link) {
-  min-height: 0;
-  font-size: inherit;
-}
