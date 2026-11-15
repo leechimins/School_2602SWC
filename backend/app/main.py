@@ -7,10 +7,12 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -52,15 +54,17 @@ app = FastAPI(
 # 세션 쿠키를 서명한다. 서명하지 않으면 쿠키 값이 그냥 "1"이라 누구나 다른
 # 사람으로 바꿔 넣는다.
 #
-# 기본값을 둔 이유: 지금 로그인은 비밀번호가 없어서(shared/auth.py) 쿠키를
-# 위조하는 것과 그 이름으로 로그인하는 것이 같다 — 비밀이 아직 아무것도
-# 지키지 않는다. 그래서 .env에 한 줄이 없다고 서버가 안 뜨게 하지 않았다.
-# 레인 B가 비밀번호를 붙이는 순간부터는 이 값이 진짜 비밀이 되므로 .env에
-# 반드시 넣어야 한다.
+# 배포(COOKIE_SECURE=true)에서는 쿠키를 https로만 보내고, SESSION_SECRET이 없으면
+# 뜨지 않는다 — 기본값은 저장소에 공개돼 있어서 그걸로 서명하면 누구나 쿠키를 만든다.
+# 로컬은 http라 기본값으로 그냥 뜬다.
+COOKIE_SECURE = os.getenv("COOKIE_SECURE") == "true"
+if COOKIE_SECURE and not os.getenv("SESSION_SECRET"):
+    raise RuntimeError("COOKIE_SECURE=true인데 SESSION_SECRET이 없습니다. 배포 환경변수에 넣으세요.")
 app.add_middleware(
     SessionMiddleware,
     secret_key=os.getenv("SESSION_SECRET") or "dev-only-비밀번호가-없는-동안만",
     same_site="lax",
+    https_only=COOKIE_SECURE,
 )
 
 app.include_router(auth_router, prefix=API_PREFIX)
@@ -128,3 +132,27 @@ def _db_status() -> str:
 @app.get(f"{API_PREFIX}/health")
 def health() -> dict[str, str]:
     return {"status": "ok", "db": _db_status()}
+
+
+# 배포에서는 빌드된 프론트(npm run build의 dist)를 이 서버가 같이 준다. 주소가 하나라
+# 쿠키와 SSE가 로컬과 똑같이 돈다. 로컬 개발은 Vite(5173)가 화면을 주므로 STATIC_DIR이 없다.
+# 반드시 맨 끝에 둔다 — 아래 경로는 무엇이든 받으므로 앞에 있으면 API를 가린다.
+STATIC_DIR = os.getenv("STATIC_DIR")
+if STATIC_DIR:
+    _static = Path(STATIC_DIR).resolve()
+    _index = _static / "index.html"
+    app.mount("/assets", StaticFiles(directory=_static / "assets"), name="assets")
+
+    @app.get("/{path:path}", include_in_schema=False)
+    def frontend(path: str) -> FileResponse:
+        """public 폴더 파일(splash 그림 등)은 그대로, 나머지는 index.html.
+
+        React Router 화면(/home 등)에서 새로고침하면 그 주소로 요청이 온다. 파일이 없으니
+        index.html을 주고 화면 이동은 브라우저가 한다. /api 아래 없는 주소는 404 그대로.
+        """
+        if path.startswith("api/"):
+            raise HTTPException(404, detail={"code": "NOT_FOUND", "message": "없는 주소입니다."})
+        file = (_static / path).resolve()
+        if path and file.is_file() and file.is_relative_to(_static):
+            return FileResponse(file)
+        return FileResponse(_index)

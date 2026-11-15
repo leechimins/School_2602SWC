@@ -16,7 +16,7 @@ API 서버와 에이전트(회의 시간 조율, 회의록 요약, 할 일 추�
 | method | path | 하는 일 |
 |---|---|---|
 | GET | `/api/v1/health` | DB가 붙는지까지 같이 봅니다 |
-| POST | `/api/v1/sessions` | **로그인.** 이름을 보내면 그 사람이 됩니다 |
+| POST | `/api/v1/sessions/google` | **로그인.** 구글 ID 토큰을 보내면 그 사람이 됩니다(처음이면 만든다) |
 | DELETE | `/api/v1/sessions` | 로그아웃 |
 | POST | `/api/v1/me/onboarding/interpret` | 온보딩 네 답을 받아 **저장**하고 저장된 값을 돌려줍니다 |
 | GET | `/api/v1/me/preferences` | 내 조건 화면과 조율이 읽습니다 |
@@ -26,7 +26,7 @@ API 서버와 에이전트(회의 시간 조율, 회의록 요약, 할 일 추�
 
 `http://localhost:8000/api/v1/docs`에서 다 눌러 볼 수 있습니다. **코드를 처음 읽으면 [`코드-안내.md`](코드-안내.md)부터 보세요** — 파일을 읽는 순서, 요청 하나가 흐르는 길, 정한 것과 그 이유, 다음에 할 것이 적혀 있습니다.
 
-**로그인은 아직 비밀번호가 없습니다.** 이름을 보내면 그 사람이 됩니다 — 인증이 아니라 사용자 선택입니다. Room 도메인이라 원래 레인 B 것인데 `/me/*`가 사용자 없이는 아예 돌지 않아서 A가 먼저 깔았습니다. `user` 테이블은 건드리지 않았고, 비밀번호를 붙일 자리는 `app/shared/auth.py`의 `login()` 안에 주석으로 적어 뒀습니다.
+**로그인은 구글뿐입니다.** 이름만 보내면 그 사람이 되던 `POST /sessions`는 11/15에 지웠습니다 — 배포 주소에서는 누구든 시드 이름을 쳐서 그 사람이 될 수 있어서입니다. 테스트는 `tests/conftest.py`가 테스트에서만 같은 주소를 붙여 이름으로 로그인합니다.
 
 **에러 모양이 명세에 맞춰져 있습니다.** `main.py`의 예외 처리기 둘이 FastAPI 기본값(`{"detail": ...}`, 검사 실패는 422)을 `{"code", "field", "message"}` + 400으로 바꿉니다. `message`는 화면에 그대로 띄울 한국어 한 줄입니다.
 
@@ -168,7 +168,7 @@ curl -X POST https://<서버>/api/v1/demo/reset -H "X-Demo-Key: <DEMO_RESET_KEY 
 - 서버 환경변수 `DEMO_RESET_KEY`가 있어야 켜집니다. 없거나 헤더가 틀리면 403입니다 — 시연 주소는 관객 폰에도 열리기 때문입니다. 열쇠는 ASCII로 정합니다.
 - 테이블은 그대로 두고 행만 비운 뒤 시드를 다시 넣습니다(시연 시계도 실제 시각으로). 204면 끝입니다.
 - 열린 조율 화면이 DB를 붙잡고 있으면 5초 기다리다 409 `BUSY`이고 아무것도 안 지워집니다. 그 화면을 닫고 다시 부릅니다.
-- 폰들은 다시 로그인하지 않아도 됩니다. 사람 번호가 시드 순서대로 같게 다시 매겨져 쿠키가 같은 사람을 가리킵니다.
+- **구글로 만든 계정도 전부 지워집니다.** 그래서 리허설 사이에만 씁니다. 지운 뒤에는 각자 구글로 다시 로그인하고 초대 코드로 방에 다시 들어갑니다(예전 쿠키는 시드 사람을 가리키므로 로그아웃부터).
 - 스키마를 고친 뒤라면 이게 아니라 `tools.reset_db`입니다.
 
 ### 완전히 처음부터
@@ -182,6 +182,47 @@ python -m tools.reset_db
 `-v`가 볼륨까지 지웁니다. 이게 없으면 데이터가 남습니다.
 
 ---
+
+## 배포 (Render)
+
+**서버 하나가 화면까지 줍니다.** 저장소 맨 위 `Dockerfile`이 프론트를 `npm run build`로 빌드하고, 그 결과(`dist`)를 FastAPI가 같이 내려줍니다(`STATIC_DIR`). `/api/v1`은 API, 나머지 주소는 화면 파일입니다. 주소가 하나라 로그인 쿠키와 조율 SSE가 로컬과 똑같이 돕니다. 로컬 개발은 지금처럼 Vite(5173) + uvicorn(8000) 두 개입니다.
+
+### 처음 한 번
+
+1. Render에 GitHub로 가입 → **New → Postgres**(Free, 리전 Singapore)
+2. **New → Web Service** → 이 저장소 → Runtime **Docker**, 인스턴스 **Free**, 리전은 1과 같게
+3. 환경변수(아래 표)를 넣고, Health Check Path에 `/api/v1/health`
+4. 나온 `https://<이름>.onrender.com`을 구글 클라우드 콘솔 → OAuth 클라이언트 → **승인된 자바스크립트 원본**에 추가(콜백 주소는 필요 없음 — 캘린더 연결은 팝업 방식)
+5. 테이블과 시드를 넣습니다. 무료 인스턴스는 Render 셸이 없어서 **노트북에서** Postgres 화면의 **External** URL로 돌립니다:
+
+   ```bash
+   cd backend
+   DATABASE_URL="<External Database URL>" python -m tools.reset_db
+   ```
+
+그 뒤로는 `main`에 푸시하면 Render가 다시 빌드해 올립니다.
+
+| 환경변수 | 값 |
+|---|---|
+| `DATABASE_URL` | Render Postgres의 **Internal** URL(`postgresql://…`를 그대로 넣어도 된다 — `make_engine`이 psycopg로 바꾼다) |
+| `SESSION_SECRET` | 긴 무작위 값. `COOKIE_SECURE=true`인데 없으면 서버가 안 뜬다 |
+| `COOKIE_SECURE` | `true` — 쿠키를 https로만 보낸다 |
+| `GOOGLE_CLIENT_ID` · `GOOGLE_CLIENT_SECRET` | 로컬 `.env`와 같은 값 |
+| `VITE_GOOGLE_CLIENT_ID` | `GOOGLE_CLIENT_ID`와 같은 값. Render가 빌드 인자로 넘겨 화면에 들어간다 |
+| `LLM_API_KEY` | Gemini 키 |
+| `DEMO_RESET_KEY` | `/demo/reset` 열쇠, ASCII |
+
+- **에브리타임 시간표 가져오기는 배포에서 빠집니다.** playwright가 크롬까지 받아야 해서 이미지에 넣지 않았습니다.
+- **무료 인스턴스는 15분 동안 아무도 안 오면 잠듭니다.** 다음 첫 요청이 깨우는 데 1분쯤 걸립니다. 시연 5분 전에 주소를 한 번 열어 둡니다.
+- **무료 Postgres는 만든 지 30일 뒤 만료됩니다.**
+- 이미지를 로컬에서 확인하려면:
+
+  ```bash
+  docker build -t teamagent .
+  docker run --rm -p 8080:8000 -e DATABASE_URL=postgresql://teamagent:teamagent@host.docker.internal:5432/teamagent teamagent
+  ```
+
+  `http://localhost:8080/home`이 화면, `/api/v1/health`가 `db: ok`면 됩니다.
 
 ## 막혔을 때
 

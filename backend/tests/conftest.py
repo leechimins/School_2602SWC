@@ -12,18 +12,42 @@ from collections.abc import Iterator
 
 import pytest
 from dotenv import load_dotenv
+from fastapi import Depends, HTTPException, Request
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine
-from sqlmodel import Session
+from sqlmodel import Session, SQLModel, select
 
 from app.main import app
 from app.meeting import runner
+from app.shared.auth import SESSION_KEY
 from app.shared.db import create_all, make_engine, reset_schema, session_dep, truncate_all
+from app.shared.models import User
 from tools.seed import seed
 
 load_dotenv()
 
 API = "/api/v1"
+
+
+class _NameIn(SQLModel):
+    name: str
+
+
+def _test_login(body: _NameIn, request: Request, db: Session = Depends(session_dep)) -> dict:
+    """테스트에서만 있는 이름 로그인. 운영 앱에는 이 주소가 없다(11/15 삭제, shared/auth.py).
+
+    테스트 수백 곳이 "지수로 들어가서 …"로 시작한다. 구글 토큰을 매번 꾸미는 대신
+    이름으로 사람을 찾아 쿠키에 심는다. 주소와 모양은 지운 엔드포인트와 같게 둬서
+    테스트 본문은 그대로다.
+    """
+    user = db.exec(select(User).where(User.name == body.name)).first()
+    if user is None:
+        raise HTTPException(404, detail={"code": "NOT_FOUND", "message": "그 이름의 팀원이 없습니다."})
+    request.session[SESSION_KEY] = user.id
+    return {"user_id": user.id, "name": user.name}
+
+
+app.add_api_route(f"{API}/sessions", _test_login, methods=["POST"], status_code=201)
 
 
 @pytest.fixture(scope="session")
@@ -111,7 +135,7 @@ def client(session: Session) -> Iterator[TestClient]:
 
 @pytest.fixture
 def login(client: TestClient):
-    """이름으로 로그인하는 함수. 쿠키는 client가 들고 있는다."""
+    """이름으로 로그인하는 함수(테스트 전용 경로, 위의 _test_login). 쿠키는 client가 들고 있는다."""
 
     def _login(name: str = "지수") -> None:
         res = client.post(f"{API}/sessions", json={"name": name})
