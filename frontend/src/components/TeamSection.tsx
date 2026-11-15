@@ -1,8 +1,10 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { PATHS } from '../lib/paths.ts'
 import type { Room } from '../types/room.ts'
 import Avatar from './Avatar.tsx'
 import Badge from './Badge.tsx'
+import Icon from './Icon.tsx'
 import YieldSteps from './YieldSteps.tsx'
 import styles from './TeamSection.module.css'
 
@@ -36,19 +38,38 @@ export default function TeamSection({ room }: { room: Room }) {
             </li>
           ))}
         </ul>
-        <p className="meta">
-          막대는 지금까지 회의 시간을 얼마나 맞춰 줬는지예요. 많이 맞춰 준 사람을 다음 조율에서 먼저 챙겨요.{' '}
-          <Link to={`${PATHS.meActivity}?tab=yield`} className="link">
-            양보 기록 보기
-          </Link>
-        </p>
+        <Link to={`${PATHS.meActivity}?tab=yield`} className="btn small">
+          양보 기록 보기
+        </Link>
       </section>
 
       <section className="sec">
         <h2>팀원 초대</h2>
-        <p className={`${styles.code} num`}>{room.inviteCode}</p>
+        <div className={styles.codeRow}>
+          <span className={`${styles.code} num`}>{room.inviteCode}</span>
+          <CopyButton text={room.inviteCode} />
+        </div>
         <p className="meta">팀원은 이 초대 코드로 들어와요.</p>
       </section>
     </>
+  )
+}
+
+// 초대 코드 복사 아이콘. 복사되면 잠깐 체크로 바뀐다. 복사가 막힌 브라우저에서는 코드를 보고 직접 알려 주면 된다
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false)
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      setCopied(false)
+    }
+  }
+  return (
+    <button type="button" className={styles.copy} onClick={copy} aria-label={copied ? '복사했어요' : '초대 코드 복사'}>
+      <Icon name={copied ? 'check' : 'copy'} />
+    </button>
   )
 }

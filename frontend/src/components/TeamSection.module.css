@@ -29,6 +29,26 @@
   gap: var(--gap-2);
 }
 
+.codeRow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* 초대 코드 옆 복사 아이콘. 누르기 쉽게 40px 칸 */
+.copy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r);
+  background: none;
+  color: var(--point-ink);
+}
+
 .code {
   font-size: 22px;
   font-weight: 800;
