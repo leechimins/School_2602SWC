@@ -64,4 +64,4 @@ export type ScheduleItemInput =
 export type ScheduleItemPatch = { title: string; startHour: number; endHour: number }
 
 /** 일정 연결 결과 한 줄: "수업 4개를 가져왔어요" */
-export type LinkResult = { count: number }
+export type LinkResult = { count: number; term: string | null } // term: 에브리타임만. 읽어 온 시간표의 학기(예: 2026년 2학기)

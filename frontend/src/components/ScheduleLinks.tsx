@@ -22,7 +22,7 @@ const hourText = (h: number) => (Number.isInteger(h) ? `${h}` : `${Math.floor(h)
 export default function ScheduleLinks({ blocks, onAdd, showLock = true }: Props) {
   const [url, setUrl] = useState('')
   const [et, setEt] = useState<Reading>({ state: 'idle' })
-  const [googleError, setGoogleError] = useState<string | null>(null)
+  const [gc, setGc] = useState<Reading>({ state: 'idle' })
 
   const classCount = new Set(blocks.filter((b) => b.source === 'everytime').map((b) => b.title)).size
   const googleCount = blocks.filter((b) => b.source === 'google').length
@@ -36,20 +36,23 @@ export default function ScheduleLinks({ blocks, onAdd, showLock = true }: Props)
   const loadEverytime = async () => {
     setEt({ state: 'reading' })
     try {
-      const { count } = await connectEverytime(url.trim())
-      setEt({ state: 'ok', message: `수업 ${count}개를 가져왔어요` })
+      const { count, term } = await connectEverytime(url.trim())
+      setEt({ state: 'ok', message: `${term ? `${term} ` : ''}수업 ${count}개를 가져왔어요` })
     } catch (e) {
       setEt({ state: 'fail', message: messageOf(e) })
     }
   }
+  // 구글 팝업은 클릭 직후에 열려야 막히지 않는다. connectGoogle을 다른 await보다 먼저 부른다
   const linkGoogle = async () => {
+    setGc({ state: 'reading' })
     try {
-      await connectGoogle() // 연결되면 가져온 약속 수가 위 설명 줄에 보인다
-      setGoogleError(null)
+      const { count } = await connectGoogle()
+      setGc({ state: 'ok', message: `앞으로 5주 약속 ${count}개를 바쁨으로 넣었어요` })
     } catch (e) {
-      setGoogleError(messageOf(e))
+      setGc({ state: 'fail', message: messageOf(e) })
     }
   }
+  const googleOn = googleCount > 0 || gc.state === 'ok' // 이번 주에 약속이 없어도 방금 연결했으면 켜짐
 
   return (
     <>
@@ -86,17 +89,18 @@ export default function ScheduleLinks({ blocks, onAdd, showLock = true }: Props)
       <div className={styles.row}>
         <div>
           <p className="strong">구글 캘린더</p>
-          <p className="meta">{googleCount > 0 ? `약속 ${googleCount}개를 가져왔어요` : '약속 · 읽기 권한만 받아요'}</p>
-          {googleError && (
-            <p className={`${styles.msg} ${styles.bad}`} role="alert">
-              {googleError}
+          <p className="meta">{googleCount > 0 ? `이번 주 약속 ${googleCount}개 · 이름 없이 바쁨으로만` : '약속 · 읽기 권한만 받아요'}</p>
+          {gc.state === 'reading' && <p className={`meta ${styles.msg}`}>구글 창에서 허락하면 약속을 읽어 와요…</p>}
+          {(gc.state === 'ok' || gc.state === 'fail') && (
+            <p className={`${styles.msg} ${gc.state === 'fail' ? styles.bad : ''}`} role={gc.state === 'fail' ? 'alert' : 'status'}>
+              {gc.message}
             </p>
           )}
         </div>
-        {googleCount > 0 ? (
+        {googleOn ? (
           <Badge tone="ok">켜짐</Badge>
         ) : (
-          <button type="button" className="btn small" onClick={linkGoogle}>
+          <button type="button" className="btn small" disabled={gc.state === 'reading'} onClick={linkGoogle}>
             연결
           </button>
         )}
