@@ -44,11 +44,15 @@ export default function Screen({ title, backTo, onBack, aux, hero, dock, childre
           {aux}
         </header>
       )}
-      <main className={`${styles.body} ${hero ? '' : styles.fade}`}>
+      <main className={styles.body}>
         {hero}
         {children}
       </main>
-      {dock && <div className={styles.dock}>{dock}</div>}
+      {dock && (
+        <div className={styles.dock} data-dock>
+          {dock}
+        </div>
+      )}
     </div>
   )
 }

@@ -44,14 +44,13 @@
   padding-bottom: 20px;
 }
 
-/* 하단 고정 영역: 떠 있는 틈 없이 탭 바로 위에 붙는다 */
-/* 굴린 카드가 제목줄 아래에서 칼같이 잘리지 않고 옅어지며 들어간다(보라 띠 머리가 있는 홈은 빼고) */
-.fade {
-  mask-image: linear-gradient(to bottom, transparent 0, #000 10px);
-}
-
+/* 하단 고정 영역: 탭 바와 한 장의 흰 판이 된다. 둥근 위 모서리·위로 옅은 그림자는 이 판이 갖고,
+   탭 바는 그 아래에 선 하나로 붙는다(TabBar.module.css의 dock 규칙) */
 .dock {
-  padding: 10px 12px 12px;
+  position: relative;
+  z-index: 1;
+  padding: 14px 12px 12px;
   background: var(--card);
-  border-top: 1px solid var(--line);
+  border-radius: 20px 20px 0 0;
+  box-shadow: 0 -4px 18px rgb(60 60 160 / 0.08);
 }

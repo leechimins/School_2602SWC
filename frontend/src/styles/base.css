@@ -294,3 +294,13 @@ span.btn {
   color: var(--muted);
   font-weight: 500;
 }
+
+/* 눈에는 안 보이고 화면 낭독기만 읽는 글자(동그라미로 대신한 이름 등) */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

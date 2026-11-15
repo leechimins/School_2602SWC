@@ -10,6 +10,13 @@
   box-shadow: 0 -4px 18px rgb(60 60 160 / 0.08);
 }
 
+/* 화면에 하단 고정 영역(Screen .dock)이 있으면 그 판이 둥근 머리를 갖고, 탭 바는 선 하나로 이어 붙는다 */
+:global(body:has([data-dock])) .tabs {
+  border-radius: 0;
+  box-shadow: none;
+  border-top: 1px solid var(--line);
+}
+
 .tab {
   position: relative;
   z-index: 0;

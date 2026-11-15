@@ -114,7 +114,8 @@ function Reasons({ proposal: p, viewerId }: { proposal: Proposal; viewerId: Id }
   )
 }
 
-// 사람별 응답: 결과 카드 아래 한 줄씩 늘어놓는 작은 칩. 조정안은 응답을 받지 않으므로 없다
+// 사람별 응답: 결과 카드 아래 늘어놓는 작은 칩(글자 동그라미 + 상태 뱃지). 이름은 동그라미로 대신하고,
+// 화면 낭독기와 마우스를 올렸을 때만 이름을 준다. 조정안은 응답을 받지 않으므로 없다
 function Responses({ proposal: p, viewerId }: { proposal: Proposal; viewerId: Id }) {
   if (p.feedbackOnly) return null
   const accepted = p.responders.filter((r) => r.state === '수락').length
@@ -124,10 +125,9 @@ function Responses({ proposal: p, viewerId }: { proposal: Proposal; viewerId: Id
         {p.responders.length}명 중 {accepted}명 수락
       </span>
       {p.responders.map((r) => (
-        <span key={r.userId} className={styles.chip}>
+        <span key={r.userId} className={styles.chip} title={r.userId === viewerId ? `${r.name} (나)` : r.name}>
           <Avatar name={r.name} size="small" />
-          {r.name}
-          {r.userId === viewerId && ' (나)'}
+          <span className="sr-only">{r.userId === viewerId ? `${r.name} (나)` : r.name}</span>
           <Badge tone={RESPONSE_TONE[r.state]}>{r.state}</Badge>
         </span>
       ))}
