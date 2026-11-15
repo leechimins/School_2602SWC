@@ -30,6 +30,9 @@ def _require(name: str) -> str:
 
 
 def make_engine(url: str) -> Engine:
+    # Render 같은 곳은 postgresql://로 준다. 그대로면 SQLAlchemy가 psycopg2를 찾는데 설치된 건 psycopg(3)다
+    if url.startswith("postgresql://"):
+        url = "postgresql+psycopg://" + url.removeprefix("postgresql://")
     return create_engine(url, pool_pre_ping=True)
 
 
