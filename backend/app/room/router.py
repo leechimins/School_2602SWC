@@ -19,6 +19,7 @@ from app.room.schemas import (
     JoinIn,
     MeOut,
     MyRoomOut,
+    NameIn,
     RoomCreateIn,
     RoomOut,
 )
@@ -64,6 +65,51 @@ def get_me(
     - 방이 하나도 없어도 200이고 `rooms`가 빈 목록입니다 (방 만들기 전 화면).
     - 로그인 안 했으면 401 `UNAUTHENTICATED`.
     """
+    return _me_out(db, _user(db, user_id))
+
+
+@router.patch("/me", response_model=MeOut, summary="내 이름 고치기")
+def rename_me(
+    body: NameIn,
+    user_id: int = Depends(current_user_id),
+    db: Session = Depends(session_dep),
+) -> MeOut:
+    """내 이름을 바꿉니다. 한 칸에 성까지 받습니다(예: 이지민).
+
+    구글로 처음 로그인하면 구글 계정 이름으로 사람이 생깁니다. 회의록 원문의
+    "이름: 말" 줄과 받아적기 말한 사람은 팀원 이름과 글자까지 같아야 이어지므로,
+    팀이 부르는 이름으로 맞출 수 있게 둡니다.
+
+    - 앞뒤 공백은 잘라 저장합니다. 비었거나 20자를 넘거나 콜론(:)이 있으면 400 `INVALID_INPUT`.
+    - 내가 속한 방에 같은 이름의 팀원이 있으면 409 `NAME_TAKEN` — 원문의 이름으로 사람을 가를 수 없게 됩니다.
+    - 로그인 안 했으면 401 `UNAUTHENTICATED`.
+    """
+    user = _user(db, user_id)
+    my_rooms = select(Membership.room_id).where(Membership.user_id == user_id)
+    taken = db.exec(
+        select(User.id)
+        .join(Membership, Membership.user_id == User.id)
+        .where(
+            Membership.room_id.in_(my_rooms),  # type: ignore[attr-defined]
+            User.id != user_id,
+            User.name == body.name,
+        )
+        .limit(1)
+    ).first()
+    if taken is not None:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail={"code": "NAME_TAKEN", "message": "팀에 같은 이름이 있어요. 다른 이름으로 해 주세요."},
+        )
+
+    user.name = body.name
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return _me_out(db, user)
+
+
+def _user(db: Session, user_id: int) -> User:
     user = db.get(User, user_id)
     if user is None:
         # 쿠키는 있는데 사람이 없다 — 시드를 다시 넣은 뒤의 옛 쿠키
@@ -71,7 +117,11 @@ def get_me(
             status.HTTP_401_UNAUTHORIZED,
             detail={"code": "UNAUTHENTICATED", "message": "다시 로그인해 주세요."},
         )
+    return user
 
+
+def _me_out(db: Session, user: User) -> MeOut:
+    user_id = user.id
     rooms = db.exec(
         select(Room)
         .join(Membership, Membership.room_id == Room.id)
