@@ -49,12 +49,14 @@ export default function ScheduleLinks({ blocks, onAdd, showLock = true }: Props)
   return (
     <>
       <p className={styles.group}>반복 일정</p>
+      {/* 다른 줄처럼 이름 | 오른쪽 뱃지, 링크 칸은 그 아래 한 줄 전체 */}
       <div className={styles.row}>
         <div>
-          <p className="strong">
-            에브리타임 시간표 {classCount > 0 && <Badge tone="ok">가져옴</Badge>}
-          </p>
+          <p className="strong">에브리타임 시간표</p>
           {classCount > 0 && <p className="meta">수업 {classCount}개 · 링크를 다시 넣으면 새로 불러와요</p>}
+        </div>
+        {classCount > 0 && <Badge tone="ok">가져옴</Badge>}
+        <div className={styles.full}>
           <div className={styles.input}>
             <input
               className="field num"

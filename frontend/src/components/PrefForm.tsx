@@ -12,6 +12,7 @@ type Props = {
 const HOURS = Array.from({ length: 15 }, (_, i) => i + 8) // 8시~22시
 
 // 회의 잡을 때 쓸 조건 네 가지(온보딩 · 나 화면 공통). 세 가지는 고르기, 피하고 싶은 시간만 한 줄로 쓴다. 필수는 없다
+// 칸 이름·시간 고르기 모양은 일정 직접 추가 시트(ScheduleForm)와 같다: Form.label 제목, 구분선 없이 간격으로만 나눈다
 export default function PrefForm({ value, onChange }: Props) {
   const set = <K extends keyof Preferences>(key: K, v: Preferences[K]) => onChange({ ...value, [key]: v })
   const toggleDaypart = (d: Daypart) =>
@@ -19,42 +20,33 @@ export default function PrefForm({ value, onChange }: Props) {
 
   return (
     <>
-      <div className={styles.pref}>
-        <span className="meta">회의 가능 시간</span>
-        <div className={form.range}>
-          <HourSelect label="몇 시부터" value={value.fromHour} onChange={(h) => set('fromHour', h)} />
-          <span>–</span>
-          <HourSelect label="몇 시까지" value={value.toHour} onChange={(h) => set('toHour', h)} />
-        </div>
+      <span className={form.label}>회의 가능 시간</span>
+      <div className={form.range}>
+        <HourSelect label="몇 시부터" value={value.fromHour} onChange={(h) => set('fromHour', h)} />
+        <span>–</span>
+        <HourSelect label="몇 시까지" value={value.toHour} onChange={(h) => set('toHour', h)} />
       </div>
-      <div className={styles.pref}>
-        <span className="meta">회의 방식</span>
-        <Segmented label="만나는 방식" options={PREF_MODES} value={value.mode ?? '상관없음'} onChange={(m) => set('mode', m)} />
+      <span className={form.label}>회의 방식</span>
+      <Segmented label="만나는 방식" options={PREF_MODES} value={value.mode ?? '상관없음'} onChange={(m) => set('mode', m)} />
+      <span className={form.label}>선호 시간대 (복수 선택)</span>
+      <div className={seg.seg} role="group" aria-label="좋은 때">
+        {DAYPARTS.map((d) => (
+          <button key={d} type="button" aria-pressed={value.dayparts.includes(d)} onClick={() => toggleDaypart(d)}>
+            {d}
+          </button>
+        ))}
       </div>
-      <div className={styles.pref}>
-        <span className="meta">선호 시간대 (복수 선택)</span>
-        <div className={seg.seg} role="group" aria-label="좋은 때">
-          {DAYPARTS.map((d) => (
-            <button key={d} type="button" aria-pressed={value.dayparts.includes(d)} onClick={() => toggleDaypart(d)}>
-              {d}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className={styles.pref}>
-        <label className="meta" htmlFor="pref-avoid">
-          제외할 시간 (선택)
-        </label>
+      <label className={form.label}>
+        비선호 시간 (선택)
         <textarea
-          id="pref-avoid"
-          className={`field ${form.textarea} ${styles.avoid}`}
+          className={`field ${form.textarea}`}
           rows={2}
           maxLength={80}
           value={value.avoid}
           placeholder="예: 화요일 오전, 목요일 오후"
           onChange={(e) => set('avoid', e.target.value)}
         />
-      </div>
+      </label>
     </>
   )
 }
@@ -62,7 +54,7 @@ export default function PrefForm({ value, onChange }: Props) {
 function HourSelect({ label, value, onChange }: { label: string; value: number | null; onChange: (h: number | null) => void }) {
   return (
     <select
-      className="field"
+      className={`field num ${styles.hour}`}
       aria-label={label}
       value={value ?? ''}
       onChange={(e) => onChange(e.target.value === '' ? null : Number(e.target.value))}
@@ -70,7 +62,7 @@ function HourSelect({ label, value, onChange }: { label: string; value: number |
       <option value="">정하지 않음</option>
       {HOURS.map((h) => (
         <option key={h} value={h}>
-          {h}시
+          {h}:00
         </option>
       ))}
     </select>

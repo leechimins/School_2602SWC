@@ -1,31 +1,5 @@
-.pref {
-  padding: 10px 0;
-  border-bottom: 1px solid var(--line);
-}
-
-.pref:first-child {
-  padding-top: 4px;
-}
-
-.pref:last-child {
-  padding-bottom: 0;
-  border-bottom: 0;
-}
-
-.pref > :global(.meta) {
-  display: block;
-}
-
-/* 시간 고르기는 대면·비대면 칸과 같은 높이(40)로 한 단계 낮게 */
-.pref select {
-  min-height: 40px;
-  padding-left: 12px;
+/* 시간 고르기 칸: 일정 직접 추가 시트(ScheduleForm .hour)와 같은 높이 */
+:global(.field).hour {
+  min-height: 38px;
   font-size: 14px;
-}
-
-.avoid {
-  display: block;
-  width: 100%;
-  min-height: 60px;
-  margin: 6px 0;
 }

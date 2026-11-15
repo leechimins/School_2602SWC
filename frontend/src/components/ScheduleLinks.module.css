@@ -6,9 +6,9 @@
   padding: 8px 0;
 }
 
-/* 한 묶음 안 두 방식(연동 / 직접 추가) 사이 구분선 */
-.row + .row {
-  border-top: 1px solid var(--line);
+/* 이름 | 뱃지 줄 아래로 한 줄 전체를 쓰는 칸(에타 링크 입력) */
+.full {
+  grid-column: 1 / -1;
 }
 
 /* 묶음 이름: 반복 일정 / 일회성 일정 */
@@ -26,7 +26,6 @@
 .input {
   display: flex;
   gap: 6px;
-  margin-top: 6px;
 }
 
 .input :global(.field) {

@@ -318,7 +318,7 @@ function Paste({ members, onCancel, onDone }: PasteProps) {
         }}
       />
       {problem && (
-        <p className={form.error} role="alert">
+        <p className={`${form.error} ${styles.pasteError}`} role="alert">
           {problem}
         </p>
       )}

@@ -53,9 +53,13 @@ export default function ScheduleEditSheet({ block, onClose }: Props) {
         </>
       }
     >
-      {/* 이름 한 줄 + 시간 한 줄 */}
-      <input className={`field ${styles.name}`} value={title} maxLength={20} aria-label="일정 이름 (나만 보여요)" onChange={(e) => setTitle(e.target.value)} />
-      <div className={`${form.range} ${styles.time}`}>
+      {/* 이름 한 줄 + 시간 한 줄. 칸 이름은 추가 시트(ScheduleForm)와 같다 */}
+      <label className={form.label}>
+        이름 (나만 보여요)
+        <input className="field" value={title} maxLength={20} onChange={(e) => setTitle(e.target.value)} />
+      </label>
+      <span className={form.label}>시간</span>
+      <div className={form.range}>
         <HourSelect label="시작" value={from} onChange={setFrom} />
         <span>–</span>
         <HourSelect label="끝" value={to} onChange={setTo} />
