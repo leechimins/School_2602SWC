@@ -59,7 +59,8 @@ def _reconnect() -> HTTPException:
 
 # ── 에브리타임 ───────────────────────────────────────────────────────
 
-_ET_INVALID = "링크를 읽지 못했어요. 직접 입력해 주세요."
+_ET_INVALID = "everytime.kr/@아이디 모양의 링크를 붙여 넣어 주세요."
+_ET_NOT_FOUND = "시간표를 찾지 못했어요. 에브리타임에서 시간표가 전체 공개인지 확인해 주세요."
 _ET_RETRY = "에브리타임을 잠시 못 읽었어요. 잠시 후 다시 해 주세요."
 
 
@@ -81,7 +82,7 @@ def connect_everytime(
 
     - 과목 하나가 묶음 하나(`group_id`)이고, 요일마다 한 줄입니다. 학기 범위 밖의 주는 조율이 안 셉니다.
     - 이미 연결돼 있으면 "다시 불러오기"입니다. 이전 에브리타임 수업을 지우고 새로 넣습니다. 직접 넣은 일정은 그대로입니다.
-    - 링크 모양이 아니거나 시간표가 비공개면 400 `EVERYTIME_LINK_INVALID`.
+    - 링크 모양이 아니거나 시간표가 비공개면 400 `EVERYTIME_LINK_INVALID`. 문구가 다르다(모양 틀림 → 링크 모양 안내, 시간표 없음 → 전체 공개 확인 안내).
     - 에브리타임이 응답하지 않으면 503 `EVERYTIME_UNAVAILABLE`.
     - 실패하면 전에 들어온 수업은 남고, 연결돼 있었다면 상태가 `failed`가 됩니다.
     - 읽는 데 몇 초 걸립니다(브라우저로 공유 페이지를 엽니다).
@@ -94,9 +95,11 @@ def connect_everytime(
         )
     try:
         link, table = everytime_service.connect(db, user_id, body.url)
-    except everytime.LinkInvalid:
+    except everytime.LinkInvalid as exc:
         db.commit()  # 연결돼 있던 사람의 failed 표시
-        raise _error(status.HTTP_400_BAD_REQUEST, "EVERYTIME_LINK_INVALID", _ET_INVALID) from None
+        # 코드는 같고 문구만 다르다. 비공개가 가장 흔해서 공개 설정을 알려 준다.
+        message = _ET_NOT_FOUND if isinstance(exc, everytime.TimetableNotFound) else _ET_INVALID
+        raise _error(status.HTTP_400_BAD_REQUEST, "EVERYTIME_LINK_INVALID", message) from None
     except everytime.EverytimeError:
         db.commit()
         raise _error(

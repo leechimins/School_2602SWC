@@ -252,7 +252,7 @@ def test_링크_모양이_아니면_400이고_읽지도_않는다(client, fake, 
     assert res.status_code == 400
     assert res.json() == {
         "code": "EVERYTIME_LINK_INVALID",
-        "message": "링크를 읽지 못했어요. 직접 입력해 주세요.",
+        "message": "everytime.kr/@아이디 모양의 링크를 붙여 넣어 주세요.",
     }
     assert fake.calls == []
     assert _link(seeded, jisu.id) is None
@@ -263,7 +263,10 @@ def test_비공개_시간표면_400이고_연결이_안_생긴다(client, fake, 
     fake.xml = XML_PRIVATE
     res = _connect(client)
     assert res.status_code == 400
-    assert res.json()["code"] == "EVERYTIME_LINK_INVALID"
+    assert res.json() == {
+        "code": "EVERYTIME_LINK_INVALID",
+        "message": "시간표를 찾지 못했어요. 에브리타임에서 시간표가 전체 공개인지 확인해 주세요.",
+    }
     assert _link(seeded, jisu.id) is None
     # 시드에 있던 수업은 그대로다
     assert [r.id for r in _rows(seeded, jisu.id, ScheduleSource.EVERYTIME)] == before
