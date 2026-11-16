@@ -64,9 +64,18 @@
   position: absolute;
   z-index: 1;
   right: 22px;
-  top: -95px; /* 몸 아랫선이 기간 카드 윗선에 닿고 손만 카드 위로 늘어지게 */
-  width: 124px;
+  /* 몸 아랫선이 기간 카드 윗선에 닿고 손만 카드 위로 늘어지게. 그림 비율(높이 = 폭 × 0.825)로 폭이 줄어도 같은 자리 */
+  --w: min(124px, 31vw);
+  top: calc(7px - var(--w) * 0.825);
+  width: var(--w);
   pointer-events: none;
+}
+
+/* 좁은 폰(360px 안팎): 팀 이름 알약이 솜솜이 머리까지 닿아 겹친다. 보라 띠를 조금 늘려 솜솜이를 알약 아래로 내린다 */
+@media (max-width: 400px) {
+  .hero {
+    min-height: 184px;
+  }
 }
 
 .list {
