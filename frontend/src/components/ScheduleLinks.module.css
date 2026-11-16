@@ -53,6 +53,10 @@
   color: var(--danger);
 }
 
+.warn {
+  color: var(--warn);
+}
+
 .lock {
   margin-top: 10px;
   padding: 10px 12px;
