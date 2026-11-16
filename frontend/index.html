@@ -2,8 +2,11 @@
 <html lang="ko">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="/favicon.png" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <!-- 탭 아이콘·홈 화면 아이콘 모두 솜솜이 달력. 안드로이드 홈 화면은 manifest의 icons를, 아이폰은 apple-touch-icon을 쓴다.
+         ?v=2: 옛 달력 아이콘을 기억한 폰도 새로 받게 -->
+    <link rel="icon" type="image/png" href="/favicon.png?v=2" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2" />
+    <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <!-- viewport-fit=cover: 노치·홈 막대 뒤까지 그리고, 머리(Screen·홈 보라 띠)와 하단 탭이 env(safe-area-inset-*)만큼 비킨다 -->
     <meta name="theme-color" content="#7580e6" />

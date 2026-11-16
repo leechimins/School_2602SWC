@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { messageOf } from '../api/client.ts'
 import { getIdentity, refreshIdentity, signInWithGoogle } from '../api/session.ts'
-import { markBooted } from '../lib/boot.ts'
+import { cameBackSoon, markBooted } from '../lib/boot.ts'
 import { PATHS } from '../lib/paths.ts'
 import styles from './SplashPage.module.css'
 
@@ -13,6 +13,7 @@ const CLIENT_ID = (import.meta.env.VITE_GOOGLE_CLIENT_ID ?? '').trim()
 
 // 스플래시 + 구글 로그인. 앱을 열면 캐릭터가 둥둥 뜨고,
 // 로그인돼 있으면(쿠키) 2초 뒤 원래 가려던 곳으로, 아니면 1초 뒤 캐릭터 아래에 로그인 버튼이 나타난다.
+// 30분 안에 보던 앱으로 돌아왔으면(cameBackSoon) 캐릭터 없이 확인만 하고 바로 들어간다.
 export default function SplashPage() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -21,17 +22,20 @@ export default function SplashPage() {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [leaving, setLeaving] = useState(false)
+  const [quick, setQuick] = useState(cameBackSoon) // 금방 돌아옴: 스플래시를 건너뛴다
+  const quickAtStart = useRef(quick)
 
   // 로그인이 끝났다: 방이 없으면(구글로 처음 온 사람) 방 만들기, 있으면 원래 가려던 곳.
   // 바로 바꾸면 화면이 확 바뀌어서, 스플래시를 먼저 흐리게 걷고(LEAVE_MS) 넘어간다. 앱 틀은 들어오며 페이드인한다(AppShell).
   const enter = (isNew = false) => {
-    const noRoom = !getIdentity()?.roomId
+    const go = () => {
+      markBooted()
+      navigate(isNew || !getIdentity()?.roomId ? PATHS.start : from, { replace: true })
+    }
+    if (quick) return go() // 스플래시를 안 보였으니 걷을 것도 없다
     setLeaving(true)
     document.body.classList.remove('brand') // 걷히는 동안 뒤에 비치는 색을 앱 바탕 쪽으로
-    window.setTimeout(() => {
-      markBooted()
-      navigate(isNew || noRoom ? PATHS.start : from, { replace: true })
-    }, LEAVE_MS)
+    window.setTimeout(go, LEAVE_MS)
   }
   const enterRef = useRef(enter)
   useLayoutEffect(() => {
@@ -40,9 +44,10 @@ export default function SplashPage() {
 
   // 넓은 화면에서 앱 틀 양옆도 같은 보라로 (평소에는 --frame 회색)
   useEffect(() => {
+    if (quick) return
     document.body.classList.add('brand')
     return () => document.body.classList.remove('brand')
-  }, [])
+  }, [quick])
 
   useEffect(() => {
     const opened = Date.now() // 두 시간 모두 화면이 열린 때부터 잰다
@@ -52,11 +57,15 @@ export default function SplashPage() {
     refreshIdentity().then(
       () => {
         if (!run.alive) return
-        if (getIdentity()) after(SPLASH_MS, () => enterRef.current())
-        else after(BUTTON_MS, () => setNeedLogin(true))
+        if (getIdentity()) after(quickAtStart.current ? 0 : SPLASH_MS, () => enterRef.current())
+        else {
+          setQuick(false) // 로그인이 풀렸다: 스플래시와 로그인 버튼을 보여 준다
+          after(BUTTON_MS, () => setNeedLogin(true))
+        }
       },
       (e: unknown) => {
         if (!run.alive) return
+        setQuick(false)
         setError(messageOf(e)) // 서버가 안 닿는다: 로그인 버튼과 함께 한 줄로 알린다
         after(BUTTON_MS, () => setNeedLogin(true))
       },
@@ -77,6 +86,8 @@ export default function SplashPage() {
       setBusy(false)
     }
   }
+
+  if (quick) return <main className={`${styles.page} ${styles.quiet}`} aria-busy="true" />
 
   return (
     <main className={`${styles.page} ${leaving ? styles.leaving : ''}`}>

@@ -8,8 +8,15 @@
   max-width: var(--app-width);
   height: var(--app-height);
   margin: 0 auto;
+  /* 아래 버튼 자리(.actions)만큼 캐릭터가 가운데보다 위로 떠 보여서, 위를 비워 조금 내린다 */
+  padding-top: min(14vh, 120px);
   overflow: hidden;
   background: var(--brand) url(/splash/bg.webp) center / cover no-repeat;
+}
+
+/* 금방 다시 연 앱: 서버 확인(GET /me)이 끝날 때까지 캐릭터 없이 바탕만 둔다 (SplashPage.tsx quick) */
+.quiet {
+  background: var(--frame);
 }
 
 /* 캐릭터 + 바닥 그림자 */
