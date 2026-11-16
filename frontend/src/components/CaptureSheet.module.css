@@ -1,0 +1,37 @@
+.hint {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.list {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* 수업 한 칸: 과목명 | 지우기 / 요일 · 시작 – 끝 */
+.item {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.item[aria-invalid='true'] .line :global(.field) {
+  border-color: var(--danger);
+}
+
+.line {
+  display: flex;
+  gap: 6px;
+}
+
+.line :global(.field) {
+  flex: 1;
+  min-width: 0;
+}
+
+/* 요일은 한 글자라 좁게, 남는 폭은 시각 두 칸이 나눈다 */
+.item select.day {
+  flex: 0 0 64px;
+}
