@@ -39,6 +39,11 @@
   padding: 0 8px;
 }
 
+/* 출처는 위 입력칸 안쪽 글자와 같은 자리에서 시작한다 */
+.actions > :global(.meta) {
+  padding-left: 8px;
+}
+
 .actions a {
   color: var(--point-ink);
 }

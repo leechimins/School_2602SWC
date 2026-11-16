@@ -66,8 +66,9 @@ function MeetingBody({ meeting: m, members }: { meeting: MeetingDetail; members:
           <ol className={styles.lines}>
             {m.transcript.map((line) => (
               <li key={line.seq} className={styles.line}>
-                <b>{line.speakerName ?? '—'}</b>
-                <span>{line.text}</span>
+                {line.speakerName && <b>{line.speakerName}</b>}
+                {/* 말한 사람을 못 찾은 줄은 이름 칸 없이 말이 한 줄 전체를 쓴다 */}
+                <span className={line.speakerName ? undefined : styles.whole}>{line.text}</span>
               </li>
             ))}
           </ol>
