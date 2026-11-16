@@ -25,7 +25,8 @@ from app.shared.enums import (
     ScheduleKind,
     ScheduleSource,
 )
-from app.shared.models import User
+from app.meeting.models import Utterance
+from app.shared.models import Room, User
 
 API = "/api/v1"
 URL = f"{API}/me/integrations/google-calendar"
@@ -140,7 +141,7 @@ def _connect(client: TestClient):
 # ── 연결 ─────────────────────────────────────────────────────────────
 
 
-def test_연결하면_약속이_제목없이_바쁨으로_들어간다(client, fake, jisu, seeded):
+def test_연결하면_약속이_제목과_함께_들어간다(client, fake, jisu, seeded):
     res = _connect(client)
     assert res.status_code == 200, res.text
     body = res.json()
@@ -156,8 +157,9 @@ def test_연결하면_약속이_제목없이_바쁨으로_들어간다(client, f
         (datetime(2026, 11, 7, tzinfo=KST), datetime(2026, 11, 11, tzinfo=KST)),
         (datetime(2026, 11, 12, 14, tzinfo=KST), datetime(2026, 11, 12, 15, tzinfo=KST)),
     ]
+    # 제목은 본인 일정 화면에만 나간다(GET /me/schedule). 조율은 종류만 쓴다.
+    assert [i.title for i in items] == ["일본 여행", "치과 예약"]
     for item in items:
-        assert item.title is None
         assert item.kind == ScheduleKind.APPOINTMENT
         assert item.recurrence == Recurrence.ONCE
         assert item.start_at.utcoffset() == timedelta(hours=9)
@@ -186,7 +188,19 @@ def test_토큰은_저장된다(client, fake, jisu, seeded):
     assert link.external_ref == ACCOUNT
 
 
-def test_시연_시계_오늘부터_5주를_읽는다(client, fake, jisu):
+def test_시연_시계_오늘부터_팀플_마감일까지_읽는다(client, fake, jisu):
+    _connect(client)
+    start, end = fake.ranges[-1]
+    assert start == datetime(2026, 11, 10, tzinfo=KST)
+    # 시드 방 마감 12/11. 그날까지 넣으려고 다음 날 00:00까지 읽는다.
+    assert end == datetime(2026, 12, 12, tzinfo=KST)
+
+
+def test_방이_없으면_오늘부터_5주를_읽는다(client, fake, seeded, login):
+    demo_clock.set_clock(seeded, TODAY)
+    seeded.add(User(name="무소속"))
+    seeded.commit()
+    login("무소속")
     _connect(client)
     start, end = fake.ranges[-1]
     assert start == datetime(2026, 11, 10, tzinfo=KST)
@@ -371,3 +385,94 @@ def test_다른_시간대_약속은_한국_시간으로_바꾼다():
 
 def test_0분짜리_약속은_뺀다():
     assert integration.to_busy([_timed(12, "14:00", "14:00")]) == []
+
+
+def test_약속_제목은_60자로_자르고_없으면_비운다():
+    long = _timed(12, "14:00", "15:00", summary="  " + "가" * 70 + "  ")
+    untitled = _timed(13, "14:00", "15:00", summary="   ")
+    no_key = {k: v for k, v in _timed(14, "14:00", "15:00").items() if k != "summary"}
+    assert [b.title for b in integration.to_busy([long, untitled, no_key])] == ["가" * 60, None, None]
+
+
+# ── 조율 시작 때 그 기간을 다시 읽기 ──────────────────────────────────
+
+WINDOW_START = datetime(2026, 11, 12, 0, 0, tzinfo=KST)
+WINDOW_END = datetime(2026, 11, 14, 23, 59, tzinfo=KST)
+
+
+def _start_scheduling(client: TestClient, session: Session):
+    room = session.exec(select(Room)).first()
+    assert room is not None
+    return client.post(
+        f"{API}/rooms/{room.id}/schedulings",
+        json={
+            "topic": "중간 발표 준비",
+            "window_start": WINDOW_START.isoformat(),
+            "window_end": WINDOW_END.isoformat(),
+            "duration_min": 60,
+            "mode": "any",
+        },
+    )
+
+
+def test_조율을_시작하면_그_기간_약속을_새로_읽는다(client, fake, jisu, seeded):
+    _connect(client)
+    # 연결한 뒤 구글에서 약속이 바뀌었다: 11/12 치과는 지웠고 11/13에 새 약속이 생겼다.
+    fake.events = [_timed(13, "16:00", "17:00", summary="새 약속")]
+
+    res = _start_scheduling(client, seeded)
+    assert res.status_code == 201, res.text
+
+    assert fake.ranges[-1] == (WINDOW_START, WINDOW_END)
+    items = _items(seeded, jisu.id, ScheduleSource.GOOGLE)
+    assert [(i.start_at, i.end_at, i.title) for i in items] == [
+        # 조율 기간 밖(11/7~11/11 종일)은 내 화면용으로 남는다.
+        (datetime(2026, 11, 7, tzinfo=KST), datetime(2026, 11, 11, tzinfo=KST), "일본 여행"),
+        (datetime(2026, 11, 13, 16, tzinfo=KST), datetime(2026, 11, 13, 17, tzinfo=KST), "새 약속"),
+    ]
+
+
+def test_조율_발언에는_약속_제목이_안_나온다(client, fake, jisu, seeded):
+    fake.events = [_timed(13, "16:00", "17:00", summary="비밀 병원 예약")]
+    _connect(client)
+    assert _start_scheduling(client, seeded).status_code == 201
+    seeded.expire_all()
+    texts = [u.text for u in seeded.exec(select(Utterance)).all()]
+    assert texts, "발언이 하나는 있어야 검사가 된다"
+    assert not any("비밀 병원 예약" in t for t in texts)
+
+
+def test_조율_때_구글이_실패하면_저장된_약속으로_진행한다(client, fake, jisu, seeded):
+    _connect(client)
+    before = [(i.start_at, i.title) for i in _items(seeded, jisu.id, ScheduleSource.GOOGLE)]
+    fake.list_errors = [google.Unavailable("구글 응답 없음")]
+
+    assert _start_scheduling(client, seeded).status_code == 201
+    assert [(i.start_at, i.title) for i in _items(seeded, jisu.id, ScheduleSource.GOOGLE)] == before
+    assert _link(seeded, jisu.id).status == LinkStatus.OK  # type: ignore[union-attr]
+
+
+def test_조율_때_권한이_끊겼으면_failed로_두고_진행한다(client, fake, jisu, seeded):
+    _connect(client)
+    fake.list_errors = [google.Unauthorized("401")]
+    fake.refresh_error = google.InvalidGrant("invalid_grant")
+
+    assert _start_scheduling(client, seeded).status_code == 201
+    assert _link(seeded, jisu.id).status == LinkStatus.FAILED  # type: ignore[union-attr]
+    assert len(_items(seeded, jisu.id, ScheduleSource.GOOGLE)) == 2  # 전 약속은 남는다
+
+
+def test_조율_때_구글이_늦으면_기다리지_않는다(client, fake, jisu, seeded, monkeypatch):
+    _connect(client)
+    monkeypatch.setattr(integration, "REFRESH_BUDGET_SEC", 0.2)
+    import time as _time
+
+    def slow(*args, **kwargs):
+        _time.sleep(1.0)
+        return [_timed(13, "16:00", "17:00", summary="늦은 약속")]
+
+    monkeypatch.setattr(google, "list_events", slow)
+    began = _time.monotonic()
+    assert _start_scheduling(client, seeded).status_code == 201
+    assert _time.monotonic() - began < 1.0
+    assert "늦은 약속" not in [i.title for i in _items(seeded, jisu.id, ScheduleSource.GOOGLE)]

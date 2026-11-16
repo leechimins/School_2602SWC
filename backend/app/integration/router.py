@@ -150,9 +150,10 @@ def connect_google(
     user_id: int = Depends(current_user_id),
     db: Session = Depends(session_dep),
 ) -> IntegrationOut:
-    """팝업에서 받은 코드로 연결하고, 앞으로 5주 약속을 바로 읽어 옵니다.
+    """팝업에서 받은 코드로 연결하고, 오늘부터 팀플 마감일까지(방이 없으면 5주) 약속을 바로 읽어 옵니다.
 
-    - 약속은 제목 없이 "바쁨"으로만 들어갑니다. 읽기 권한만 씁니다.
+    - 약속 제목은 본인 일정 화면에만 보이고, 팀원과 조율에는 "바쁨"으로만 갑니다. 읽기 권한만 씁니다.
+    - 팀장이 조율을 시작하면 그 기간 약속을 구글에서 다시 읽습니다.
     - 이미 연결돼 있으면 새 계정·토큰으로 바꿉니다.
     - 코드가 잘못됐거나 이미 썼으면 400 `GOOGLE_CODE_INVALID`.
     - 연결은 됐는데 약속을 못 읽었으면 연결은 남기고 503 `GOOGLE_UNAVAILABLE` — 동기화로 다시 하세요.
@@ -195,7 +196,7 @@ def sync_google(
     user_id: int = Depends(current_user_id),
     db: Session = Depends(session_dep),
 ) -> IntegrationOut:
-    """앞으로 5주(시연 시계 기준 오늘부터) 약속을 다시 읽어 바꿉니다.
+    """오늘(시연 시계 기준)부터 팀플 마감일까지(방이 없으면 5주) 약속을 다시 읽어 바꿉니다.
 
     - 이전에 구글에서 들어온 약속을 지우고 새로 넣습니다. 직접 넣은 시간표는 그대로입니다.
     - 연결 안 했으면 404 `NOT_CONNECTED`.
