@@ -1,5 +1,5 @@
 import type { Id, IsoDate } from '../types/common.ts'
-import type { LinkResult, MyWeek, Preferences, ScheduleItemInput, ScheduleItemPatch } from '../types/me.ts'
+import type { LinkResult, MyWeek, Preferences, ScheduleItemInput, ScheduleItemPatch, TermState } from '../types/me.ts'
 import { ApiError, request, write } from './client.ts'
 import { toMyWeek, toPreferences, toServerPreferences, type ServerMySchedule, type ServerPreference } from './convert.ts'
 
@@ -94,14 +94,14 @@ export function deleteScheduleItem(itemId: Id): Promise<void> {
   })
 }
 
-type ServerIntegration = { imported_count: number; term?: string | null }
+type ServerIntegration = { imported_count: number; term?: string | null; term_state?: TermState | null }
 
 /** 에브리타임 공유 링크로 수업 불러오기. 이미 연결돼 있으면 다시 불러온다 */
 export function connectEverytime(url: string): Promise<LinkResult> {
   return write(async () => {
-    // 서버가 브라우저로 공유 페이지를 열어 읽는다. 에브리타임이 느려 10초 넘게 걸리기도 한다(서버 한도 25초)
-    const r = await request<ServerIntegration>('/me/integrations/everytime', { method: 'POST', body: { url }, timeoutMs: 40_000 })
-    return { count: r.imported_count, term: r.term ?? null }
+    // 서버가 에브리타임에 시간표를 한 번 요청해 읽는다(보통 2~4초, 서버 한도 15초). 한도보다 조금 길게 기다린다
+    const r = await request<ServerIntegration>('/me/integrations/everytime', { method: 'POST', body: { url }, timeoutMs: 20_000 })
+    return { count: r.imported_count, term: r.term ?? null, termState: r.term_state ?? null }
   })
 }
 
