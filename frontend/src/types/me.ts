@@ -67,3 +67,5 @@ export type ScheduleItemPatch = { title: string; startHour: number; endHour: num
 // term·termState: 에브리타임만. 읽어 온 시간표의 학기(예: 2026년 2학기)와 오늘 기준 그 학기가 이번·지난·다음 학기인지(모르면 null)
 export type TermState = 'current' | 'past' | 'upcoming'
 export type LinkResult = { count: number; term: string | null; termState?: TermState | null }
+/** 시간표 캡처에서 AI가 읽은 수업 한 칸. 사람이 확인·수정한 뒤에만 저장한다. 시각은 'HH:mm'(5분 단위) */
+export type CapturedClass = { title: string; weekday: number; start: string; end: string }
