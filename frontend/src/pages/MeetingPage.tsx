@@ -5,7 +5,7 @@ import { getRoom } from '../api/rooms.ts'
 import { addTask, changeTaskStatus } from '../api/tasks.ts'
 import AddTaskCard from '../components/AddTaskCard.tsx'
 import Badge from '../components/Badge.tsx'
-import ConfirmSheet from '../components/ConfirmSheet.tsx'
+import ConfirmDialog from '../components/ConfirmDialog.tsx'
 import EmptyState from '../components/EmptyState.tsx'
 import RetryBox from '../components/RetryBox.tsx'
 import Screen from '../components/Screen.tsx'
@@ -17,6 +17,7 @@ import { useCurrentUser } from '../hooks/useCurrentUser.ts'
 import { useSummarize } from '../hooks/useSummarize.ts'
 import { formatDayLabel, formatMD, formatTimeRange } from '../lib/date.ts'
 import { attendeeNames } from '../lib/meeting.ts'
+import { showNotice } from '../lib/notice.ts'
 import { PATHS, pathTo } from '../lib/paths.ts'
 import type { MeetingDetail, Minutes } from '../types/meeting.ts'
 import type { Member } from '../types/room.ts'
@@ -170,9 +171,20 @@ function SummarizeCard({ meetingId }: { meetingId: string }) {
 function Review({ meeting: m, members }: { meeting: MeetingDetail; members: Member[] }) {
   const user = useCurrentUser()
   const [askingAll, setAskingAll] = useState(false)
-  const pending = m.suggestions.length
+  const [hidden, setHidden] = useState<string[]>([]) // 지웠지만 아직 되돌릴 수 있는 제안
+  const suggestions = m.suggestions.filter((g) => !hidden.includes(g.id))
+  const pending = suggestions.length
   const total = pending + m.tasks.length
-  const confirm = (ids: string[]) => confirmSuggestions(user.roomId, ids)
+  const confirm = (ids: string[]) =>
+    confirmSuggestions(user.roomId, ids).then(() => showNotice(ids.length > 1 ? `할 일 ${ids.length}개를 확정했어요` : '할 일로 확정했어요'))
+  // 제안 삭제는 묻지 않는다: 바로 숨기고 스낵바가 끝나면 실제로 지운다. [되돌리기]면 다시 보인다
+  const dismiss = (id: string) => {
+    setHidden((ids) => [...ids, id])
+    showNotice('제안을 삭제했어요', {
+      undo: () => setHidden((ids) => ids.filter((x) => x !== id)),
+      onExpire: () => void dismissSuggestion(user.roomId, id),
+    })
+  }
 
   return (
     <>
@@ -202,14 +214,14 @@ function Review({ meeting: m, members }: { meeting: MeetingDetail; members: Memb
           <p className="meta">이 회의에서 뽑은 할 일이 없어요. 필요하면 아래에서 직접 추가하세요.</p>
         </section>
       )}
-      {m.suggestions.map((g) => (
+      {suggestions.map((g) => (
         <SuggestionCard
           key={g.id}
           suggestion={g}
           members={members}
           onEdit={(patch) => editSuggestion(user.roomId, g.id, patch)}
           onConfirm={() => confirm([g.id])}
-          onDismiss={() => dismissSuggestion(user.roomId, g.id)}
+          onDismiss={() => dismiss(g.id)}
         />
       ))}
       {m.tasks.map((t) => (
@@ -224,7 +236,7 @@ function Review({ meeting: m, members }: { meeting: MeetingDetail; members: Memb
           </p>
         </article>
       ))}
-      <AddTaskCard members={members} onAdd={(input) => addTask(user.roomId, input, m.id)} />
+      <AddTaskCard members={members} onAdd={(input) => addTask(user.roomId, input, m.id).then(() => showNotice('할 일을 추가했어요'))} />
       {pending > 0 && (
         <p className={`meta ${styles.foot}`}>
           확정 전 제안은 할 일 탭에 보이지 않아요.
@@ -232,12 +244,12 @@ function Review({ meeting: m, members }: { meeting: MeetingDetail; members: Memb
       )}
 
       {askingAll && (
-        <ConfirmSheet
-          title={`할 일 ${pending}개를 모두 확정할까요?`}
+        <ConfirmDialog
+          title={`할 일 ${pending}개를 확정할까요?`}
           okLabel="모두 확정"
-          onClose={({ ok }) => {
+          onClose={(ok) => {
             setAskingAll(false)
-            if (ok) confirm(m.suggestions.map((g) => g.id))
+            if (ok) confirm(suggestions.map((g) => g.id))
           }}
         />
       )}

@@ -21,10 +21,6 @@
   margin: 0;
 }
 
-.notice {
-  margin-top: 8px;
-}
-
 /* 이름 바로 옆 작은 연필: 누르면 이름 고치기 시트 */
 .pencil {
   display: inline-flex;

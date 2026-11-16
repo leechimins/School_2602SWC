@@ -7,6 +7,7 @@ import RetryBox from '../components/RetryBox.tsx'
 import Screen from '../components/Screen.tsx'
 import { useApi } from '../hooks/useApi.ts'
 import { useCurrentUser } from '../hooks/useCurrentUser.ts'
+import { showNotice } from '../lib/notice.ts'
 import { PATHS, pathTo } from '../lib/paths.ts'
 import type { Notice } from '../types/notification.ts'
 import styles from './NotificationsPage.module.css'
@@ -27,7 +28,7 @@ export default function NotificationsPage() {
   }
 
   const readAll = unread.length > 0 && (
-    <button type="button" className={`link ${styles.aux}`} onClick={() => read(unread)}>
+    <button type="button" className={`link ${styles.aux}`} onClick={() => markNoticesRead(user.roomId, unread).then(() => showNotice('모두 읽음으로 바꿨어요'))}>
       모두 읽음
     </button>
   )

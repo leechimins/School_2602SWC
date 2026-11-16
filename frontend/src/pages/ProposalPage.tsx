@@ -4,7 +4,7 @@ import { messageOf } from '../api/client.ts'
 import { getProposal, respondProposal } from '../api/scheduling.ts'
 import Avatar from '../components/Avatar.tsx'
 import Badge from '../components/Badge.tsx'
-import ConfirmSheet, { type ConfirmResult } from '../components/ConfirmSheet.tsx'
+import InputSheet, { type InputResult } from '../components/InputSheet.tsx'
 import RetryBox from '../components/RetryBox.tsx'
 import Screen from '../components/Screen.tsx'
 import { useApi } from '../hooks/useApi.ts'
@@ -194,7 +194,7 @@ function RespondDock({ proposal: p, roomId }: { proposal: Proposal; roomId: Id }
       setSending(false)
     }
   }
-  const reject = ({ ok, value }: ConfirmResult) => {
+  const reject = ({ ok, value }: InputResult) => {
     setAsking(false)
     if (ok) respond(false, value || null)
   }
@@ -204,9 +204,8 @@ function RespondDock({ proposal: p, roomId }: { proposal: Proposal; roomId: Id }
       {error && <p className="meta">{error}</p>}
       <DockBody proposal={p} state={p.myState} sending={sending} onAccept={() => respond(true, null)} onReject={() => setAsking(true)} />
       {asking && (
-        <ConfirmSheet
-          title="조율 결과를 거절할까요?"
-          body="남긴 이유는 다시 조율할 때 반영돼요."
+        <InputSheet
+          title="남긴 이유는 다시 조율할 때 반영돼요"
           okLabel="거절하기"
           input={{ label: '거절 이유', placeholder: '거절 이유 (선택)' }}
           onClose={reject}

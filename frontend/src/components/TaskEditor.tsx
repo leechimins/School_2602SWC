@@ -5,7 +5,7 @@ import { withJosa } from '../lib/korean.ts'
 import { pathTo } from '../lib/paths.ts'
 import type { Member } from '../types/room.ts'
 import type { Task, TaskInput } from '../types/task.ts'
-import ConfirmSheet from './ConfirmSheet.tsx'
+import ConfirmDialog from './ConfirmDialog.tsx'
 import { AssigneeSelect, DueInput } from './TaskFields.tsx'
 import styles from './TaskEditor.module.css'
 
@@ -18,7 +18,7 @@ type Props = {
 }
 
 // 할 일 고치기(행을 누르면 열림): 제목 / 담당자 · 기한 / 출처(회의 날짜·주제) | 취소 · 삭제 · 수정
-// 확정된 할 일은 누구나 고치고 지울 수 있다. 지우기는 한 번 더 묻는다.
+// 확정된 할 일은 누구나 고치고 지울 수 있다. 지우기는 다른 팀원 목록에서도 사라져 가운데 창으로 한 번 더 묻는다.
 export default function TaskEditor({ task, members, onSave, onDelete, onClose }: Props) {
   const [draft, setDraft] = useState<TaskInput>({ title: task.title, assigneeId: task.assigneeId, dueDate: task.dueDate })
   const [asking, setAsking] = useState(false)
@@ -59,12 +59,11 @@ export default function TaskEditor({ task, members, onSave, onDelete, onClose }:
         </span>
       </div>
       {asking && (
-        <ConfirmSheet
-          title="이 할 일을 삭제할까요?"
-          body={`${withJosa(`'${task.title}'`, '을/를')} 할 일에서 삭제해요. ${task.assigneeName ? `${task.assigneeName}의 ` : ''}내 할 일에서도 사라져요.`}
+        <ConfirmDialog
+          title={`${withJosa(`'${task.title}'`, '을/를')} 삭제할까요?`}
           okLabel="삭제"
           danger
-          onClose={({ ok }) => {
+          onClose={(ok) => {
             setAsking(false)
             if (ok) onDelete()
           }}

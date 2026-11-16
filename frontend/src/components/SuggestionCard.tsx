@@ -2,7 +2,6 @@ import { useState } from 'react'
 import type { Suggestion, SuggestionPatch } from '../types/meeting.ts'
 import type { Member } from '../types/room.ts'
 import AiMark from './AiMark.tsx'
-import ConfirmSheet from './ConfirmSheet.tsx'
 import styles from './SuggestionCard.module.css'
 import { AssigneeSelect, DueInput } from './TaskFields.tsx'
 
@@ -11,7 +10,7 @@ type Props = {
   members: Member[]
   onEdit: (patch: SuggestionPatch) => void
   onConfirm: () => void
-  onDismiss: () => void
+  onDismiss: () => void // 묻지 않고 바로 지운다. 되돌리기는 스낵바(MeetingPage)
 }
 
 // 할 일 제안 카드(업무 배정 검토): ① AI 제안 + 제목 ② 담당자 · 기한 | 삭제 · 확정
@@ -20,7 +19,6 @@ export default function SuggestionCard({ suggestion: g, members, onEdit, onConfi
   // 제목은 글자를 칠 때마다 저장하지 않고 칸을 벗어날 때 한 번 저장한다.
   // 그래서 제목을 고치고 바로 옆 "확정"을 눌러도 다시 그리기에 클릭이 묻히지 않는다(목업 버그 ②)
   const [title, setTitle] = useState(g.title)
-  const [asking, setAsking] = useState(false)
 
   const saveTitle = () => {
     const next = title.trim()
@@ -44,7 +42,7 @@ export default function SuggestionCard({ suggestion: g, members, onEdit, onConfi
       <div className={styles.row}>
         <AssigneeSelect members={members} value={g.assigneeId} onChange={(assigneeId) => onEdit({ assigneeId })} />
         <DueInput value={g.dueDate} onChange={(dueDate) => onEdit({ dueDate })} />
-        <button type="button" className="btn small del" onClick={() => setAsking(true)}>
+        <button type="button" className="btn small del" onClick={onDismiss}>
           삭제
         </button>
         <button
@@ -58,18 +56,6 @@ export default function SuggestionCard({ suggestion: g, members, onEdit, onConfi
           확정
         </button>
       </div>
-      {asking && (
-        <ConfirmSheet
-          title="이 제안을 삭제할까요?"
-          body={`'${g.title}' 제안을 삭제해요. 할 일로 등록되지 않아요.`}
-          okLabel="삭제"
-          danger
-          onClose={({ ok }) => {
-            setAsking(false)
-            if (ok) onDismiss()
-          }}
-        />
-      )}
     </article>
   )
 }
