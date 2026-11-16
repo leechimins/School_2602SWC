@@ -21,7 +21,8 @@ type EtNote = 'past' | 'manual' | null
 //   에브리타임 시간표 — 매주 반복 수업. [불러오기]는 링크·캡처를 고르는 아래 시트를 연다
 //   구글 캘린더       — 그날만 있는 약속. [연결]
 //   직접 추가         — 앱 밖 일정(알바·약속). [매주] [한 번만]
-// 연동이 끝난 줄은 누를 수 없는 "연동됨"과 설명 옆 "다시 불러오기"가 보인다. 결과는 아래 한 줄(showNotice)로 알린다
+// 연동이 끝난 줄은 누를 수 없는 "연동됨". 결과는 아래 한 줄(showNotice)로 알린다
+// 구글은 조율을 시작할 때마다 서버가 새로 읽어 다시 불러올 일이 없다. 에타는 한 번 읽어 온 것이라 수강 정정 뒤 "시간표 바꾸기"로 다시 읽는다
 export default function ScheduleLinks({ blocks, onAdd, showLock = true }: Props) {
   const [etOpen, setEtOpen] = useState(false) // 에타 불러오기 시트
   const [gc, setGc] = useState<Reading>({ state: 'idle' })
@@ -52,10 +53,11 @@ export default function ScheduleLinks({ blocks, onAdd, showLock = true }: Props)
         on={classCount > 0}
         busy={false}
         label="불러오기"
+        again="시간표 바꾸기"
         onLink={() => setEtOpen(true)}
       />
 
-      <LinkRow name="구글 캘린더" detail="그날만 있는 약속" on={googleOn} busy={gc.state === 'reading'} label="연결" onLink={linkGoogle}>
+      <LinkRow name="구글 캘린더" detail={googleOn ? '회의 잡을 때마다 새로 읽어요' : '그날만 있는 약속'} on={googleOn} busy={gc.state === 'reading'} label="연결" onLink={linkGoogle}>
         {gc.state === 'reading' && <p className={`meta ${styles.msg}`}>구글 창에서 허락하면 약속을 읽어 와요…</p>}
         {gc.state === 'fail' && (
           <p className={`${styles.msg} ${styles.bad}`} role="alert">
@@ -114,29 +116,30 @@ export default function ScheduleLinks({ blocks, onAdd, showLock = true }: Props)
 
 const loadedMessage = ({ count, term }: LinkResult) => `${term ? `${term} ` : ''}수업 ${count}개를 가져왔어요`
 
-// 연동 한 줄: 이름·설명(+ 연동됐으면 "다시 불러오기") | [버튼] 또는 누를 수 없는 "연동됨"
+// 연동 한 줄: 이름·설명(+ 연동됐고 again이 있으면 다시 읽는 글자 버튼) | [버튼] 또는 누를 수 없는 "연동됨"
 type LinkRowProps = {
   name: string
   detail: string
   on: boolean
   busy: boolean
   label: string
+  again?: string // 연동된 뒤 다시 읽는 글자 버튼. 없으면 두지 않는다
   onLink: () => void
   children?: ReactNode // 이름 아래 진행·실패 글
 }
 
-function LinkRow({ name, detail, on, busy, label, onLink, children }: LinkRowProps) {
+function LinkRow({ name, detail, on, busy, label, again, onLink, children }: LinkRowProps) {
   return (
     <div className={styles.row}>
       <div>
         <p className="strong">{name}</p>
         <p className="meta">
           {detail}
-          {on && (
+          {on && again && (
             <>
               {' · '}
               <button type="button" className={`link ${styles.again}`} disabled={busy} onClick={onLink}>
-                다시 불러오기
+                {again}
               </button>
             </>
           )}

@@ -1,14 +1,11 @@
 import type { CSSProperties, KeyboardEvent } from 'react'
-import { showNotice } from '../lib/notice.ts'
 import { WEEKDAYS, type WeekBlock } from '../types/me.ts'
 import styles from './WeekGrid.module.css'
 
 const HOUR_PX = 16 // 한 시간 높이. 한 시간짜리 칸에도 글자 한 줄이 들어간다
-const LINKED_NOTICE = '연동된 일정은 여기서 바꿀 수 없어요. 에브리타임·구글 캘린더에서 고쳐 주세요.'
 
-/** 눌러서 고칠 수 있는 칸: 직접 넣은 일정만. 수업·구글 약속은 가져온 곳에서 고친다 */
+/** 눌러서 고칠 수 있는 칸: 직접 넣은 일정만. 수업·구글 약속은 가져온 곳에서 고치므로 눌리지 않는다 */
 const isEditable = (b: WeekBlock) => b.source === 'manual' && b.itemId !== null
-const isLinked = (b: WeekBlock) => b.source === 'everytime' || b.source === 'google'
 
 /** 그릴 시간 범위: 기본 9~21시, 그 밖에 걸친 칸이 있으면 그만큼 넓힌다(0~24시 안) */
 function rangeOf(blocks: WeekBlock[]): [number, number] {
@@ -40,15 +37,14 @@ export default function WeekGrid({ blocks, onEdit }: Props) {
   const pct = (h: number) => `${((Math.min(Math.max(h, from), to) - from) / (to - from)) * 100}%`
   const marks = Array.from({ length: Math.floor((to - from) / 3) + 1 }, (_, i) => from + i * 3)
 
-  // 직접 넣은 칸은 누르면 고치기, 연동된 칸(수업·구글)은 누르면 못 고친다는 안내
-  const press = (b: WeekBlock) => (onEdit && isEditable(b) ? () => onEdit(b) : onEdit && isLinked(b) ? () => showNotice(LINKED_NOTICE) : null)
+  // 직접 넣은 칸만 누르면(키보드는 Enter) 고치기. 연동된 칸(수업·구글)은 눌리지 않는다
   const editProps = (b: WeekBlock) => {
-    const run = press(b)
-    if (!run) return {}
+    if (!onEdit || !isEditable(b)) return {}
+    const run = () => onEdit(b)
     return {
       role: 'button',
       tabIndex: 0,
-      'aria-label': isEditable(b) ? `${b.title} 고치기` : `${b.title} (연동된 일정)`,
+      'aria-label': `${b.title} 고치기`,
       'data-edit': true,
       onClick: run,
       onKeyDown: (e: KeyboardEvent) => e.key === 'Enter' && run(),

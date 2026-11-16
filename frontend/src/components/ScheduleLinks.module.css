@@ -21,7 +21,7 @@
   margin: 0;
 }
 
-/* 설명 옆 "다시 불러오기": 설명 글과 같은 크기 (전역 .link보다 앞서게 함께 고른다) */
+/* 설명 옆 "시간표 바꾸기": 설명 글과 같은 크기 (전역 .link보다 앞서게 함께 고른다) */
 .again:global(.link) {
   min-height: 0;
   font-size: inherit;
