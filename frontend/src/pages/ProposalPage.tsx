@@ -40,14 +40,16 @@ export default function ProposalPage() {
   const p = res.data
   // 조율 없이 "지금 회의 기록하기"로 만든 회의는 회의안이 없다(응답할 사람 0명). 회의록 화면으로 보낸다
   if (p.schedulingId === null && p.responders.length === 0) return <Navigate to={pathTo.meeting(p.id)} replace />
+  const myFeedback = p.responders.find((r) => r.userId === user.id)?.feedback ?? null
+  // 아래 고정 영역은 할 일이 있을 때만 둔다(빈 흰 판이 남지 않게)
+  //   조정안: 아직 의견을 안 남겼을 때 의견 칸 / 합의안: 내가 아직 답하지 않았거나 거절했을 때
+  const dock = p.feedbackOnly
+    ? myFeedback === null && <SettledFeedback proposal={p} roomId={user.roomId} />
+    : !p.confirmed && (p.myState === '대기' || p.myState === '거절') && <RespondDock proposal={p} roomId={user.roomId} />
   return (
-    <Screen
-      title="회의 일정"
-      backTo={PATHS.home}
-      dock={p.feedbackOnly ? <SettledFeedback proposal={p} roomId={user.roomId} /> : <RespondDock proposal={p} roomId={user.roomId} />}
-    >
+    <Screen title="회의 일정" backTo={PATHS.home} dock={dock || undefined}>
       <ResultSummary proposal={p} viewerId={user.id} />
-      <Reasons proposal={p} viewerId={user.id} />
+      <Reasons proposal={p} viewerId={user.id} myFeedback={myFeedback} />
     </Screen>
   )
 }
@@ -78,8 +80,8 @@ function ResultSummary({ proposal: p, viewerId }: { proposal: Proposal; viewerId
 }
 
 // 판단 근거: 판단 에이전트의 말 → 부담(내 줄이 맨 위, 불편 점수는 본인에게만 숫자로, 다른 사람은 말로만).
-// 불참안에서 빠진 사람은 점수 대신 빠진다는 한 줄(목업 버그 ③). 맨 아래 조율 과정 다시 보기
-function Reasons({ proposal: p, viewerId }: { proposal: Proposal; viewerId: Id }) {
+// 불참안에서 빠진 사람은 점수 대신 빠진다는 한 줄(목업 버그 ③). 조정안에 남긴 내 의견은 내 줄 아래. 맨 아래 조율 과정 다시 보기
+function Reasons({ proposal: p, viewerId, myFeedback }: { proposal: Proposal; viewerId: Id; myFeedback: string | null }) {
   const others = p.responders.filter((r) => r.userId !== viewerId)
   return (
     <section className="sec">
@@ -93,6 +95,7 @@ function Reasons({ proposal: p, viewerId }: { proposal: Proposal; viewerId: Id }
             내 불편 <span className={`num ${styles.score}`}>{p.myScore}/5</span> · {p.myReason}
           </p>
         )}
+        {p.feedbackOnly && myFeedback && <p className="meta">내 의견 · {myFeedback}</p>}
       </div>
       {others.map((r) => (
         <div key={r.userId} className={styles.other}>
@@ -136,28 +139,16 @@ function Responses({ proposal: p, viewerId }: { proposal: Proposal; viewerId: Id
 
 // ── 확정 방식(응답 영역) ─────────────────────────────────
 
-// 조정안: 이미 확정이라 수락·거절 대신 아래 고정 영역에 의견 한 줄 칸이 있다
+// 조정안: 이미 확정이라 수락·거절 대신 아래 고정 영역에 의견 한 줄 칸이 있다.
+// 남기면 칸이 사라지고, 남긴 의견은 판단 근거 카드의 내 줄 아래에 남는다(다시 열어도 그대로)
 function SettledFeedback({ proposal: p, roomId }: { proposal: Proposal; roomId: Id }) {
   const [text, setText] = useState('')
   const [error, setError] = useState<string | null>(null)
-  const [sent, setSent] = useState(false)
   const send = () =>
-    respondProposal(roomId, p.id, { accept: true, feedback: text.trim() || null }).then(
-      () => {
-        setSent(true)
-        showNotice(text.trim() ? '의견을 남겼어요' : '확인했어요')
-      },
+    respondProposal(roomId, p.id, { accept: true, feedback: text.trim() }).then(
+      () => showNotice('의견을 남겼어요'), // 서버에 쓰면 회의안을 다시 받아 칸이 사라진다(useApi)
       (e: unknown) => setError(messageOf(e)),
     )
-
-  if (sent) {
-    return (
-      <div className={styles.sent}>
-        <Badge tone="ok">{text.trim() ? '의견 남김' : '확인함'}</Badge>
-        {text.trim() && <span className={styles.sentText}>{text.trim()}</span>}
-      </div>
-    )
-  }
 
   return (
     <>
@@ -187,9 +178,6 @@ function RespondDock({ proposal: p, roomId }: { proposal: Proposal; roomId: Id }
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  if (p.feedbackOnly || p.confirmed || p.myState === null) return null
-  if (p.myState === '수락' && !error) return null // 수락한 뒤에는 사람별 응답 줄로 충분하다
-
   const respond = async (accept: boolean, feedback: string | null) => {
     setSending(true)
     setError(null)
@@ -208,6 +196,7 @@ function RespondDock({ proposal: p, roomId }: { proposal: Proposal; roomId: Id }
     if (ok) respond(false, value || null)
   }
 
+  if (p.myState === null) return null
   return (
     <>
       {error && <p className="meta">{error}</p>}

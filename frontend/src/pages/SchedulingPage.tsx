@@ -98,15 +98,14 @@ function Talk({ scheduling: s, viewerId, isLeader }: TalkProps) {
   const reruns = rerunRounds(s.utterances)
   // 거절 뒤 다시 조율하는 중에 처음부터 재생되면, 이미 본 앞 라운드를 건너뛰고 마지막으로 다시 시작한 곳부터 볼 수 있다
   const skipTo = reruns.size > 0 ? s.utterances.findIndex((u) => u.round === Math.max(...reruns)) : -1
-  // 재생 중이면 늘 건너뛸 수 있다: 다시 조율한 라운드가 아직 앞에 있으면 거기로, 아니면 끝으로
-  const skip = playing ? () => setShown(shown < skipTo ? skipTo : total) : undefined
-  const skipLabel = shown < skipTo ? '다시 조율한 곳으로 건너뛰기' : '결과로 건너뛰기'
+  // 결과로 바로 건너뛰지는 않는다(에이전트가 양보하는 과정이 이 화면의 핵심). 이미 본 앞 라운드만 건너뛸 수 있다
+  const skip = shown < skipTo ? () => setShown(skipTo) : undefined
 
   return (
     <Screen
       title="회의 잡기"
       backTo={PATHS.home}
-      dock={<Dock scheduling={s} status={status} round={round} slot={lastSlot} isLeader={isLeader} onSkip={skip} skipLabel={skipLabel} />}
+      dock={<Dock scheduling={s} status={status} round={round} slot={lastSlot} isLeader={isLeader} onSkip={skip} />}
     >
       <div className={styles.head}>
         <p className={styles.topic}>
@@ -169,12 +168,11 @@ type DockProps = {
   round: number
   slot: Slot | null
   isLeader: boolean
-  onSkip?: () => void // 다시 보는 중일 때만: 다시 조율한 라운드 또는 끝으로 건너뛰기
-  skipLabel: string
+  onSkip?: () => void // 거절 뒤 다시 조율하는 중에 처음부터 볼 때만: 다시 조율한 라운드로 건너뛰기
 }
 
 // 하단: 지금 어디까지 왔는지 한 줄 + 끝나면 조율 결과로 가는 버튼
-function Dock({ scheduling: s, status, round, slot, isLeader, onSkip, skipLabel }: DockProps) {
+function Dock({ scheduling: s, status, round, slot, isLeader, onSkip }: DockProps) {
   const badge = <Badge tone={STATUS[status].tone}>{STATUS[status].label}</Badge>
 
   if (status === 'running') {
@@ -185,7 +183,7 @@ function Dock({ scheduling: s, status, round, slot, isLeader, onSkip, skipLabel 
         </p>
         {onSkip && (
           <button type="button" className="btn small block" onClick={onSkip}>
-            {skipLabel}
+            다시 조율한 곳으로 건너뛰기
           </button>
         )}
       </>

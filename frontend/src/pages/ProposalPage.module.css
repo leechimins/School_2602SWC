@@ -98,19 +98,3 @@
   margin-top: var(--gap-2);
   text-align: center;
 }
-
-/* 조정안 의견을 보낸 뒤: 뱃지 | 남긴 말 (말은 연한 말풍선) */
-.sent {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 40px;
-}
-
-.sentText {
-  min-width: 0;
-  padding: 6px 12px;
-  border-radius: 14px;
-  background: var(--soft);
-  font-size: var(--fs-body);
-}
