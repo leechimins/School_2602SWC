@@ -14,6 +14,7 @@ from collections.abc import Sequence
 
 from sqlmodel import Session, col, select
 
+from app.integration import service as integration
 from app.me.models import Preference, ScheduleItem
 from app.meeting.agent_loop import yield_totals
 from app.meeting.models import CandidateSlot, Meeting, Scheduling, SlotCost
@@ -94,6 +95,8 @@ def start_scheduling(
     prefs = _preferences(db, member_ids)
     yields = yield_totals(db, room_id)
 
+    # 구글 캘린더를 연결한 팀원은 이 기간 약속을 지금 새로 읽는다(늦거나 실패하면 저장된 것으로).
+    integration.refresh_for_window(db, member_ids, body.window_start, body.window_end)
     personal_busy = expand_busy(
         _schedule_items(db, member_ids), body.window_start, body.window_end
     )

@@ -143,8 +143,8 @@ class ScheduleItem(SQLModel, table=True):
 
     source: ScheduleSource = enum_text(length=10)
     kind: ScheduleKind = enum_text(length=12)
-    # appointment는 비운다. 화면에 "바쁨"으로만 나간다 —
-    # 구글 캘린더에서 온 개인 약속의 제목을 팀원에게 보여 주지 않는다.
+    # 구글 약속의 제목은 남기되 본인 일정 화면(GET /me/schedule)에만 나간다.
+    # 조율·팀원에게는 종류(일정)만 간다(meeting/slots._label) — 개인 약속 제목은 남에게 안 보인다.
     title: str | None = Field(default=None, max_length=60)
 
     recurrence: Recurrence = enum_text(length=8)
