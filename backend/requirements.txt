@@ -6,8 +6,7 @@ python-dotenv>=1.0
 pytest>=8.0
 httpx>=0.27
 itsdangerous>=2.2
-# 에브리타임 공유 링크 읽기. 설치 뒤 한 번: python -m playwright install chromium
-# 없으면 에브리타임 연동만 빠지고 앱은 돈다
-playwright>=1.47
+# 에브리타임 공유 링크 읽기. 크롬의 TLS 지문을 흉내 내야 403이 안 난다. 브라우저를 따로 받지 않는다
+curl_cffi>=0.7
 # 받아적기: 브라우저 녹음(webm·mp4 등)을 mp3로 바꿔 모델에 보낸다
 av>=14

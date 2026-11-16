@@ -14,6 +14,7 @@ from app.integration import google_calendar as google
 from app.integration import service as integration
 from app.integration.schemas import EverytimeConnectIn, GoogleConnectIn, IntegrationOut
 from app.minutes.models import CalendarLink
+from app.shared import demo_clock
 from app.shared.auth import current_user_id
 from app.shared.db import session_dep
 from app.shared.enums import CalendarKind
@@ -69,7 +70,10 @@ _ET_RETRY = "에브리타임을 잠시 못 읽었어요. 잠시 후 다시 해 �
     response_model=IntegrationOut,
     responses={
         400: {"description": "`EVERYTIME_LINK_INVALID` 링크 모양이 아니거나 시간표가 없음(비공개)"},
-        503: {"description": "`EVERYTIME_UNAVAILABLE` 에브리타임 응답 없음·막힘. 다시 하기"},
+        503: {
+            "description": "`EVERYTIME_UNAVAILABLE` 에브리타임 응답 없음·막힘. 다시 하기 / "
+            "`EVERYTIME_NOT_CONFIGURED` 서버에 연동이 깔려 있지 않음. 다시 해도 안 되니 직접 입력으로"
+        },
     },
     summary="에브리타임 연결 · 다시 불러오기",
 )
@@ -83,14 +87,16 @@ def connect_everytime(
     - 과목 하나가 묶음 하나(`group_id`)이고, 요일마다 한 줄입니다. 학기 범위 밖의 주는 조율이 안 셉니다.
     - 이미 연결돼 있으면 "다시 불러오기"입니다. 이전 에브리타임 수업을 지우고 새로 넣습니다. 직접 넣은 일정은 그대로입니다.
     - 링크 모양이 아니거나 시간표가 비공개면 400 `EVERYTIME_LINK_INVALID`. 문구가 다르다(모양 틀림 → 링크 모양 안내, 시간표 없음 → 전체 공개 확인 안내).
-    - 에브리타임이 응답하지 않으면 503 `EVERYTIME_UNAVAILABLE`.
+    - 에브리타임이 응답하지 않거나 막으면 503 `EVERYTIME_UNAVAILABLE`. 다시 하면 될 수 있습니다.
+    - 서버에 연동이 깔려 있지 않으면 503 `EVERYTIME_NOT_CONFIGURED`. 다시 해도 안 되니 직접 입력으로 안내합니다.
     - 실패하면 전에 들어온 수업은 남고, 연결돼 있었다면 상태가 `failed`가 됩니다.
-    - 읽는 데 몇 초 걸립니다(브라우저로 공유 페이지를 엽니다).
+    - 지난 학기 시간표도 거절하지 않고 넣습니다(조율은 학기 범위 밖을 안 셉니다). 대신 `term_state`가 `past`이니 이번 학기 링크를 넣으라고 안내합니다.
+    - 읽는 데 2~4초 걸립니다.
     """
     if not everytime.configured():
         raise _error(
             status.HTTP_503_SERVICE_UNAVAILABLE,
-            "EVERYTIME_UNAVAILABLE",
+            "EVERYTIME_NOT_CONFIGURED",
             "지금은 에브리타임을 연결할 수 없어요. 시간표를 직접 넣어 주세요.",
         )
     try:
@@ -114,6 +120,7 @@ def connect_everytime(
         last_synced_at=link.last_synced_at,
         imported_count=timetable.class_count(db, user_id),
         term=timetable.term_label(table),
+        term_state=timetable.term_state(table, demo_clock.now(db).date()),
     )
 
 
