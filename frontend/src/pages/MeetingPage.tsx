@@ -22,7 +22,7 @@ import type { MeetingDetail, Minutes } from '../types/meeting.ts'
 import type { Member } from '../types/room.ts'
 import styles from './MeetingPage.module.css'
 
-// 회의록: 주제 한 줄 → 원문(펼쳐 보기) → 요약(결정·논의·보류) → 회의에서 끝난 일 → 업무 배정 검토(할 일 제안) → 필요 없어 보이는 일.
+// 회의록: 주제 한 줄 + 요약(결정·논의·보류) + 원문(펼쳐 보기)을 한 카드에 → 회의에서 끝난 일 → 업무 배정 검토(할 일 제안) → 필요 없어 보이는 일.
 // 할 일 제안은 여기서만 보이고, 확정해야 할 일 탭에 들어간다.
 export default function MeetingPage() {
   const { meetingId = '' } = useParams()
@@ -55,9 +55,10 @@ function MeetingBody({ meeting: m, members }: { meeting: MeetingDetail; members:
           <span>{m.mode}</span>
           {attendees.length > 0 && <span>참석 {attendees.join(' · ')}</span>}
         </p>
+        {m.minutes && <MinutesGroups minutes={m.minutes} />}
         {recorded && (
-          <button type="button" className="btn small block" aria-expanded={showRaw} onClick={() => setShowRaw(!showRaw)}>
-            {showRaw ? '원문 접기' : `원문 전체 보기 (${m.transcript.length}줄)`}
+          <button type="button" className={`link ${styles.rawToggle}`} aria-expanded={showRaw} onClick={() => setShowRaw(!showRaw)}>
+            {showRaw ? '원문 접기' : `원문 보기 (${m.transcript.length}줄)`}
           </button>
         )}
         {showRaw && (
@@ -80,10 +81,8 @@ function MeetingBody({ meeting: m, members }: { meeting: MeetingDetail; members:
             action={{ label: '회의 기록하기', to: pathTo.record(m.id) }}
           />
         </section>
-      ) : m.minutes ? (
-        <MinutesCard minutes={m.minutes} />
       ) : (
-        <SummarizeCard meetingId={m.id} />
+        !m.minutes && <SummarizeCard meetingId={m.id} />
       )}
 
       {m.doneTasks.length > 0 && (
@@ -118,11 +117,12 @@ const MINUTE_GROUPS = [
   ['보류', 'pendings'],
 ] as const
 
-function MinutesCard({ minutes }: { minutes: Minutes }) {
+// 주제 아래 구분선 다음에 이어 붙는 요약. 카드를 따로 두지 않는다
+function MinutesGroups({ minutes }: { minutes: Minutes }) {
   const groups = MINUTE_GROUPS.filter(([, key]) => minutes[key].length > 0)
   if (groups.length === 0) return null
   return (
-    <section className="sec">
+    <div className={styles.minutes}>
       {groups.map(([label, key]) => (
         <div key={key} className={styles.group}>
           <b>{label}</b>
@@ -133,7 +133,7 @@ function MinutesCard({ minutes }: { minutes: Minutes }) {
           ))}
         </div>
       ))}
-    </section>
+    </div>
   )
 }
 
@@ -224,7 +224,7 @@ function Review({ meeting: m, members }: { meeting: MeetingDetail; members: Memb
           </p>
         </article>
       ))}
-      <AddTaskCard label="+ 직접 추가" members={members} onAdd={(input) => addTask(user.roomId, input, m.id)} />
+      <AddTaskCard members={members} onAdd={(input) => addTask(user.roomId, input, m.id)} />
       {pending > 0 && (
         <p className={`meta ${styles.foot}`}>
           확정 전 제안은 할 일 탭에 보이지 않아요.
@@ -234,9 +234,7 @@ function Review({ meeting: m, members }: { meeting: MeetingDetail; members: Memb
       {askingAll && (
         <ConfirmSheet
           title={`할 일 ${pending}개를 모두 확정할까요?`}
-          body="할 일 탭에 들어가요. 담당자가 없는 일은 '담당자 없음'으로 들어가요."
           okLabel="모두 확정"
-          irreversible={false}
           onClose={({ ok }) => {
             setAskingAll(false)
             if (ok) confirm(m.suggestions.map((g) => g.id))

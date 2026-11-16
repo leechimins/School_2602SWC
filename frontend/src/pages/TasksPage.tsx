@@ -40,7 +40,7 @@ function TeamTaskList({ data, members }: { data: TeamTasks; members: Member[] })
   const user = useCurrentUser()
   const [filter, setFilter] = useState<Filter>('전체')
   const [editingId, setEditingId] = useState<Id | null>(null)
-  const add = <AddTaskCard label="+ 할 일 추가" members={members} onAdd={(input) => addTask(user.roomId, input)} />
+  const add = <AddTaskCard members={members} onAdd={(input) => addTask(user.roomId, input)} />
 
   if (data.tasks.length === 0) {
     return (
@@ -130,7 +130,7 @@ function TeamTaskList({ data, members }: { data: TeamTasks; members: Member[] })
       </div>
       {groups.map((g) => (
         <section key={g.id ?? 'none'} className="sec">
-          <span className="cat">
+          <span className={`cat ${styles.cat}`}>
             {nameOf(g.id)}
             {g.id === user.id && ' (나)'} <span className="n num">{g.tasks.length}</span>
           </span>

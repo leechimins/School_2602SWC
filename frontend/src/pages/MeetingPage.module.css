@@ -16,6 +16,20 @@
   color: var(--muted);
 }
 
+/* 주제 아래 요약: 구분선으로 나눠 한 카드에 둔다 */
+.minutes {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+/* 원문 펼치기: 버튼 대신 작은 글자 링크 */
+.rawToggle {
+  min-height: 32px;
+  margin-top: 4px;
+  font-size: var(--fs-meta);
+}
+
 /* 원문: 말한 사람 | 말 */
 .lines {
   margin: 6px 0 0;
