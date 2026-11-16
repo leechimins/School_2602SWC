@@ -4,6 +4,7 @@ import type { Dayjs } from 'dayjs'
 import { messageOf } from '../api/client.ts'
 import { getRoom } from '../api/rooms.ts'
 import { startScheduling } from '../api/scheduling.ts'
+import FieldError, { type FormProblem } from '../components/FieldError.tsx'
 import RetryBox from '../components/RetryBox.tsx'
 import Screen from '../components/Screen.tsx'
 import Segmented from '../components/Segmented.tsx'
@@ -55,25 +56,25 @@ function SchedulingForm({ room }: { room: Room }) {
   const navigate = useNavigate()
   const now = useClock()
   const [input, setInput] = useState<SchedulingInput>(() => defaultInput(now))
-  const [error, setError] = useState<string | null>(null)
+  const [problem, setProblem] = useState<FormProblem>(null)
   const [starting, setStarting] = useState(false)
   const set = <K extends keyof SchedulingInput>(key: K, value: SchedulingInput[K]) =>
     setInput((prev) => ({ ...prev, [key]: value }))
 
-  const problem = !input.topic.trim()
-    ? '주제를 써 주세요.'
+  const invalid: FormProblem = !input.topic.trim()
+    ? { at: 'topic', message: '주제를 써 주세요.' }
     : input.windowStart > input.windowEnd
-      ? '끝나는 날이 시작하는 날보다 빨라요.'
+      ? { at: 'window', message: '끝나는 날이 시작하는 날보다 빨라요.' }
       : null
 
   const start = async () => {
-    if (problem) return setError(problem)
+    if (invalid) return setProblem(invalid)
     setStarting(true)
     try {
       const scheduling = await startScheduling(room.id, { ...input, topic: input.topic.trim() })
       navigate(pathTo.scheduling(scheduling.id), { replace: true }) // 뒤로 가면 홈으로
     } catch (e) {
-      setError(messageOf(e))
+      setProblem({ at: 'end', message: messageOf(e) })
       setStarting(false)
     }
   }
@@ -99,12 +100,14 @@ function SchedulingForm({ room }: { room: Room }) {
           주제
           <input className="field" value={input.topic} maxLength={40} placeholder="예: 중간 점검 전 회의" onChange={(e) => set('topic', e.target.value)} />
         </label>
+        <FieldError problem={problem} at="topic" />
         <span className={form.label}>기간</span>
         <div className={form.range}>
           <input className="field num" type="date" aria-label="시작하는 날" value={input.windowStart} onChange={(e) => set('windowStart', e.target.value)} />
           <span>–</span>
           <input className="field num" type="date" aria-label="끝나는 날" value={input.windowEnd} onChange={(e) => set('windowEnd', e.target.value)} />
         </div>
+        <FieldError problem={problem} at="window" />
         <span className={form.label}>소요 시간</span>
         <div className={form.stepper}>
           <button type="button" aria-label="30분 줄이기" disabled={input.durationMin <= STEP_MIN} onClick={() => changeLength(-STEP_MIN)}>
@@ -119,11 +122,7 @@ function SchedulingForm({ room }: { room: Room }) {
         </div>
         <span className={form.label}>방식</span>
         <Segmented label="방식" options={MODES} value={input.mode} onChange={(mode) => set('mode', mode)} />
-        {error && (
-          <p className={form.error} role="alert">
-            {error}
-          </p>
-        )}
+        <FieldError problem={problem} at="end" />
       </section>
     </Screen>
   )
