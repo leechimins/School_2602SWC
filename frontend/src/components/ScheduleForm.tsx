@@ -48,18 +48,19 @@ function WeeklyForm({ onSaved, onCancel }: FormProps) {
   const setTime = (d: number, i: 0 | 1, h: number) => setDays({ ...days, [d]: i === 0 ? [h, days[d][1]] : [days[d][0], h] })
 
   const save = async () => {
+    if (!title.trim()) return setError('이름을 적어 주세요.')
     const bad = picked.find((d) => days[d][1] <= days[d][0])
     if (bad !== undefined) return setError(`${WEEKDAYS[bad]}요일 끝나는 시간이 시작보다 늦어야 해요.`)
     const input: ScheduleItemInput = {
       recurrence: 'weekly',
-      title: title.trim() || kind,
+      title: title.trim(),
       kind: kind === '수업' ? 'class' : 'event',
       days: picked.map((d) => ({ weekday: d, startHour: days[d][0], endHour: days[d][1] })),
     }
     setSaving(true)
     try {
       await addScheduleItem(input)
-      onSaved(`매주 ${picked.map((d) => WEEKDAYS[d]).join('·')}요일에 넣었어요. 에이전트가 이 시간은 빼고 조율해요.`)
+      onSaved(`매주 ${picked.map((d) => WEEKDAYS[d]).join('·')}요일에 넣었어요`)
     } catch (e) {
       setError(messageOf(e))
       setSaving(false)
@@ -69,7 +70,7 @@ function WeeklyForm({ onSaved, onCancel }: FormProps) {
   return (
     <Sheet title="반복 일정 추가" onClose={onCancel} actions={<Actions saving={saving} onCancel={onCancel} onSave={save} />}>
       <label className={form.label}>
-        이름 (나만 보여요)
+        이름
         <input className="field" value={title} maxLength={20} placeholder="예: 카페 알바" onChange={(e) => setTitle(e.target.value)} />
       </label>
       <span className={form.label}>종류</span>
@@ -82,7 +83,7 @@ function WeeklyForm({ onSaved, onCancel }: FormProps) {
           </button>
         ))}
       </div>
-      <span className={form.label}>시간 (요일마다 달라도 돼요)</span>
+      <span className={form.label}>시간</span>
       {picked.map((d) => (
         <div key={d} className={styles.dayTime}>
           <b>{WEEKDAYS[d]}</b>
@@ -112,12 +113,13 @@ function OnceForm({ onSaved, onCancel }: FormProps) {
   const [saving, setSaving] = useState(false)
 
   const save = async () => {
+    if (!title.trim()) return setError('이름을 적어 주세요.')
     if (!date || date < today) return setError('오늘이나 그 뒤 날짜를 골라 주세요.')
     if (time[1] <= time[0]) return setError('끝나는 시간이 시작보다 늦어야 해요.')
     setSaving(true)
     try {
-      await addScheduleItem({ recurrence: 'once', title: title.trim() || '일정', date, startHour: time[0], endHour: time[1] })
-      onSaved(`${dayjs(date).format('M/D')} ${time[0]}–${time[1]}시에 넣었어요. 에이전트가 이 시간은 빼고 조율해요.`)
+      await addScheduleItem({ recurrence: 'once', title: title.trim(), date, startHour: time[0], endHour: time[1] })
+      onSaved(`${dayjs(date).format('M/D')} ${time[0]}–${time[1]}시에 넣었어요`)
     } catch (e) {
       setError(messageOf(e))
       setSaving(false)
@@ -127,7 +129,7 @@ function OnceForm({ onSaved, onCancel }: FormProps) {
   return (
     <Sheet title="일회성 일정 추가" onClose={onCancel} actions={<Actions saving={saving} onCancel={onCancel} onSave={save} />}>
       <label className={form.label}>
-        이름 (나만 보여요)
+        이름
         <input className="field" value={title} maxLength={20} placeholder="예: 동아리 MT" onChange={(e) => setTitle(e.target.value)} />
       </label>
       <label className={form.label}>
