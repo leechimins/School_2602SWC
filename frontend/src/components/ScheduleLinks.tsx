@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { messageOf } from '../api/client.ts'
+import { ApiError, messageOf } from '../api/client.ts'
 import { connectEverytime, connectGoogle } from '../api/me.ts'
 import type { Recurrence, WeekBlock } from '../types/me.ts'
 import Badge from './Badge.tsx'
@@ -12,6 +12,8 @@ type Props = {
 }
 
 type Reading = { state: 'idle' } | { state: 'reading' } | { state: 'ok' | 'fail'; message: string }
+// 에타 결과에만 붙는 덧말. past: 지난 학기 시간표라 이번 학기 링크를 다시 받는다 / manual: 서버에 연동이 없어 다시 하기 대신 직접 추가로
+type EtNote = 'past' | 'manual' | null
 
 // 내 일정 가져오기: 두 묶음 × 두 방식 [연동 / 직접 추가]. 묶음 제목이 카드 제목을 대신하고,
 // 연동이 먼저라 연동은 줄로, 직접 추가는 제목 오른쪽 작은 링크로 둔다
@@ -21,6 +23,7 @@ type Reading = { state: 'idle' } | { state: 'reading' } | { state: 'ok' | 'fail'
 export default function ScheduleLinks({ blocks, onAdd, showLock = true }: Props) {
   const [url, setUrl] = useState('')
   const [et, setEt] = useState<Reading>({ state: 'idle' })
+  const [etNote, setEtNote] = useState<EtNote>(null)
   const [gc, setGc] = useState<Reading>({ state: 'idle' })
 
   const classCount = new Set(blocks.filter((b) => b.source === 'everytime').map((b) => b.title)).size
@@ -28,11 +31,14 @@ export default function ScheduleLinks({ blocks, onAdd, showLock = true }: Props)
 
   const loadEverytime = async () => {
     setEt({ state: 'reading' })
+    setEtNote(null)
     try {
-      const { count, term } = await connectEverytime(url.trim())
+      const { count, term, termState } = await connectEverytime(url.trim())
       setEt({ state: 'ok', message: `${term ? `${term} ` : ''}수업 ${count}개를 가져왔어요` })
+      if (termState === 'past') setEtNote('past')
     } catch (e) {
       setEt({ state: 'fail', message: messageOf(e) })
+      if (e instanceof ApiError && e.code === 'EVERYTIME_NOT_CONFIGURED') setEtNote('manual')
     }
   }
   // 구글 팝업은 클릭 직후에 열려야 막히지 않는다. connectGoogle을 다른 await보다 먼저 부른다
@@ -75,6 +81,16 @@ export default function ScheduleLinks({ blocks, onAdd, showLock = true }: Props)
             <p className={`${styles.msg} ${et.state === 'fail' ? styles.bad : ''}`} role={et.state === 'fail' ? 'alert' : 'status'}>
               {et.message}
             </p>
+          )}
+          {etNote === 'past' && (
+            <p className={`${styles.msg} ${styles.warn}`} role="alert">
+              지난 학기 시간표예요. 이번 학기 시간표 링크를 넣어 주세요.
+            </p>
+          )}
+          {etNote === 'manual' && (
+            <button type="button" className={`link ${styles.msg}`} onClick={() => onAdd('weekly')}>
+              수업 직접 넣기
+            </button>
           )}
         </div>
       </div>
