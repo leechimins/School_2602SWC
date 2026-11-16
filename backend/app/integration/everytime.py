@@ -130,8 +130,12 @@ def parse(xml: str) -> Timetable:
         raise TimetableNotFound("xml") from None
     table = root if root.tag == "table" else root.find(".//table")
     if table is None:
-        # 비공개·없는 공유 아이디면 <response>만 온다.
+        # 없는 공유 아이디면 <response>-1</response>만 온다.
         raise TimetableNotFound("no table")
+    if (table.get("status") or "").startswith("-"):
+        # 비공개 시간표는 <table status="-2"/>로 빈 표가 온다(11/16 확인). 수업 0개로
+        # 받아들이면 "가져왔어요"가 떠서 비공개인 줄 모른다.
+        raise TimetableNotFound(f"status {table.get('status')}")
 
     courses: list[Course] = []
     for subject in table.iter("subject"):

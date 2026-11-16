@@ -518,3 +518,18 @@ def test_학기를_모르면_term_state는_null(client, fake, jisu):
     body = _connect(client).json()
     assert body["term"] is None
     assert body["term_state"] is None
+
+
+def test_비공개_시간표_링크는_수업_0개가_아니라_400_시간표_없음(client, fake, jisu, seeded):
+    # 11/16 실측: 비공개면 200 + <table status="-2"/>(빈 표)와 사용자 이름이 온다
+    fake.xml = (
+        '<?xml version="1.0" encoding="UTF-8"?><response>'
+        '<table year="2023" semester="1" status="-2" identifier="AbCd1234"/>'
+        '<user name="누구"/></response>'
+    )
+    before = [r.id for r in _rows(seeded, jisu.id, ScheduleSource.EVERYTIME)]
+    res = _connect(client)
+    assert res.status_code == 400
+    assert res.json()["code"] == "EVERYTIME_LINK_INVALID"
+    assert "전체 공개" in res.json()["message"]
+    assert [r.id for r in _rows(seeded, jisu.id, ScheduleSource.EVERYTIME)] == before
