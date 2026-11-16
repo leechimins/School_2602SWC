@@ -16,16 +16,16 @@ type Reading = { state: 'idle' } | { state: 'reading' } | { state: 'ok' | 'fail'
 // 에타 결과에만 붙는 덧말. past: 지난 학기 시간표라 이번 학기 링크를 다시 받는다 / manual: 서버에 연동이 없어 다시 하기 대신 직접 추가로
 type EtNote = 'past' | 'manual' | null
 
-// 내 일정 가져오기: 두 묶음 × 두 방식 [연동 / 직접 추가]. 묶음 제목이 카드 제목을 대신하고,
-// 연동이 먼저라 연동은 줄로, 직접 추가는 제목 오른쪽 작은 링크로 둔다
-//   반복 일정(매주)   — 에브리타임 공유 링크 또는 시간표 캡처(수업) / 직접 추가(알바처럼 매주 있는 일)
-//   일회성 일정(그날) — 구글 캘린더(약속)         / 직접 추가(그날만 있는 일)
-// 아직 아무것도 없으면 설명 문구 없이 제목과 버튼만 보인다
+// 내 일정 가져오기: 같은 모양의 줄 세 개(이름·설명 | 오른쪽 동작)
+//   에브리타임 시간표 — 매주 반복 수업. [불러오기]를 누르면 링크 칸·캡처가 펼쳐진다
+//   구글 캘린더       — 그날만 있는 약속. [연결]
+//   직접 추가         — 앱 밖 일정(알바·약속). [매주] [한 번만]
 export default function ScheduleLinks({ blocks, onAdd, showLock = true }: Props) {
   const [url, setUrl] = useState('')
   const [et, setEt] = useState<Reading>({ state: 'idle' })
   const [etNote, setEtNote] = useState<EtNote>(null)
   const [gc, setGc] = useState<Reading>({ state: 'idle' })
+  const [etOpen, setEtOpen] = useState(false) // 에타 링크 칸 펼침
   const [captured, setCaptured] = useState<CapturedClass[] | null>(null) // AI가 읽은 수업. 있으면 확인 시트를 연다
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -35,6 +35,7 @@ export default function ScheduleLinks({ blocks, onAdd, showLock = true }: Props)
   const showLoaded = ({ count, term, termState }: LinkResult) => {
     setEt({ state: 'ok', message: `${term ? `${term} ` : ''}수업 ${count}개를 가져왔어요` })
     if (termState === 'past') setEtNote('past')
+    else setEtOpen(false)
   }
   const loadEverytime = async () => {
     setEt({ state: 'reading' })
@@ -76,59 +77,74 @@ export default function ScheduleLinks({ blocks, onAdd, showLock = true }: Props)
 
   return (
     <>
-      <GroupHead title="반복 일정" onAdd={() => onAdd('weekly')} />
-      {/* 다른 줄처럼 이름 | 오른쪽 뱃지, 링크 칸은 그 아래 한 줄 전체 */}
       <div className={styles.row}>
         <div>
           <p className="strong">에브리타임 시간표</p>
-          {classCount > 0 && <p className="meta">수업 {classCount}개 · 다시 넣으면 새로 바뀌어요</p>}
+          <p className="meta">{classCount > 0 ? `수업 ${classCount}개 · 다시 넣으면 새로 바뀌어요` : '매주 반복되는 수업'}</p>
         </div>
-        {classCount > 0 && <Badge tone="ok">가져옴</Badge>}
-        <div className={styles.full}>
-          <div className={styles.input}>
-            <input
-              className="field num"
-              value={url}
-              placeholder="에타 시간표 → 공유 → 링크 복사"
-              aria-label="에브리타임 공유 링크"
-              onChange={(e) => setUrl(e.target.value)}
-            />
-            <button type="button" className="btn small" disabled={!url.trim() || et.state === 'reading'} onClick={loadEverytime}>
+        {classCount > 0 && !etOpen ? (
+          <button type="button" className={`link ${styles.again}`} onClick={() => setEtOpen(true)}>
+            다시 불러오기
+          </button>
+        ) : (
+          !etOpen && (
+            <button type="button" className="btn small" onClick={() => setEtOpen(true)}>
               불러오기
             </button>
+          )
+        )}
+        {etOpen && (
+          <div className={styles.full}>
+            <div className={styles.input}>
+              <input
+                className="field num"
+                value={url}
+                placeholder="에타 시간표 → 공유 → 링크 복사"
+                aria-label="에브리타임 공유 링크"
+                autoFocus
+                onChange={(e) => setUrl(e.target.value)}
+              />
+              <button type="button" className="btn small primary" disabled={!url.trim() || et.state === 'reading'} onClick={loadEverytime}>
+                불러오기
+              </button>
+            </div>
+            <div className={styles.subActions}>
+              <button type="button" className="link" disabled={et.state === 'reading'} onClick={() => fileRef.current?.click()}>
+                캡처로 올리기
+              </button>
+              <button type="button" className="link quiet" onClick={() => setEtOpen(false)}>
+                닫기
+              </button>
+            </div>
           </div>
-          <button
-            type="button"
-            className={`link ${styles.capture}`}
-            disabled={et.state === 'reading'}
-            onClick={() => fileRef.current?.click()}
-          >
-            캡처로 올리기
-          </button>
-          <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={readCapture} />
-          {et.state === 'reading' && <p className={`meta ${styles.msg}`}>시간표를 읽는 중이에요…</p>}
-          {(et.state === 'ok' || et.state === 'fail') && (
-            <p className={`${styles.msg} ${et.state === 'fail' ? styles.bad : ''}`} role={et.state === 'fail' ? 'alert' : 'status'}>
-              {et.message}
-            </p>
-          )}
-          {etNote === 'past' && (
-            <p className={`${styles.msg} ${styles.warn}`} role="alert">
-              지난 학기 시간표예요. 이번 학기 시간표 링크를 넣어 주세요.
-            </p>
-          )}
-          {etNote === 'manual' && (
-            <button type="button" className={`link ${styles.msg}`} onClick={() => onAdd('weekly')}>
-              수업 직접 넣기
-            </button>
-          )}
-        </div>
+        )}
+        <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={readCapture} />
+        {(et.state !== 'idle' || etNote) && (
+          <div className={styles.full}>
+            {et.state === 'reading' && <p className={`meta ${styles.msg}`}>시간표를 읽는 중이에요…</p>}
+            {(et.state === 'ok' || et.state === 'fail') && (
+              <p className={`${styles.msg} ${et.state === 'fail' ? styles.bad : ''}`} role={et.state === 'fail' ? 'alert' : 'status'}>
+                {et.message}
+              </p>
+            )}
+            {etNote === 'past' && (
+              <p className={`${styles.msg} ${styles.warn}`} role="alert">
+                지난 학기 시간표예요. 이번 학기 시간표 링크를 넣어 주세요.
+              </p>
+            )}
+            {etNote === 'manual' && (
+              <button type="button" className={`link ${styles.msg}`} onClick={() => onAdd('weekly')}>
+                수업 직접 넣기
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
-      <GroupHead title="일회성 일정" onAdd={() => onAdd('once')} />
       <div className={styles.row}>
         <div>
           <p className="strong">구글 캘린더</p>
+          <p className="meta">그날만 있는 약속</p>
           {gc.state === 'reading' && <p className={`meta ${styles.msg}`}>구글 창에서 허락하면 약속을 읽어 와요…</p>}
           {(gc.state === 'ok' || gc.state === 'fail') && (
             <p className={`${styles.msg} ${gc.state === 'fail' ? styles.bad : ''}`} role={gc.state === 'fail' ? 'alert' : 'status'}>
@@ -143,6 +159,21 @@ export default function ScheduleLinks({ blocks, onAdd, showLock = true }: Props)
             연결
           </button>
         )}
+      </div>
+
+      <div className={styles.row}>
+        <div>
+          <p className="strong">직접 추가</p>
+          <p className="meta">알바·약속처럼 앱 밖 일정</p>
+        </div>
+        <div className={styles.pair}>
+          <button type="button" className="btn small" onClick={() => onAdd('weekly')}>
+            매주
+          </button>
+          <button type="button" className="btn small" onClick={() => onAdd('once')}>
+            한 번만
+          </button>
+        </div>
       </div>
 
       {captured && (
@@ -162,18 +193,5 @@ export default function ScheduleLinks({ blocks, onAdd, showLock = true }: Props)
         </p>
       )}
     </>
-  )
-}
-
-// 묶음 제목(카드 제목 크기) | 오른쪽 "직접 추가". 연동이 먼저고 직접 추가는 보조라 제목 옆 작은 링크로 둔다.
-// 넣은 일정은 위 시간표에 보이므로 여기 다시 늘어놓지 않는다
-function GroupHead({ title, onAdd }: { title: string; onAdd: () => void }) {
-  return (
-    <div className={`row-between ${styles.group}`}>
-      <h2>{title}</h2>
-      <button type="button" className="link" onClick={onAdd}>
-        직접 추가
-      </button>
-    </div>
   )
 }

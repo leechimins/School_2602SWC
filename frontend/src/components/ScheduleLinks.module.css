@@ -1,40 +1,38 @@
+/* 같은 모양의 줄: 이름·설명 | 오른쪽 동작. 줄 사이는 얇은 선 */
 .row {
   display: grid;
   grid-template-columns: 1fr auto;
   align-items: center;
-  gap: 10px;
-  padding: 8px 0;
+  gap: 4px 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
 }
 
-/* 이름 | 뱃지 줄 아래로 한 줄 전체를 쓰는 칸(에타 링크 입력) */
-.full {
-  grid-column: 1 / -1;
+.row:first-child {
+  padding-top: 0;
 }
 
-/* 묶음 제목 줄: 반복 일정 / 일회성 일정 (글자는 .sec h2) | 직접 추가 */
-.group {
-  margin-top: 18px;
+.row:last-of-type {
+  padding-bottom: 0;
+  border-bottom: 0;
 }
 
-.group:first-child {
-  margin-top: 0;
-}
-
-.group h2 {
+.row p {
   margin: 0;
 }
 
-.group :global(.link) {
-  min-height: 0;
-  font-size: var(--fs-meta);
+/* 이름 | 동작 줄 아래로 한 줄 전체를 쓰는 칸(에타 링크 입력·결과 글) */
+.full {
+  grid-column: 1 / -1;
 }
 
 .input {
   display: flex;
   gap: 6px;
+  margin-top: 4px;
 }
 
-/* 링크 칸은 옆 버튼(.btn.small)과 같은 높이로, 다른 줄의 버튼보다 두꺼워 보이지 않게 */
+/* 링크 칸은 옆 버튼(.btn.small)과 같은 높이로 */
 .input :global(.field) {
   flex: 1;
   min-width: 0;
@@ -43,11 +41,27 @@
   font-size: 13px;
 }
 
-/* 링크 칸 아래 "캡처로 올리기" */
-.capture {
-  min-height: 0;
-  margin-top: 6px;
+/* 링크 칸 아래: 캡처로 올리기 | 닫기 */
+.subActions {
+  display: flex;
+  justify-content: space-between;
+}
+
+.subActions :global(.link),
+.again {
+  min-height: 32px;
   font-size: var(--fs-meta);
+}
+
+.subActions :global(.link.quiet) {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+/* 직접 추가: 매주 | 한 번만 */
+.pair {
+  display: flex;
+  gap: 6px;
 }
 
 .msg {
@@ -70,4 +84,3 @@
   background: var(--soft);
   font-size: var(--fs-meta);
 }
-
