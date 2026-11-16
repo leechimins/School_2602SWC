@@ -16,11 +16,12 @@ from PIL import Image, ImageDraw
 from sqlmodel import Session, select
 
 from app.integration import capture, capture_grid
+from app.integration import everytime_service as service
 from app.integration.capture import Capture, CapturedClass
 from app.me.models import ScheduleItem
 from app.shared import demo_clock, llm
 from app.shared.base import KST
-from app.shared.enums import ScheduleSource
+from app.shared.enums import Recurrence, ScheduleKind, ScheduleSource
 from app.shared.models import User
 
 API = "/api/v1/me/integrations/everytime"
@@ -324,3 +325,216 @@ def test_모델에는_원본을_그대로_보낸다(model):
     image = draw(IMAGE_BLOCKS)
     capture.read(image, "image/png")
     assert model.calls == [(image, "image/png")]
+
+
+# ── 미리보기 API ─────────────────────────────────────────────────────
+
+
+def test_미리보기는_읽은_수업만_돌려주고_저장하지_않는다(client, model, jisu, seeded):
+    before = _snapshot(seeded, jisu.id)  # 시드에 에브리타임 수업이 이미 있다
+    res = _preview(client, draw(IMAGE_BLOCKS))
+    assert res.status_code == 200, res.text
+    assert res.json() == {
+        "classes": [
+            {"title": "알고리즘", "weekday": 0, "start_min": 630, "end_min": 705},
+            {"title": "알고리즘", "weekday": 0, "start_min": 720, "end_min": 795},
+            {"title": "모바일응용", "weekday": 3, "start_min": 630, "end_min": 795},
+            {"title": "데이터베이스 프로그래밍", "weekday": 3, "start_min": 810, "end_min": 885},
+        ],
+        "year": 2026,
+        "semester": "2",
+        "term": "2026년 2학기",
+    }
+    assert _snapshot(seeded, jisu.id) == before
+    assert service.get_link(seeded, jisu.id) is None
+
+
+def test_수업을_못_읽으면_빈_목록(client, model, jisu):
+    model.answer = {"is_everytime": True, "year": 2026, "semester": "2", "classes": []}
+    res = _preview(client, draw([]))
+    assert res.status_code == 200
+    assert res.json()["classes"] == []
+
+
+def test_에브리타임_시간표가_아니면_400(client, model, jisu):
+    model.answer = {"is_everytime": False, "classes": []}
+    res = _preview(client, draw([]))
+    assert res.status_code == 400
+    assert res.json() == {"code": "NOT_EVERYTIME", "message": "에브리타임 시간표 화면 캡처만 읽을 수 있어요."}
+
+
+def test_지난_학기_캡처는_미리보기에서_400(client, model, jisu, seeded):
+    # 확정 요청엔 학기가 안 와서 오늘 학기로 저장된다. 지난 학기 수업이 이번 학기를 막지 않게 거른다.
+    model.answer = {**AI_ANSWER, "year": 2023, "semester": "2"}
+    before = _snapshot(seeded, jisu.id)
+    res = _preview(client, draw(IMAGE_BLOCKS))
+    assert res.status_code == 400
+    assert res.json() == {
+        "code": "CAPTURE_PAST_TERM",
+        "message": "2023년 2학기 시간표예요. 이번 학기 시간표를 캡처해 주세요.",
+    }
+    assert _snapshot(seeded, jisu.id) == before
+
+
+@pytest.mark.parametrize(
+    ("year", "semester"),
+    [(2027, "1"), (None, None)],  # 다음 학기를 미리 · 학기를 못 읽음
+)
+def test_지난_학기가_아니면_미리보기를_돌려준다(client, model, jisu, year, semester):
+    model.answer = {**AI_ANSWER, "year": year, "semester": semester}
+    res = _preview(client, draw(IMAGE_BLOCKS))
+    assert res.status_code == 200
+    assert len(res.json()["classes"]) == 4
+
+
+@pytest.mark.parametrize("answer", [None, {"is_everytime": True, "classes": "깨짐"}])
+def test_AI가_실패하면_503_다시_하기(client, model, jisu, answer):
+    model.answer = answer
+    res = _preview(client, draw(IMAGE_BLOCKS))
+    assert res.status_code == 503
+    assert res.json() == {"code": "CAPTURE_READ_FAILED", "message": "시간표를 잠시 못 읽었어요. 잠시 후 다시 해 주세요."}
+
+
+@pytest.mark.parametrize("mime", ["application/json", "image/gif", "text/plain"])
+def test_이미지_형식이_아니면_400(client, model, jisu, mime):
+    res = _preview(client, b"abc", mime)
+    assert res.status_code == 400
+    assert res.json()["code"] == "IMAGE_INVALID"
+    assert model.calls == []
+
+
+def test_빈_본문이면_400(client, model, jisu):
+    assert _preview(client, b"").json()["code"] == "IMAGE_INVALID"
+
+
+def test_jpg라고_보내도_jpeg로_받는다(client, model, jisu):
+    assert _preview(client, draw(IMAGE_BLOCKS), "image/jpg").status_code == 200
+
+
+def test_5MB를_넘으면_400(client, model, jisu):
+    res = _preview(client, b"0" * (capture.MAX_BYTES + 1))
+    assert res.status_code == 400
+    assert res.json() == {"code": "IMAGE_TOO_LARGE", "message": "5MB 이하 캡처로 올려 주세요."}
+    assert model.calls == []
+
+
+def test_미리보기는_로그인_안_하면_401(client, model, seeded):
+    assert _preview(client, draw(IMAGE_BLOCKS)).status_code == 401
+
+
+# ── 확정 API ─────────────────────────────────────────────────────────
+
+SAVE = {
+    "classes": [
+        {"title": "알고리즘", "weekday": 0, "start_min": 630, "end_min": 705},
+        {"title": "알고리즘", "weekday": 0, "start_min": 720, "end_min": 795},
+        {"title": "모바일응용", "weekday": 3, "start_min": 630, "end_min": 795},
+    ],
+    "year": 2026,
+    "semester": "2",
+}
+
+
+def _add_manual(session: Session, user_id: int) -> None:
+    session.add(
+        ScheduleItem(
+            user_id=user_id,
+            group_id=900,
+            source=ScheduleSource.MANUAL,
+            kind=ScheduleKind.PARTTIME,
+            title="카페 알바",
+            recurrence=Recurrence.WEEKLY,
+            weekday=5,
+            start_min=600,
+            end_min=720,
+        )
+    )
+    session.commit()
+
+
+def test_확정하면_수업이_들어가고_응답은_링크_연결과_같다(client, jisu, seeded):
+    res = client.post(f"{API}/capture", json=SAVE)
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["kind"] == "everytime"
+    assert body["connected"] is True and body["status"] == "ok"
+    assert body["account"] == "시간표 캡처"
+    assert body["imported_count"] == 2  # 과목 수
+    assert body["term"] == "2026년 2학기"
+    assert body["term_state"] == "current"
+
+    rows = _everytime_rows(seeded, jisu.id)
+    assert [(r.title, r.weekday, r.start_min, r.end_min) for r in rows] == [
+        ("알고리즘", 0, 630, 705),
+        ("알고리즘", 0, 720, 795),
+        ("모바일응용", 3, 630, 795),
+    ]
+    assert all(r.kind == ScheduleKind.CLASS and r.recurrence == Recurrence.WEEKLY for r in rows)
+    assert rows[0].group_id == rows[1].group_id != rows[2].group_id  # 과목 하나 = 묶음 하나
+    assert service.get_link(seeded, jisu.id).external_ref == service.CAPTURE_REF
+
+
+def test_다시_확정하면_에브리타임_수업만_바뀐다(client, jisu, seeded):
+    _add_manual(seeded, jisu.id)
+    client.post(f"{API}/capture", json=SAVE)
+    again = {"classes": [{"title": "캡스톤", "weekday": 4, "start_min": 600, "end_min": 780}], "year": 2026, "semester": "2"}
+    assert client.post(f"{API}/capture", json=again).status_code == 200
+    assert [(r.title, r.weekday) for r in _everytime_rows(seeded, jisu.id)] == [("캡스톤", 4)]
+    seeded.expire_all()
+    manual = seeded.exec(
+        select(ScheduleItem).where(ScheduleItem.user_id == jisu.id, ScheduleItem.source == ScheduleSource.MANUAL)
+    ).all()
+    assert [m.title for m in manual] == ["카페 알바"]
+
+
+def test_지난_학기_캡처는_넣고_past(client, jisu):
+    body = client.post(f"{API}/capture", json={**SAVE, "year": 2024, "semester": "2"}).json()
+    assert body["term"] == "2024년 2학기"
+    assert body["term_state"] == "past"
+
+
+def test_학기가_없으면_오늘이_속한_학기(client, jisu):
+    body = client.post(f"{API}/capture", json={"classes": SAVE["classes"]}).json()
+    assert body["term"] == "2026년 2학기"
+    assert body["term_state"] == "current"
+
+
+def test_방학에_학기_없이_넣으면_학기_모름(client, jisu, seeded):
+    demo_clock.set_clock(seeded, datetime(2026, 8, 1, 9, 0, tzinfo=KST))
+    seeded.commit()
+    body = client.post(f"{API}/capture", json={"classes": SAVE["classes"]}).json()
+    assert body["term"] is None and body["term_state"] is None
+
+
+def test_캡처_뒤에_링크로_넣으면_링크로_바뀐다(client, jisu, seeded, monkeypatch):
+    from app.integration import everytime
+    from tests.test_everytime_api import XML
+
+    monkeypatch.setattr(everytime, "fetch_xml", lambda share: XML)
+    monkeypatch.setattr(everytime, "configured", lambda: True)
+    client.post(f"{API}/capture", json=SAVE)
+    body = client.post(API, json={"url": "https://everytime.kr/@AbCd1234"}).json()
+    assert body["account"] == "everytime.kr/@AbCd1234"
+    assert service.get_link(seeded, jisu.id).external_ref == "AbCd1234"
+
+
+@pytest.mark.parametrize(
+    "classes",
+    [
+        [],
+        [{"title": "  ", "weekday": 0, "start_min": 600, "end_min": 675}],
+        [{"title": "거꾸로", "weekday": 0, "start_min": 675, "end_min": 600}],
+        [{"title": "요일", "weekday": 7, "start_min": 600, "end_min": 675}],
+        [{"title": "하루 넘음", "weekday": 0, "start_min": 600, "end_min": 1445}],
+    ],
+)
+def test_확정_입력이_틀리면_400_그리고_아무것도_안_바뀐다(client, jisu, seeded, classes):
+    before = _snapshot(seeded, jisu.id)
+    res = client.post(f"{API}/capture", json={"classes": classes})
+    assert res.status_code == 400
+    assert res.json()["code"] == "INVALID_INPUT"
+    assert _snapshot(seeded, jisu.id) == before
+
+
+def test_확정은_로그인_안_하면_401(client, seeded):
+    assert client.post(f"{API}/capture", json=SAVE).status_code == 401

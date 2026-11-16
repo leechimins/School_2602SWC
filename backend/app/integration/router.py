@@ -1,4 +1,4 @@
-"""외부 연동 — 에브리타임 연결·끊기, 구글 캘린더 연결·끊기·동기화. 레인 B.
+"""외부 연동 — 에브리타임 연결(링크·캡처)·끊기, 구글 캘린더 연결·끊기·동기화. 레인 B.
 
 Swagger 그룹은 노션 API 명세에서 MyPage 아래지만, A의 `me` 그룹과 섞이지
 않게 `integration`으로 둔다.
@@ -6,13 +6,20 @@ Swagger 그룹은 노션 API 명세에서 MyPage 아래지만, A의 `me` 그룹�
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlmodel import Session
 
-from app.integration import everytime, everytime_service, timetable
+from app.integration import capture, everytime, everytime_service, timetable
 from app.integration import google_calendar as google
 from app.integration import service as integration
-from app.integration.schemas import EverytimeConnectIn, GoogleConnectIn, IntegrationOut
+from app.integration.schemas import (
+    CaptureClass,
+    CapturePreviewOut,
+    CaptureSaveIn,
+    EverytimeConnectIn,
+    GoogleConnectIn,
+    IntegrationOut,
+)
 from app.minutes.models import CalendarLink
 from app.shared import demo_clock
 from app.shared.auth import current_user_id
@@ -112,11 +119,18 @@ def connect_everytime(
             status.HTTP_503_SERVICE_UNAVAILABLE, "EVERYTIME_UNAVAILABLE", _ET_RETRY
         ) from None
     db.commit()
+    return _everytime_out(db, user_id, link, table)
+
+
+def _everytime_out(
+    db: Session, user_id: int, link: CalendarLink, table: timetable.Timetable
+) -> IntegrationOut:
+    from_capture = link.external_ref == everytime_service.CAPTURE_REF
     return IntegrationOut(
         kind=CalendarKind.EVERYTIME,
         connected=True,
         status=link.status,
-        account=f"everytime.kr/@{link.external_ref}",
+        account="시간표 캡처" if from_capture else f"everytime.kr/@{link.external_ref}",
         last_synced_at=link.last_synced_at,
         imported_count=timetable.class_count(db, user_id),
         term=timetable.term_label(table),
@@ -141,6 +155,137 @@ def disconnect_everytime(
     everytime_service.disconnect(db, user_id)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# ── 에브리타임 시간표 캡처 (#66) ─────────────────────────────────────
+
+_IMAGE_INVALID = "PNG·JPG·WEBP 캡처만 올릴 수 있어요."
+_IMAGE_TOO_LARGE = "5MB 이하 캡처로 올려 주세요."
+
+
+async def _image_body(request: Request) -> tuple[bytes, str]:
+    """요청 본문 = 이미지 파일 그대로. 형식은 Content-Type으로 본다.
+
+    녹음 업로드와 같은 방식: 선언된 길이로 먼저 거르고, 읽는 중에도 한도를 넘으면 끊는다.
+    """
+    mime = request.headers.get("content-type", "").split(";")[0].strip().lower()
+    if mime == "image/jpg":
+        mime = "image/jpeg"
+    if mime not in capture.MIME_TYPES:
+        raise _error(status.HTTP_400_BAD_REQUEST, "IMAGE_INVALID", _IMAGE_INVALID)
+    declared = request.headers.get("content-length", "")
+    if declared.isdigit() and int(declared) > capture.MAX_BYTES:
+        raise _error(status.HTTP_400_BAD_REQUEST, "IMAGE_TOO_LARGE", _IMAGE_TOO_LARGE)
+    body = bytearray()
+    async for chunk in request.stream():
+        body += chunk
+        if len(body) > capture.MAX_BYTES:
+            raise _error(status.HTTP_400_BAD_REQUEST, "IMAGE_TOO_LARGE", _IMAGE_TOO_LARGE)
+    if not body:
+        raise _error(status.HTTP_400_BAD_REQUEST, "IMAGE_INVALID", _IMAGE_INVALID)
+    return bytes(body), mime
+
+
+@router.post(
+    "/everytime/capture/preview",
+    response_model=CapturePreviewOut,
+    responses={
+        400: {
+            "description": "`IMAGE_INVALID` PNG·JPG·WEBP 아님 / `IMAGE_TOO_LARGE` 5MB 초과 / "
+            "`NOT_EVERYTIME` 에브리타임 시간표 화면이 아님 / `CAPTURE_PAST_TERM` 지난 학기 시간표"
+        },
+        503: {"description": "`CAPTURE_READ_FAILED` AI 실패·시간 초과. 같은 캡처로 다시 하기"},
+    },
+    openapi_extra={
+        "requestBody": {
+            "required": True,
+            "content": {t: {"schema": {"type": "string", "format": "binary"}} for t in capture.MIME_TYPES},
+        }
+    },
+    summary="에브리타임 시간표 캡처 읽기 (저장 안 함)",
+)
+def preview_capture(
+    user_id: int = Depends(current_user_id),  # 로그인부터 본다(본문을 읽기 전에 401)
+    image: tuple[bytes, str] = Depends(_image_body),
+    db: Session = Depends(session_dep),
+) -> CapturePreviewOut:
+    """에브리타임 시간표 화면 캡처를 읽어 수업 목록만 돌려줍니다. **저장하지 않습니다.**
+
+    - 요청 본문은 이미지 파일 그대로입니다(`Content-Type: image/png|jpeg|webp`, 5MB까지).
+    - 칸의 위치(요일·시작·끝)는 캡처의 격자를 픽셀로 재서 5분 단위까지 맞추고, 과목명과 학기는 AI가 읽습니다.
+    - 에브리타임 시간표가 아니면 400 `NOT_EVERYTIME`. 직접 입력·구글 캘린더가 따로 있어서 다른 표는 받지 않습니다.
+    - 지난 학기 시간표면 400 `CAPTURE_PAST_TERM`. 확정 요청에는 학기가 오지 않아(두 요청 사이를
+      서버가 기억하지 않음) 확정은 오늘 학기로 저장합니다. 지난 학기 수업이 이번 학기 회의 시간을
+      막지 않게 여기서 거릅니다. 학기를 못 읽었거나 다음 학기면 받습니다.
+    - 수업을 하나도 못 읽으면 빈 목록입니다.
+    - 사람이 확인·수정한 목록을 `POST /me/integrations/everytime/capture`로 보내야 일정에 들어갑니다.
+      `year`·`semester`는 그대로 돌려보냅니다.
+    - 읽는 데 10초 안팎 걸립니다.
+    """
+    data, mime = image
+    try:
+        result = capture.read(data, mime)
+    except capture.NotEverytime:
+        raise _error(
+            status.HTTP_400_BAD_REQUEST,
+            "NOT_EVERYTIME",
+            "에브리타임 시간표 화면 캡처만 읽을 수 있어요.",
+        ) from None
+    except capture.CaptureError:
+        raise _error(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "CAPTURE_READ_FAILED",
+            "시간표를 잠시 못 읽었어요. 잠시 후 다시 해 주세요.",
+        ) from None
+    table = result.timetable()
+    if timetable.term_state(table, demo_clock.now(db).date()) == timetable.TermState.PAST:
+        raise _error(
+            status.HTTP_400_BAD_REQUEST,
+            "CAPTURE_PAST_TERM",
+            f"{timetable.term_label(table)} 시간표예요. 이번 학기 시간표를 캡처해 주세요.",
+        )
+    return CapturePreviewOut(
+        classes=[
+            CaptureClass(title=c.title, weekday=c.weekday, start_min=c.start_min, end_min=c.end_min)
+            for c in result.classes
+        ],
+        year=result.year,
+        semester=result.semester,
+        term=timetable.term_label(table),
+    )
+
+
+@router.post(
+    "/everytime/capture",
+    response_model=IntegrationOut,
+    responses={400: {"description": "`INVALID_INPUT` 과목명 빈칸·끝 ≤ 시작 등"}},
+    summary="에브리타임 시간표 캡처 확정 (저장)",
+)
+def save_capture(
+    body: CaptureSaveIn,
+    user_id: int = Depends(current_user_id),
+    db: Session = Depends(session_dep),
+) -> IntegrationOut:
+    """사람이 확인·수정한 수업 목록을 넣습니다. 응답은 링크 연결과 같습니다.
+
+    - 이전 에브리타임 수업(링크로 넣었든 캡처로 넣었든)을 지우고 이것으로 바꿉니다. 직접 넣은 일정은 그대로입니다.
+    - `year`·`semester`는 미리보기에서 받은 값을 그대로 보냅니다. 없으면 오늘(시연 시계)이 속한 학기로 봅니다.
+    - 지난 학기 캡처여도 넣고 `term_state`가 `past`입니다(조율은 학기 범위 밖을 안 셉니다).
+    - 과목명이 같으면 한 묶음(`group_id`)이 됩니다.
+    """
+    classes = [
+        capture.CapturedClass(c.title, c.weekday, c.start_min, c.end_min) for c in body.classes
+    ]
+    link, table = everytime_service.save_capture(
+        db,
+        user_id,
+        classes,
+        year=body.year,
+        semester=body.semester,
+        today=demo_clock.now(db).date(),
+    )
+    db.commit()
+    return _everytime_out(db, user_id, link, table)
 
 
 # ── 구글 캘린더 ──────────────────────────────────────────────────────
