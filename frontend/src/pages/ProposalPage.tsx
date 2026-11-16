@@ -208,7 +208,6 @@ function RespondDock({ proposal: p, roomId }: { proposal: Proposal; roomId: Id }
           title="조율 결과를 거절할까요?"
           body="남긴 이유는 다시 조율할 때 반영돼요."
           okLabel="거절하기"
-          irreversible={false}
           input={{ label: '거절 이유', placeholder: '거절 이유 (선택)' }}
           onClose={reject}
         />

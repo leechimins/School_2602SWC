@@ -11,7 +11,7 @@ import { PATHS, pathTo } from '../lib/paths.ts'
 import type { Notice } from '../types/notification.ts'
 import styles from './NotificationsPage.module.css'
 
-// 알림(홈 오른쪽 위 종): 먼저 챙길 것(늦음 → 막힘 → 완료 → 회의). 에이전트 기록(한 일·양보)은 아래 줄로 따로 연다.
+// 알림(홈 오른쪽 위 종): 챙길 일(늦음 → 막힘 → 완료 → 회의). 에이전트 기록(한 일·양보)은 아래 줄로 따로 연다.
 // 이동 버튼을 누르거나 "모두 읽음"을 누르면 읽음으로 바뀌고 홈 종의 숫자가 줄어든다.
 export default function NotificationsPage() {
   const user = useCurrentUser()
@@ -38,7 +38,6 @@ export default function NotificationsPage() {
       {res.status === 'error' && <RetryBox message={res.message} onRetry={res.reload} />}
       {res.status === 'ready' && (
         <section className="sec">
-          <h2>먼저 챙길 것</h2>
           {res.data.notices.length === 0 ? (
             <EmptyState title="늦거나 막힌 일이 없어요" description="팀이 잘 가고 있어요. 챙길 일이 생기면 여기에 알려 드려요." />
           ) : (

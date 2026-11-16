@@ -228,9 +228,8 @@ function RecordNow({ todayMeeting }: { todayMeeting: MeetingBrief | null }) {
       )}
       {asking && (
         <ConfirmSheet
-          title="지금 회의를 기록할까요?"
+          title="회의 주제 입력"
           okLabel="기록 시작"
-          irreversible={false}
           input={{ label: '회의 주제', placeholder: '예: 발표 순서 정하기', required: '회의 주제를 적어 주세요.' }}
           onClose={({ ok, value }) => {
             setAsking(false)

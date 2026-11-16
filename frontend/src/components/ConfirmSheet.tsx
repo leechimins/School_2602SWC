@@ -8,14 +8,13 @@ type Props = {
   body?: string // 무엇을 하는지. 제목으로 충분하면 비운다
   okLabel: string // 하는 일 이름: "삭제", "막힘으로 바꾸기"
   danger?: boolean // 삭제류는 빨간 버튼
-  irreversible?: boolean // "되돌릴 수 없습니다" 안내
   input?: { label: string; placeholder: string; required?: string } // 막힌 이유·피드백 한 줄. required는 비웠을 때 보일 안내
   onClose: (result: ConfirmResult) => void
 }
 
 // 다시 묻기 창: 아래에서 올라오는 시트. 되돌릴 수 없는 동작(삭제·발송)과 한 줄 입력이 필요한 동작에 쓴다.
 // 물을 때만 그린다: {asking && <ConfirmSheet ... onClose={...} />}
-export default function ConfirmSheet({ title, body, okLabel, danger = false, irreversible = true, input, onClose }: Props) {
+export default function ConfirmSheet({ title, body, okLabel, danger = false, input, onClose }: Props) {
   const ref = useRef<HTMLDialogElement>(null)
   const [value, setValue] = useState('')
   const [missing, setMissing] = useState(false)
@@ -36,7 +35,6 @@ export default function ConfirmSheet({ title, body, okLabel, danger = false, irr
     <dialog ref={ref} className={styles.sheet} onCancel={() => close(false)}>
       <h2 className={styles.title}>{title}</h2>
       {body && <p>{body}</p>}
-      {irreversible && <p className="meta">되돌릴 수 없습니다.</p>}
       {input && (
         <input
           className={`field ${styles.input}`}
