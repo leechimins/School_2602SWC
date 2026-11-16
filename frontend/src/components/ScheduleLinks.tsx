@@ -1,4 +1,4 @@
-import { useRef, useState, type ChangeEvent, type ReactNode } from 'react'
+import { useRef, useState, type ChangeEvent, type CSSProperties, type ReactNode } from 'react'
 import { ApiError, messageOf } from '../api/client.ts'
 import { connectEverytime, connectGoogle, readEverytimeCapture } from '../api/me.ts'
 import { showNotice } from '../lib/notice.ts'
@@ -9,28 +9,31 @@ import styles from './ScheduleLinks.module.css'
 
 type Props = {
   blocks: WeekBlock[] // 이번 주 내 시간표. 어디서 온 일정이 있는지로 연결 여부를 본다
-  onAdd: (recurrence: Recurrence) => void // "직접 추가"를 누르면 그 묶음(매주 반복·한 번만)의 추가 시트를 연다
+  onAdd: (recurrence: Recurrence) => void // 일정 추가 시트를 연다. 시트 안에서 한 번만·매주 반복을 바꿀 수 있다
+  title?: string // 주면 카드 제목 줄(제목 | 연결 수)을 그린다. My 탭이 쓴다
   showLock?: boolean // 바쁨/비어 있음 안내. My 탭에서는 끈다
 }
 
 type Reading = { state: 'idle' } | { state: 'reading' } | { state: 'fail'; message: string }
-// 에타 결과에만 붙는 덧말. past: 지난 학기 시간표라 이번 학기 링크를 다시 받는다 / manual: 서버에 연동이 없어 다시 하기 대신 직접 추가로
+// 에타 시트에만 붙는 덧말. past: 지난 학기 시간표라 이번 학기 링크를 다시 받는다 / manual: 서버에 연동이 없어 다시 하기 대신 직접 추가로
 type EtNote = 'past' | 'manual' | null
 
-// 내 일정 가져오기: 같은 모양의 줄 세 개(이름·설명 | 오른쪽 동작)
-//   에브리타임 시간표 — 매주 반복 수업. [불러오기]는 링크·캡처를 고르는 아래 시트를 연다
-//   구글 캘린더       — 그날만 있는 약속. [연결]
-//   직접 추가         — 앱 밖 일정(알바·약속). [매주] [한 번만]
-// 연동이 끝난 줄은 누를 수 없는 "연동됨". 결과는 아래 한 줄(showNotice)로 알린다
-// 구글은 조율을 시작할 때마다 서버가 새로 읽어 다시 불러올 일이 없다. 에타는 한 번 읽어 온 것이라 수강 정정 뒤 "시간표 바꾸기"로 다시 읽는다
-export default function ScheduleLinks({ blocks, onAdd, showLock = true }: Props) {
+// 일정 가져오기: 위에 연결 수와 막대(연동 두 개 중 몇 개), 아래 설정 목록 세 줄. 줄 전체를 누른다
+// 줄 왼쪽 점이 연결 상태다 — 채운 점 = 연결됨, 빈 점 = 아직
+//   에브리타임 시간표: 누르면 링크·캡처를 고르는 아래 시트. 연동 뒤에도 눌러 수강 정정한 시간표로 바꾼다
+//   구글 캘린더: 누르면 구글 연결 팝업. 조율을 시작할 때마다 서버가 새로 읽어 연동 뒤에는 누를 수 없다
+//   일정 추가: 누르면 시트(한 번만 / 매주 반복)
+// 성공은 아래 한 줄(showNotice)로, 진행·실패는 그 줄 바로 아래에 보인다
+export default function ScheduleLinks({ blocks, onAdd, title, showLock = true }: Props) {
   const [etOpen, setEtOpen] = useState(false) // 에타 불러오기 시트
   const [gc, setGc] = useState<Reading>({ state: 'idle' })
-  const [googleDone, setGoogleDone] = useState(false) // 이번 주에 약속이 없어도 방금 연결했으면 연동됨
+  const [googleDone, setGoogleDone] = useState(false) // 이번 주에 약속이 없어도 방금 연결했으면 연결됨
   const [captured, setCaptured] = useState<CapturedClass[] | null>(null) // AI가 읽은 수업. 있으면 확인 시트를 연다
 
   const classCount = new Set(blocks.filter((b) => b.source === 'everytime').map((b) => b.title)).size
+  const etOn = classCount > 0
   const googleOn = googleDone || blocks.some((b) => b.source === 'google')
+  const linked = Number(etOn) + Number(googleOn)
 
   // 구글 팝업은 클릭 직후에 열려야 막히지 않는다. connectGoogle을 다른 await보다 먼저 부른다
   const linkGoogle = async () => {
@@ -47,42 +50,45 @@ export default function ScheduleLinks({ blocks, onAdd, showLock = true }: Props)
 
   return (
     <>
-      <LinkRow
-        name="에브리타임 시간표"
-        detail={classCount > 0 ? `수업 ${classCount}개` : '매주 반복되는 수업'}
-        on={classCount > 0}
-        busy={false}
-        label="불러오기"
-        again="시간표 바꾸기"
-        onLink={() => setEtOpen(true)}
-      />
-
-      <LinkRow name="구글 캘린더" detail={googleOn ? '회의 잡을 때마다 새로 읽어요' : '그날만 있는 약속'} on={googleOn} busy={gc.state === 'reading'} label="연결" onLink={linkGoogle}>
-        {gc.state === 'reading' && <p className={`meta ${styles.msg}`}>구글 창에서 허락하면 약속을 읽어 와요…</p>}
-        {gc.state === 'fail' && (
-          <p className={`${styles.msg} ${styles.bad}`} role="alert">
-            {gc.message}
-          </p>
-        )}
-      </LinkRow>
-
-      <div className={styles.row}>
-        <div>
-          <p className="strong">직접 추가</p>
-          <p className="meta">알바·약속처럼 앱 밖 일정</p>
+      {title && (
+        <div className="row-between">
+          <h2>{title}</h2>
+          <span className={`num ${styles.count}`}>
+            <b>{linked}</b>/2 연결
+          </span>
         </div>
-        <div className={styles.pair}>
-          <button type="button" className="btn small" onClick={() => onAdd('weekly')}>
-            매주
-          </button>
-          <button type="button" className="btn small" onClick={() => onAdd('once')}>
-            한 번만
-          </button>
-        </div>
+      )}
+      {/* 연결 막대: 연동 두 개 중 몇 개. 덜 찬 칸이 "아직 남았다"를 보여 준다 */}
+      <div className={styles.bar} role="img" aria-label={`연동 2개 중 ${linked}개 연결`}>
+        <i style={{ '--fill': `${(linked / 2) * 100}%` } as CSSProperties} />
       </div>
+
+      <ul className={styles.list}>
+        <Row dot={etOn ? 'on' : 'off'} title="에브리타임 시간표" value={etOn ? `수업 ${classCount}개` : '가져오기'} on={etOn} onPress={() => setEtOpen(true)} />
+
+        <Row
+          dot={googleOn ? 'on' : 'off'}
+          title="구글 캘린더"
+          value={gc.state === 'reading' ? '연결 중…' : googleOn ? '연결됨' : '연결 안 됨'}
+          on={googleOn}
+          onPress={googleOn || gc.state === 'reading' ? undefined : linkGoogle}
+          note={
+            gc.state === 'reading' ? (
+              <span className="meta">구글 창에서 허락하면 약속을 읽어 와요…</span>
+            ) : gc.state === 'fail' ? (
+              <span className={styles.bad} role="alert">
+                {gc.message}
+              </span>
+            ) : null
+          }
+        />
+
+        <Row dot="add" title="일정 추가" value={null} mark="" onPress={() => onAdd('once')} />
+      </ul>
 
       {etOpen && (
         <EverytimeSheet
+          again={etOn}
           onClose={() => setEtOpen(false)}
           onCaptured={(classes) => {
             setEtOpen(false)
@@ -107,7 +113,7 @@ export default function ScheduleLinks({ blocks, onAdd, showLock = true }: Props)
 
       {showLock && (
         <p className={styles.lock}>
-          팀원에게는 <b>바쁨 / 비어 있음</b>만 보여요. 약속 이름은 아무도 못 봐요.
+          팀원에게는 <b>바쁨 / 비어 있음</b>만 보여요. 약속 이름은 나만 봐요.
         </p>
       )}
     </>
@@ -116,48 +122,45 @@ export default function ScheduleLinks({ blocks, onAdd, showLock = true }: Props)
 
 const loadedMessage = ({ count, term }: LinkResult) => `${term ? `${term} ` : ''}수업 ${count}개를 가져왔어요`
 
-// 연동 한 줄: 이름·설명(+ 연동됐고 again이 있으면 다시 읽는 글자 버튼) | [버튼] 또는 누를 수 없는 "연동됨"
-type LinkRowProps = {
-  name: string
-  detail: string
-  on: boolean
-  busy: boolean
-  label: string
-  again?: string // 연동된 뒤 다시 읽는 글자 버튼. 없으면 두지 않는다
-  onLink: () => void
-  children?: ReactNode // 이름 아래 진행·실패 글
+type RowProps = {
+  dot: 'on' | 'off' | 'add' // 왼쪽 표시: 채운 점(연결됨) · 빈 점(아직) · +(추가)
+  title: string
+  value: string | null // 오른쪽 상태 글자
+  on?: boolean // 연결돼 있으면 상태 글자를 포인트색으로
+  mark?: string // 오른쪽 끝 표시. 기본 ›
+  onPress?: () => void // 없으면 누를 수 없는 줄(이미 연결됨)
+  note?: ReactNode // 줄 아래 한 줄: 진행·실패 문구
 }
 
-function LinkRow({ name, detail, on, busy, label, again, onLink, children }: LinkRowProps) {
+function Row({ dot, title, value, on = false, mark = '›', onPress, note }: RowProps) {
+  const inner = (
+    <>
+      <span className={styles.dot} data-k={dot} aria-hidden="true">
+        {dot === 'add' ? '+' : ''}
+      </span>
+      <span className={`strong ${styles.title}`}>{title}</span>
+      {value && <span className={`${styles.value} ${on ? styles.on : ''}`}>{value}</span>}
+      <span className={styles.mark} aria-hidden="true">
+        {onPress ? mark : ''}
+      </span>
+    </>
+  )
   return (
-    <div className={styles.row}>
-      <div>
-        <p className="strong">{name}</p>
-        <p className="meta">
-          {detail}
-          {on && again && (
-            <>
-              {' · '}
-              <button type="button" className={`link ${styles.again}`} disabled={busy} onClick={onLink}>
-                {again}
-              </button>
-            </>
-          )}
-        </p>
-        {children}
-      </div>
-      {on ? (
-        <span className={`btn small ${styles.done}`}>연동됨</span>
-      ) : (
-        <button type="button" className="btn small" disabled={busy} onClick={onLink}>
-          {label}
+    <li className={styles.item}>
+      {onPress ? (
+        <button type="button" className={styles.row} onClick={onPress}>
+          {inner}
         </button>
+      ) : (
+        <div className={styles.row}>{inner}</div>
       )}
-    </div>
+      {note && <div className={styles.note}>{note}</div>}
+    </li>
   )
 }
 
 type EverytimeSheetProps = {
+  again: boolean // 이미 연동됨: 수강 정정한 시간표로 바꾸기
   onClose: () => void
   onCaptured: (classes: CapturedClass[]) => void
   onManual: () => void // 서버에 에타 연동이 없을 때 수업 직접 넣기로
@@ -165,7 +168,7 @@ type EverytimeSheetProps = {
 
 // 에브리타임 불러오기 시트: 공유 링크 칸 + [캡처로 올리기]. 링크로 가져오면 닫고 아래 한 줄로 알린다.
 // 캡처는 읽기만 하고 저장하지 않는다. 읽은 수업은 확인 시트(CaptureSheet)에서 고친 뒤 넣는다(#66)
-function EverytimeSheet({ onClose, onCaptured, onManual }: EverytimeSheetProps) {
+function EverytimeSheet({ again, onClose, onCaptured, onManual }: EverytimeSheetProps) {
   const [url, setUrl] = useState('')
   const [et, setEt] = useState<Reading>({ state: 'idle' })
   const [note, setNote] = useState<EtNote>(null)
@@ -206,7 +209,7 @@ function EverytimeSheet({ onClose, onCaptured, onManual }: EverytimeSheetProps) 
 
   return (
     <Sheet
-      title="에브리타임 시간표"
+      title={again ? '시간표 바꾸기' : '에브리타임 시간표'}
       onClose={onClose}
       actions={
         <>

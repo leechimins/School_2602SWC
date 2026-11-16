@@ -1,52 +1,142 @@
-/* 같은 모양의 줄: 이름·설명 | 오른쪽 동작. 줄 사이는 얇은 선 */
+/* 설정 목록: 줄 사이만 가는 선, 줄 전체가 눌린다 */
+.list {
+  margin: 0 0 -6px;
+  padding: 0;
+  list-style: none;
+}
+
+/* 줄 사이 선: 아주 옅게, 점 폭만큼 들여서 제목부터 시작(설정 목록처럼) */
+.item + .item {
+  position: relative;
+}
+
+.item + .item::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 28px;
+  right: 0;
+  border-top: 1px solid color-mix(in srgb, var(--line) 55%, transparent);
+}
+
 .row {
-  display: grid;
-  grid-template-columns: 1fr auto;
+  display: flex;
   align-items: center;
-  gap: 4px 10px;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--line);
+  gap: 10px;
+  width: 100%;
+  min-height: 52px;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  color: inherit;
+  font: inherit;
 }
 
-.row:first-child {
-  padding-top: 0;
+.title {
+  flex: 1;
+  min-width: 0;
 }
 
-.row:last-of-type {
-  padding-bottom: 0;
-  border-bottom: 0;
-}
-
-.row p {
-  margin: 0;
-}
-
-/* 설명 옆 "시간표 바꾸기": 설명 글과 같은 크기 (전역 .link보다 앞서게 함께 고른다) */
-.again:global(.link) {
-  min-height: 0;
-  font-size: inherit;
-}
-
-/* 연동됨: 버튼과 같은 모양이지만 누를 수 없다 */
-.done:global(.btn) {
-  background: var(--soft);
+/* 제목 줄 오른쪽 "1/2 연결": 숫자만 진하게 */
+.count {
   color: var(--muted);
-  cursor: default;
+  font-size: var(--fs-meta);
 }
 
-/* 에타 시트: 링크 칸 | 그 아래 캡처로 올리기 */
+.count b {
+  color: var(--point-ink);
+  font-size: 15px;
+}
+
+/* 연결 막대 */
+.bar {
+  height: 6px;
+  margin: 4px 0 6px;
+  border-radius: 99px;
+  background: var(--soft);
+  overflow: hidden;
+}
+
+.bar > i {
+  display: block;
+  width: var(--fill);
+  height: 100%;
+  border-radius: inherit;
+  background: var(--point);
+  transition: width 0.3s ease;
+}
+
+/* 줄 왼쪽 표시: 채운 점 = 연결됨, 빈 점 = 아직, + = 추가 */
+.dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+}
+
+.dot[data-k='on'] {
+  background: var(--point);
+  box-shadow: inset 0 0 0 5px var(--point-soft);
+}
+
+.dot[data-k='off'] {
+  box-shadow: inset 0 0 0 1.5px var(--line);
+}
+
+.dot[data-k='add'] {
+  color: var(--point-ink);
+  background: var(--point-soft);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bar > i {
+    transition: none;
+  }
+}
+
+/* 오른쪽 상태 글자: 평소 회색, 연결돼 있으면 포인트색 */
+.value {
+  color: var(--muted);
+  font-size: var(--fs-sec);
+}
+
+.on {
+  color: var(--point-ink);
+}
+
+/* 오른쪽 끝 › 또는 + (누를 수 없는 줄은 빈칸으로 자리만) */
+.mark {
+  width: 16px;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+  text-align: center;
+}
+
+button.row:active {
+  opacity: 0.6;
+}
+
+/* 줄 아래 한 줄: 진행·실패 문구 */
+.note {
+  margin: -6px 0 12px 28px; /* 점 폭만큼 들여 제목과 맞춘다 */
+  font-size: var(--fs-meta);
+}
+
+/* 에타 시트: 링크 칸 | 그 아래 캡처로 올리기 | 실패·덧말 */
 .url {
   width: 100%;
 }
 
 .capture:global(.btn) {
   margin-top: 8px;
-}
-
-/* 직접 추가: 매주 | 한 번만 */
-.pair {
-  display: flex;
-  gap: 6px;
 }
 
 .msg {
@@ -63,7 +153,7 @@
 }
 
 .lock {
-  margin-top: 10px;
+  margin-top: 12px;
   padding: 10px 12px;
   border-radius: 10px;
   background: var(--soft);
