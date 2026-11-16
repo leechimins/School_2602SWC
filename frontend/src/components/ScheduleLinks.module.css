@@ -1,32 +1,65 @@
+/* 설정 목록: 줄 사이만 가는 선, 줄 전체가 눌린다 */
+.list {
+  margin: -4px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item + .item {
+  border-top: 1px solid var(--line);
+}
+
 .row {
-  display: grid;
-  grid-template-columns: 1fr auto;
+  display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 0;
+  gap: 8px;
+  width: 100%;
+  min-height: 52px;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  color: inherit;
+  font: inherit;
 }
 
-/* 이름 | 뱃지 줄 아래로 한 줄 전체를 쓰는 칸(에타 링크 입력) */
-.full {
-  grid-column: 1 / -1;
+.row > :first-child {
+  flex: 1;
+  min-width: 0;
 }
 
-/* 묶음 제목 줄: 반복 일정 / 일회성 일정 (글자는 .sec h2) | 직접 추가 */
-.group {
-  margin-top: 18px;
+/* 오른쪽 상태 글자: 평소 회색, 연결돼 있으면 포인트색 */
+.value {
+  color: var(--muted);
+  font-size: var(--fs-sec);
 }
 
-.group:first-child {
-  margin-top: 0;
+.on {
+  color: var(--point-ink);
 }
 
-.group h2 {
-  margin: 0;
+/* 오른쪽 끝 › 또는 + */
+.mark {
+  width: 16px;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+  text-align: center;
 }
 
-.group :global(.link) {
-  min-height: 0;
+button.row:active {
+  opacity: 0.6;
+}
+
+/* 줄 아래 한 줄: 방금 성공·실패 문구 */
+.note {
+  margin: -6px 0 12px;
   font-size: var(--fs-meta);
+}
+
+/* 줄 아래로 한 줄 전체를 쓰는 칸(에타 링크 입력) */
+.full {
+  padding-bottom: 14px;
 }
 
 .input {
@@ -34,7 +67,7 @@
   gap: 6px;
 }
 
-/* 링크 칸은 옆 버튼(.btn.small)과 같은 높이로, 다른 줄의 버튼보다 두꺼워 보이지 않게 */
+/* 링크 칸은 옆 버튼(.btn.small)과 같은 높이로 */
 .input :global(.field) {
   flex: 1;
   min-width: 0;
@@ -43,21 +76,14 @@
   font-size: 13px;
 }
 
-
-.msg {
-  margin-top: 6px;
-  font-size: var(--fs-meta);
-}
-
 .bad {
   color: var(--danger);
 }
 
 .lock {
-  margin-top: 10px;
+  margin-top: 12px;
   padding: 10px 12px;
   border-radius: 10px;
   background: var(--soft);
   font-size: var(--fs-meta);
 }
-
