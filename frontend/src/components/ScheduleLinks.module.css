@@ -111,13 +111,15 @@
   color: var(--point-ink);
 }
 
-/* 오른쪽 끝 › 또는 + (누를 수 없는 줄은 빈칸으로 자리만) */
+/* 오른쪽 끝 › (누를 수 없는 줄은 빈칸으로 자리만 지켜 상태 글자 끝을 맞춘다).
+   칸을 좁히고 오른쪽에 붙여 상태 글자에 바짝 붙인다 */
 .mark {
-  width: 16px;
+  width: 8px;
+  margin-left: -4px;
   color: var(--muted);
   font-size: 18px;
   line-height: 1;
-  text-align: center;
+  text-align: right;
 }
 
 button.row:active {
