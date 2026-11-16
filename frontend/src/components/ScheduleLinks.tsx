@@ -19,7 +19,7 @@ type Reading = { state: 'idle' } | { state: 'reading' } | { state: 'fail'; messa
 type EtNote = 'past' | 'manual' | null
 
 // 일정 가져오기: 위에 연결 수와 막대(연동 두 개 중 몇 개), 아래 설정 목록 세 줄. 줄 전체를 누른다
-// 줄 왼쪽 점이 연결 상태다 — 채운 점 = 연결됨, 빈 점 = 아직
+// 줄 왼쪽 체크박스가 연결 상태다 — 보라 체크 = 연결됨, 빈 칸 = 아직
 //   에브리타임 시간표: 누르면 링크·캡처를 고르는 아래 시트. 연동 뒤에도 눌러 수강 정정한 시간표로 바꾼다
 //   구글 캘린더: 누르면 구글 연결 팝업. 조율을 시작할 때마다 서버가 새로 읽어 연동 뒤에는 누를 수 없다
 //   일정 추가: 누르면 시트(한 번만 / 매주 반복)
@@ -123,7 +123,7 @@ export default function ScheduleLinks({ blocks, onAdd, title, showLock = true }:
 const loadedMessage = ({ count, term }: LinkResult) => `${term ? `${term} ` : ''}수업 ${count}개를 가져왔어요`
 
 type RowProps = {
-  dot: 'on' | 'off' | 'add' // 왼쪽 표시: 채운 점(연결됨) · 빈 점(아직) · +(추가)
+  dot: 'on' | 'off' | 'add' // 왼쪽 표시: 체크(연결됨) · 빈 칸(아직) · +(추가)
   title: string
   value: string | null // 오른쪽 상태 글자
   on?: boolean // 연결돼 있으면 상태 글자를 포인트색으로
@@ -136,7 +136,12 @@ function Row({ dot, title, value, on = false, mark = '›', onPress, note }: Row
   const inner = (
     <>
       <span className={styles.dot} data-k={dot} aria-hidden="true">
-        {dot === 'add' ? '+' : ''}
+        {dot === 'add' && '+'}
+        {dot === 'on' && (
+          <svg viewBox="0 0 12 12" width="12" height="12">
+            <path d="M2.5 6.2 5 8.6l4.5-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        )}
       </span>
       <span className={`strong ${styles.title}`}>{title}</span>
       {value && <span className={`${styles.value} ${on ? styles.on : ''}`}>{value}</span>}

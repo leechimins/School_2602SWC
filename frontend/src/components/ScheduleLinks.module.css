@@ -67,7 +67,7 @@
   transition: width 0.3s ease;
 }
 
-/* 줄 왼쪽 표시: 채운 점 = 연결됨, 빈 점 = 아직, + = 추가 */
+/* 줄 왼쪽 체크박스: 보라 체크 = 연결됨, 빈 칸 = 아직, + = 추가 */
 .dot {
   display: inline-flex;
   align-items: center;
@@ -75,12 +75,12 @@
   flex: none;
   width: 18px;
   height: 18px;
-  border-radius: 50%;
+  border-radius: 5px;
 }
 
 .dot[data-k='on'] {
+  color: #fff;
   background: var(--point);
-  box-shadow: inset 0 0 0 5px var(--point-soft);
 }
 
 .dot[data-k='off'] {
