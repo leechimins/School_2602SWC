@@ -1,0 +1,47 @@
+.hint {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.list {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* 수업 한 칸: 과목명 | 지우기 / 요일 · 시작 – 끝 */
+.item {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+/* 넣기를 눌렀을 때 틀린 칸이 있는 수업. .field는 테두리가 없어 안쪽 선으로 표시한다 */
+.item[aria-invalid='true'] :global(.field) {
+  box-shadow: inset 0 0 0 1.5px var(--danger);
+}
+
+.line {
+  display: flex;
+  gap: 6px;
+}
+
+.line :global(.field) {
+  flex: 1;
+  min-width: 0;
+}
+
+/* 요일은 한 글자라 좁게, 남는 폭은 시각 두 칸이 나눈다 */
+.item select.day {
+  flex: 0 0 64px;
+}
+
+/* 시각 칸: 휴대폰 폭에서 "오전 10:00"이 잘리지 않게 시계 아이콘을 빼고 여백을 줄인다(누르면 그대로 고를 수 있다) */
+.item input[type='time'] {
+  padding: 0 8px;
+}
+
+.item input[type='time']::-webkit-calendar-picker-indicator {
+  display: none;
+}

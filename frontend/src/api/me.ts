@@ -1,5 +1,5 @@
 import type { Id, IsoDate } from '../types/common.ts'
-import type { LinkResult, MyWeek, Preferences, ScheduleItemInput, ScheduleItemPatch, TermState } from '../types/me.ts'
+import type { CapturedClass, LinkResult, MyWeek, Preferences, ScheduleItemInput, ScheduleItemPatch, TermState } from '../types/me.ts'
 import { ApiError, request, write } from './client.ts'
 import { toMyWeek, toPreferences, toServerPreferences, type ServerMySchedule, type ServerPreference } from './convert.ts'
 
@@ -101,6 +101,51 @@ export function connectEverytime(url: string): Promise<LinkResult> {
   return write(async () => {
     // 서버가 에브리타임에 시간표를 한 번 요청해 읽는다(보통 2~4초, 서버 한도 15초). 한도보다 조금 길게 기다린다
     const r = await request<ServerIntegration>('/me/integrations/everytime', { method: 'POST', body: { url }, timeoutMs: 20_000 })
+    return { count: r.imported_count, term: r.term ?? null, termState: r.term_state ?? null }
+  })
+}
+
+// 시간표 캡처(#66): 이미지를 올리면 AI가 읽은 수업만 돌려주고(저장 안 함), 사람이 고친 목록을 보내야 저장된다.
+// 저장 경로는 링크 연결과 같아 이전 에브리타임 수업을 바꿔 넣는다. 주소·모양은 백엔드와 맞추는 중이라 여기 한 곳에만 둔다
+const CAPTURE_PATH = '/me/integrations/everytime/capture'
+const CAPTURE_TYPES = ['image/png', 'image/jpeg', 'image/webp']
+const CAPTURE_MAX_BYTES = 5 * 1024 * 1024
+const CAPTURE_TIMEOUT_MS = 40_000 // 이미지를 읽는 AI는 링크보다 오래 걸린다
+
+type ServerCapturedClass = { title: string; weekday: number; start_min: number; end_min: number }
+
+const toHhmm = (min: number) => `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`
+const toMin = (hhmm: string) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5))
+
+// 서버가 아직 캡처 API를 안 열었으면(404·405) "잠시 후 다시"가 아니라 다른 방법을 알려 준다
+const captureUnavailable = (e: unknown) =>
+  e instanceof ApiError && (e.status === 404 || e.status === 405)
+    ? new ApiError(e.status, 'CAPTURE_UNAVAILABLE', '지금은 캡처로 넣을 수 없어요. 링크나 직접 추가로 넣어 주세요.')
+    : e
+
+/** 시간표 캡처 읽기. 저장하지 않고 읽은 수업 목록만 받는다 */
+export async function readEverytimeCapture(image: File): Promise<CapturedClass[]> {
+  if (!CAPTURE_TYPES.includes(image.type)) throw new ApiError(400, 'IMAGE_INVALID', 'PNG·JPG 캡처만 올릴 수 있어요.')
+  if (image.size > CAPTURE_MAX_BYTES) throw new ApiError(400, 'IMAGE_TOO_LARGE', '5MB 이하 캡처로 올려 주세요.')
+  const r = await request<{ classes: ServerCapturedClass[] }>(`${CAPTURE_PATH}/preview`, {
+    method: 'POST',
+    file: image,
+    timeoutMs: CAPTURE_TIMEOUT_MS,
+  }).catch((e: unknown) => {
+    throw captureUnavailable(e)
+  })
+  return r.classes.map((c) => ({ title: c.title, weekday: c.weekday, start: toHhmm(c.start_min), end: toHhmm(c.end_min) }))
+}
+
+/** 확인·수정한 수업 저장. 이전 에브리타임 수업은 이것으로 바뀐다 */
+export function saveEverytimeCapture(classes: CapturedClass[]): Promise<LinkResult> {
+  const body = {
+    classes: classes.map((c) => ({ title: c.title.trim(), weekday: c.weekday, start_min: toMin(c.start), end_min: toMin(c.end) })),
+  }
+  return write(async () => {
+    const r = await request<ServerIntegration>(CAPTURE_PATH, { method: 'POST', body }).catch((e: unknown) => {
+      throw captureUnavailable(e)
+    })
     return { count: r.imported_count, term: r.term ?? null, termState: r.term_state ?? null }
   })
 }

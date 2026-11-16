@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useRef, useState, type ChangeEvent } from 'react'
 import { ApiError, messageOf } from '../api/client.ts'
-import { connectEverytime, connectGoogle } from '../api/me.ts'
-import type { Recurrence, WeekBlock } from '../types/me.ts'
+import { connectEverytime, connectGoogle, readEverytimeCapture } from '../api/me.ts'
+import type { CapturedClass, LinkResult, Recurrence, WeekBlock } from '../types/me.ts'
 import Badge from './Badge.tsx'
+import CaptureSheet from './CaptureSheet.tsx'
 import styles from './ScheduleLinks.module.css'
 
 type Props = {
@@ -17,7 +18,7 @@ type EtNote = 'past' | 'manual' | null
 
 // 내 일정 가져오기: 두 묶음 × 두 방식 [연동 / 직접 추가]. 묶음 제목이 카드 제목을 대신하고,
 // 연동이 먼저라 연동은 줄로, 직접 추가는 제목 오른쪽 작은 링크로 둔다
-//   반복 일정(매주)   — 에브리타임 공유 링크(수업) / 직접 추가(알바처럼 매주 있는 일)
+//   반복 일정(매주)   — 에브리타임 공유 링크 또는 시간표 캡처(수업) / 직접 추가(알바처럼 매주 있는 일)
 //   일회성 일정(그날) — 구글 캘린더(약속)         / 직접 추가(그날만 있는 일)
 // 아직 아무것도 없으면 설명 문구 없이 제목과 버튼만 보인다
 export default function ScheduleLinks({ blocks, onAdd, showLock = true }: Props) {
@@ -25,20 +26,40 @@ export default function ScheduleLinks({ blocks, onAdd, showLock = true }: Props)
   const [et, setEt] = useState<Reading>({ state: 'idle' })
   const [etNote, setEtNote] = useState<EtNote>(null)
   const [gc, setGc] = useState<Reading>({ state: 'idle' })
+  const [captured, setCaptured] = useState<CapturedClass[] | null>(null) // AI가 읽은 수업. 있으면 확인 시트를 연다
+  const fileRef = useRef<HTMLInputElement>(null)
 
   const classCount = new Set(blocks.filter((b) => b.source === 'everytime').map((b) => b.title)).size
   const googleCount = blocks.filter((b) => b.source === 'google').length
 
+  const showLoaded = ({ count, term, termState }: LinkResult) => {
+    setEt({ state: 'ok', message: `${term ? `${term} ` : ''}수업 ${count}개를 가져왔어요` })
+    if (termState === 'past') setEtNote('past')
+  }
   const loadEverytime = async () => {
     setEt({ state: 'reading' })
     setEtNote(null)
     try {
-      const { count, term, termState } = await connectEverytime(url.trim())
-      setEt({ state: 'ok', message: `${term ? `${term} ` : ''}수업 ${count}개를 가져왔어요` })
-      if (termState === 'past') setEtNote('past')
+      showLoaded(await connectEverytime(url.trim()))
     } catch (e) {
       setEt({ state: 'fail', message: messageOf(e) })
       if (e instanceof ApiError && e.code === 'EVERYTIME_NOT_CONFIGURED') setEtNote('manual')
+    }
+  }
+  // 캡처는 읽기만 하고 저장하지 않는다. 읽은 수업은 확인 시트에서 고친 뒤 넣는다(#66)
+  const readCapture = async (e: ChangeEvent<HTMLInputElement>) => {
+    const image = e.target.files?.[0]
+    e.target.value = '' // 같은 파일을 다시 골라도 다시 읽게
+    if (!image) return
+    setEt({ state: 'reading' })
+    setEtNote(null)
+    try {
+      const classes = await readEverytimeCapture(image)
+      if (classes.length === 0) return setEt({ state: 'fail', message: '캡처에서 수업을 찾지 못했어요. 시간표 전체가 보이게 다시 찍어 주세요.' })
+      setEt({ state: 'idle' })
+      setCaptured(classes)
+    } catch (err) {
+      setEt({ state: 'fail', message: messageOf(err) })
     }
   }
   // 구글 팝업은 클릭 직후에 열려야 막히지 않는다. connectGoogle을 다른 await보다 먼저 부른다
@@ -60,7 +81,7 @@ export default function ScheduleLinks({ blocks, onAdd, showLock = true }: Props)
       <div className={styles.row}>
         <div>
           <p className="strong">에브리타임 시간표</p>
-          {classCount > 0 && <p className="meta">수업 {classCount}개 · 링크를 다시 넣으면 새로 불러와요</p>}
+          {classCount > 0 && <p className="meta">수업 {classCount}개 · 다시 넣으면 새로 바뀌어요</p>}
         </div>
         {classCount > 0 && <Badge tone="ok">가져옴</Badge>}
         <div className={styles.full}>
@@ -76,6 +97,15 @@ export default function ScheduleLinks({ blocks, onAdd, showLock = true }: Props)
               불러오기
             </button>
           </div>
+          <button
+            type="button"
+            className={`link ${styles.capture}`}
+            disabled={et.state === 'reading'}
+            onClick={() => fileRef.current?.click()}
+          >
+            캡처로 올리기
+          </button>
+          <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={readCapture} />
           {et.state === 'reading' && <p className={`meta ${styles.msg}`}>시간표를 읽는 중이에요…</p>}
           {(et.state === 'ok' || et.state === 'fail') && (
             <p className={`${styles.msg} ${et.state === 'fail' ? styles.bad : ''}`} role={et.state === 'fail' ? 'alert' : 'status'}>
@@ -114,6 +144,17 @@ export default function ScheduleLinks({ blocks, onAdd, showLock = true }: Props)
           </button>
         )}
       </div>
+
+      {captured && (
+        <CaptureSheet
+          classes={captured}
+          onClose={() => setCaptured(null)}
+          onSaved={(result) => {
+            setCaptured(null)
+            showLoaded(result)
+          }}
+        />
+      )}
 
       {showLock && (
         <p className={styles.lock}>

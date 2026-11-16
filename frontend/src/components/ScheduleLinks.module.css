@@ -43,6 +43,12 @@
   font-size: 13px;
 }
 
+/* 링크 칸 아래 "캡처로 올리기" */
+.capture {
+  min-height: 0;
+  margin-top: 6px;
+  font-size: var(--fs-meta);
+}
 
 .msg {
   margin-top: 6px;

@@ -44,7 +44,7 @@ export async function uploadRecording(roomId: Id, meetingId: Id, audio: Blob): P
   return toMeetingDetail(
     await request<ServerMeetingDetail>(`/rooms/${roomId}/meetings/${meetingId}/recording/audio`, {
       method: 'POST',
-      audio,
+      file: audio.type ? audio : new Blob([audio], { type: 'audio/webm' }),
       timeoutMs: UPLOAD_TIMEOUT_MS,
     }),
   )
