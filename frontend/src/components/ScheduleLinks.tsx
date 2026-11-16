@@ -40,7 +40,7 @@ export default function ScheduleLinks({ blocks, onAdd, showLock = true }: Props)
     setGc({ state: 'reading' })
     try {
       const { count } = await connectGoogle()
-      setGc({ state: 'ok', message: `앞으로 5주 약속 ${count}개를 바쁨으로 넣었어요` })
+      setGc({ state: 'ok', message: `팀플 마감까지 약속 ${count}개를 가져왔어요` })
     } catch (e) {
       setGc({ state: 'fail', message: messageOf(e) })
     }
@@ -83,7 +83,6 @@ export default function ScheduleLinks({ blocks, onAdd, showLock = true }: Props)
       <div className={styles.row}>
         <div>
           <p className="strong">구글 캘린더</p>
-          {googleCount > 0 && <p className="meta">이번 주 약속 {googleCount}개 · 이름 없이 바쁨으로만</p>}
           {gc.state === 'reading' && <p className={`meta ${styles.msg}`}>구글 창에서 허락하면 약속을 읽어 와요…</p>}
           {(gc.state === 'ok' || gc.state === 'fail') && (
             <p className={`${styles.msg} ${gc.state === 'fail' ? styles.bad : ''}`} role={gc.state === 'fail' ? 'alert' : 'status'}>

@@ -366,3 +366,164 @@ def test_넣은_일정은_다음_조율에서_막힌_시간이_되고_이름은_
     민지_점수 = session.exec(select(SlotCost).where(SlotCost.user_id == 민지.id)).all()
     assert 민지_점수 and all(c.available is False for c in 민지_점수)
     assert all(c.reason == "일정이 있습니다" for c in 민지_점수)  # "편의점 알바"가 안 나간다
+
+
+# ── 한 번만 일정 · 고치기 · 지우기 ──────────────────────────────────
+
+from app.shared import demo_clock  # noqa: E402
+
+NOW = at(MON, 9)  # 월 09:00
+WED = MON + timedelta(days=2)
+
+
+def _한번(start: datetime, end: datetime, **바꿀것) -> dict:
+    body = {"recurrence": "once", "title": "동아리 MT", "kind": "event",
+            "start_at": start.isoformat(), "end_at": end.isoformat()}
+    body.update(바꿀것)
+    return body
+
+
+@pytest.fixture
+def 지금(session: Session) -> datetime:
+    demo_clock.set_clock(session, NOW)
+    session.commit()
+    return NOW
+
+
+def test_한번만_일정을_넣으면_그날_시간표에_나온다(
+    client: TestClient, session: Session, 방, login, 지금
+) -> None:
+    room, 지수, _ = 방
+    login("지수")
+
+    res = _넣기(client, **_한번(at(WED, 13), at(WED, 14, 30)))
+
+    assert res.status_code == 201, res.text
+    assert res.json()["recurrence"] == "once" and res.json()["item_id"] is not None
+    [row] = _내일정(session, 지수)
+    assert row.recurrence == Recurrence.ONCE and row.source == ScheduleSource.MANUAL
+    items = _보기(client, room, week=str(MON))["items"]
+    assert [(i["title"], i["start_at"][:16], i["end_at"][11:16], i["recurrence"]) for i in items] == [
+        ("동아리 MT", "2026-11-11T13:00", "14:30", "once")
+    ]
+
+
+def test_한번만_일정은_자정까지_된다(client: TestClient, session: Session, 방, login, 지금) -> None:
+    login("지수")
+    res = _넣기(client, **_한번(at(WED, 22), at(WED + timedelta(days=1), 0)))
+    assert res.status_code == 201, res.text
+
+
+@pytest.mark.parametrize(
+    "start,end",
+    [
+        (at(MON, 8), at(MON, 10)),                            # 지난 시각(지금 9시)
+        (at(WED, 13, 15), at(WED, 14)),                       # 30분 단위 아님
+        (at(WED, 23), at(WED + timedelta(days=1), 1)),        # 자정을 넘김
+        (at(WED, 14), at(WED, 13)),                           # 끝이 앞
+    ],
+)
+def test_한번만_일정_형식이_틀리면_400(
+    client: TestClient, session: Session, 방, login, 지금, start, end
+) -> None:
+    _, 지수, _ = 방
+    login("지수")
+    res = _넣기(client, **_한번(start, end))
+    assert res.status_code == 400, res.text
+    assert res.json()["code"] == "INVALID_INPUT"
+    assert _내일정(session, 지수) == []
+
+
+def test_한번만_일정도_수업과_겹치면_409(client: TestClient, session: Session, 방, login, 지금) -> None:
+    _, 지수, _ = 방
+    session.add(_매주(지수, weekday=2, start=13 * 60, end=15 * 60, title="서비스디자인"))
+    session.commit()
+    login("지수")
+    res = _넣기(client, **_한번(at(WED, 14), at(WED, 16)))
+    assert res.status_code == 409
+    assert res.json()["code"] == "CLASS_CONFLICT"
+
+
+def test_반복_일정도_30분_단위만_받는다(client: TestClient, session: Session, 방, login) -> None:
+    login("지수")
+    res = _넣기(client, **_알바(days=[{"weekday": 1, "start_min": 18 * 60 + 10, "end_min": 20 * 60}]))
+    assert res.status_code == 400
+
+
+def _고치기(client: TestClient, item_id: int, **body):
+    return client.patch(f"{API}/me/schedule/items/{item_id}", json=body)
+
+
+def _지우기(client: TestClient, item_id: int):
+    return client.delete(f"{API}/me/schedule/items/{item_id}")
+
+
+def test_반복_일정_한_칸의_이름과_시간을_고친다(client: TestClient, session: Session, 방, login) -> None:
+    room, 지수, _ = 방
+    login("지수")
+    화요일 = _넣기(client, **_알바()).json()["days"][0]["id"]
+
+    res = _고치기(client, 화요일, title="편의점 알바", start_min=19 * 60, end_min=21 * 60 + 30)
+
+    assert res.status_code == 204, res.text
+    rows = {r.id: r for r in _내일정(session, 지수)}
+    assert (rows[화요일].title, rows[화요일].start_min, rows[화요일].end_min) == ("편의점 알바", 1140, 1290)
+    assert len(rows) == 2  # 토요일 칸은 그대로
+
+
+def test_한번만_일정은_같은_날_안에서_시간만_바뀐다(
+    client: TestClient, session: Session, 방, login, 지금
+) -> None:
+    _, 지수, _ = 방
+    login("지수")
+    item_id = _넣기(client, **_한번(at(WED, 13), at(WED, 14))).json()["item_id"]
+
+    assert _고치기(client, item_id, title="동아리 MT", start_min=15 * 60, end_min=17 * 60).status_code == 204
+    [row] = _내일정(session, 지수)
+    assert row.start_at == at(WED, 15) and row.end_at == at(WED, 17)
+
+
+def test_고칠_때도_수업과_겹치면_409이고_안_바뀐다(client: TestClient, session: Session, 방, login) -> None:
+    _, 지수, _ = 방
+    session.add(_매주(지수, weekday=1, start=13 * 60, end=15 * 60, title="서비스디자인"))
+    session.commit()
+    login("지수")
+    화요일 = _넣기(client, **_알바()).json()["days"][0]["id"]
+
+    res = _고치기(client, 화요일, start_min=14 * 60, end_min=16 * 60)
+
+    assert res.status_code == 409
+    rows = {r.id: r for r in _내일정(session, 지수)}
+    assert rows[화요일].start_min == 18 * 60
+
+
+def test_남의_일정은_못_고치고_못_지운다(client: TestClient, session: Session, 방, login) -> None:
+    login("민지")
+    민지것 = _넣기(client, **_알바()).json()["days"][0]["id"]
+    login("지수")
+    assert _고치기(client, 민지것, title="바꿈").status_code == 404
+    assert _지우기(client, 민지것).status_code == 404
+
+
+def test_연동해_온_일정은_고치기_지우기가_409(client: TestClient, session: Session, 방, login) -> None:
+    _, 지수, _ = 방
+    수업 = _매주(지수, weekday=1, start=540, end=600, title="수업")
+    session.add(수업)
+    session.commit()
+    login("지수")
+    assert _고치기(client, 수업.id, title="바꿈").json()["code"] == "LINKED_ITEM"  # type: ignore[arg-type]
+    assert _지우기(client, 수업.id).status_code == 409  # type: ignore[arg-type]
+
+
+def test_지우면_시간표에서_사라지고_같은_묶음_다른_요일은_남는다(
+    client: TestClient, session: Session, 방, login
+) -> None:
+    room, 지수, _ = 방
+    login("지수")
+    화요일 = _넣기(client, **_알바()).json()["days"][0]["id"]
+
+    assert _지우기(client, 화요일).status_code == 204
+
+    items = _보기(client, room, week=str(MON))["items"]
+    assert [i["start_at"][11:16] for i in items] == ["11:00"]  # 토요일만
+    assert _지우기(client, 화요일).status_code == 404
