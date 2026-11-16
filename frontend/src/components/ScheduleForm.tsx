@@ -1,5 +1,5 @@
 import dayjs from 'dayjs'
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { messageOf } from '../api/client.ts'
 import { addScheduleItem } from '../api/me.ts'
 import form from '../pages/Form.module.css'
@@ -13,22 +13,38 @@ const KINDS = ['일정', '수업'] as const
 const HOURS = Array.from({ length: 13 }, (_, i) => i + 9) // 9:00~21:00
 
 type Props = {
-  recurrence: Recurrence
+  recurrence: Recurrence // 처음 열릴 때 고른 쪽. 시트 안에서 바꿀 수 있다
   onSaved: (message: string) => void
   onCancel: () => void
 }
 
-// 일정 직접 추가 시트. '좋아하는 방식' 시트와 같은 모양.
-//   매주 반복: 이름 · 종류 · 요일 여러 개 · 요일마다 시간
+const MODES = ['한 번만', '매주 반복'] as const
+const MODE_OF: Record<(typeof MODES)[number], Recurrence> = { '한 번만': 'once', '매주 반복': 'weekly' }
+
+// 일정 직접 추가 시트 하나. 맨 위에서 한 번만 / 매주 반복을 고른다. '좋아하는 방식' 시트와 같은 모양.
 //   한 번만: 이름 · 날짜 · 시간
+//   매주 반복: 이름 · 종류 · 요일 여러 개 · 요일마다 시간
 // 구글 캘린더 약속은 캘린더에서 고친다
 export default function ScheduleForm({ recurrence, onSaved, onCancel }: Props) {
-  return recurrence === 'weekly' ? <WeeklyForm onSaved={onSaved} onCancel={onCancel} /> : <OnceForm onSaved={onSaved} onCancel={onCancel} />
+  const [mode, setMode] = useState<Recurrence>(recurrence)
+  const switcher = (
+    <Segmented
+      label="반복"
+      options={MODES}
+      value={mode === 'once' ? '한 번만' : '매주 반복'}
+      onChange={(m) => setMode(MODE_OF[m])}
+    />
+  )
+  return mode === 'weekly' ? (
+    <WeeklyForm switcher={switcher} onSaved={onSaved} onCancel={onCancel} />
+  ) : (
+    <OnceForm switcher={switcher} onSaved={onSaved} onCancel={onCancel} />
+  )
 }
 
-type FormProps = Omit<Props, 'recurrence'>
+type FormProps = Omit<Props, 'recurrence'> & { switcher: ReactNode }
 
-function WeeklyForm({ onSaved, onCancel }: FormProps) {
+function WeeklyForm({ switcher, onSaved, onCancel }: FormProps) {
   const [title, setTitle] = useState('')
   const [kind, setKind] = useState<(typeof KINDS)[number]>('일정')
   const [days, setDays] = useState<Record<number, [number, number]>>({ 0: [18, 20] })
@@ -67,7 +83,8 @@ function WeeklyForm({ onSaved, onCancel }: FormProps) {
   }
 
   return (
-    <Sheet title="반복 일정 추가" onClose={onCancel} actions={<Actions saving={saving} onCancel={onCancel} onSave={save} />}>
+    <Sheet title="일정 추가" onClose={onCancel} actions={<Actions saving={saving} onCancel={onCancel} onSave={save} />}>
+      {switcher}
       <label className={form.label}>
         이름 (나만 보여요)
         <input className="field" value={title} maxLength={20} placeholder="예: 카페 알바" onChange={(e) => setTitle(e.target.value)} />
@@ -103,7 +120,7 @@ function WeeklyForm({ onSaved, onCancel }: FormProps) {
 }
 
 // 한 번만: 날짜 하루와 시간. 지난 날짜는 고를 수 없다
-function OnceForm({ onSaved, onCancel }: FormProps) {
+function OnceForm({ switcher, onSaved, onCancel }: FormProps) {
   const today = dayjs().format('YYYY-MM-DD')
   const [title, setTitle] = useState('')
   const [date, setDate] = useState(today)
@@ -125,7 +142,8 @@ function OnceForm({ onSaved, onCancel }: FormProps) {
   }
 
   return (
-    <Sheet title="일회성 일정 추가" onClose={onCancel} actions={<Actions saving={saving} onCancel={onCancel} onSave={save} />}>
+    <Sheet title="일정 추가" onClose={onCancel} actions={<Actions saving={saving} onCancel={onCancel} onSave={save} />}>
+      {switcher}
       <label className={form.label}>
         이름 (나만 보여요)
         <input className="field" value={title} maxLength={20} placeholder="예: 동아리 MT" onChange={(e) => setTitle(e.target.value)} />

@@ -90,12 +90,12 @@ export default function MePage() {
 
       <section className="sec">
         {thisWeek.status === 'error' && <RetryBox message={thisWeek.message} onRetry={thisWeek.reload} />}
-        {thisWeek.status === 'ready' && <ScheduleLinks blocks={thisWeek.data.blocks} onAdd={openAdd} showLock={false} />}
+        {thisWeek.status === 'ready' && <ScheduleLinks title="일정 가져오기" blocks={thisWeek.data.blocks} onAdd={openAdd} showLock={false} />}
       </section>
 
       <section className="sec">
         <div className="row-between">
-          <h2>내 시간</h2>
+          <h2>일정</h2>
           {shown.status === 'ready' && <span className="meta num">{formatRange(shown.data.weekStart, shown.data.weekEnd)}</span>}
         </div>
         <Segmented label="주" options={WEEKS} value={week} onChange={setWeek} />
