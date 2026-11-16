@@ -11,7 +11,7 @@
 }
 
 .screen {
-  position: relative; /* 쓰기 실패 한 줄(WriteFailNotice)이 이 아래쪽에 뜬다 */
+  position: relative; /* 아래 한 줄 알림(Toast)이 이 아래쪽에 뜬다 */
   min-height: 0;
 }
 

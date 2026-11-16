@@ -1,8 +1,10 @@
 import { useRef, useState, type ChangeEvent, type CSSProperties, type ReactNode } from 'react'
 import { ApiError, messageOf } from '../api/client.ts'
 import { connectEverytime, connectGoogle, readEverytimeCapture } from '../api/me.ts'
+import { showNotice } from '../lib/notice.ts'
 import type { CapturedClass, LinkResult, Recurrence, WeekBlock } from '../types/me.ts'
 import CaptureSheet from './CaptureSheet.tsx'
+import Sheet from './Sheet.tsx'
 import styles from './ScheduleLinks.module.css'
 
 type Props = {
@@ -12,89 +14,39 @@ type Props = {
   showLock?: boolean // 바쁨/비어 있음 안내. My 탭에서는 끈다
 }
 
-type Reading = { state: 'idle' } | { state: 'reading' } | { state: 'ok' | 'fail'; message: string }
-// 에타 결과에만 붙는 덧말. past: 지난 학기 시간표라 이번 학기 링크를 다시 받는다 / manual: 서버에 연동이 없어 다시 하기 대신 직접 추가로
+type Reading = { state: 'idle' } | { state: 'reading' } | { state: 'fail'; message: string }
+// 에타 시트에만 붙는 덧말. past: 지난 학기 시간표라 이번 학기 링크를 다시 받는다 / manual: 서버에 연동이 없어 다시 하기 대신 직접 추가로
 type EtNote = 'past' | 'manual' | null
 
-// 일정 가져오기: 위에 연결 수와 막대(연동 두 개 중 몇 개), 아래 설정 목록 세 줄.
-// 줄 왼쪽 점이 연결 상태다 — 채운 점 = 연결됨, 빈 점 = 아직. 줄 전체를 누른다
-//   에브리타임 시간표: 누르면 그 아래에 링크 칸 · 캡처로 올리기가 열린다
-//   구글 캘린더: 누르면 구글 연결 팝업. 연결되면 "연결됨"
+// 일정 가져오기: 위에 연결 수와 막대(연동 두 개 중 몇 개), 아래 설정 목록 세 줄. 줄 전체를 누른다
+// 줄 왼쪽 체크박스가 연결 상태다 — 보라 체크 = 연결됨, 빈 칸 = 아직
+//   에브리타임 시간표: 누르면 링크·캡처를 고르는 아래 시트. 연동 뒤에도 눌러 수강 정정한 시간표로 바꾼다
+//   구글 캘린더: 누르면 구글 연결 팝업. 조율을 시작할 때마다 서버가 새로 읽어 연동 뒤에는 누를 수 없다
 //   일정 추가: 누르면 시트(한 번만 / 매주 반복)
-// 성공·실패 문구는 그 줄 아래 한 줄로 보인다
+// 성공은 아래 한 줄(showNotice)로, 진행·실패는 그 줄 바로 아래에 보인다
 export default function ScheduleLinks({ blocks, onAdd, title, showLock = true }: Props) {
-  const [url, setUrl] = useState('')
-  const [etOpen, setEtOpen] = useState(false)
-  const [et, setEt] = useState<Reading>({ state: 'idle' })
-  const [etNote, setEtNote] = useState<EtNote>(null)
+  const [etOpen, setEtOpen] = useState(false) // 에타 불러오기 시트
   const [gc, setGc] = useState<Reading>({ state: 'idle' })
+  const [googleDone, setGoogleDone] = useState(false) // 이번 주에 약속이 없어도 방금 연결했으면 연결됨
   const [captured, setCaptured] = useState<CapturedClass[] | null>(null) // AI가 읽은 수업. 있으면 확인 시트를 연다
-  const fileRef = useRef<HTMLInputElement>(null)
 
   const classCount = new Set(blocks.filter((b) => b.source === 'everytime').map((b) => b.title)).size
-  const googleCount = blocks.filter((b) => b.source === 'google').length
+  const etOn = classCount > 0
+  const googleOn = googleDone || blocks.some((b) => b.source === 'google')
+  const linked = Number(etOn) + Number(googleOn)
 
-  const showLoaded = ({ count, term, termState }: LinkResult) => {
-    setEt({ state: 'ok', message: `${term ? `${term} ` : ''}수업 ${count}개를 가져왔어요` })
-    if (termState === 'past') setEtNote('past')
-    setEtOpen(false)
-    setUrl('')
-  }
-  const loadEverytime = async () => {
-    setEt({ state: 'reading' })
-    setEtNote(null)
-    try {
-      showLoaded(await connectEverytime(url.trim()))
-    } catch (e) {
-      setEt({ state: 'fail', message: messageOf(e) })
-      if (e instanceof ApiError && e.code === 'EVERYTIME_NOT_CONFIGURED') setEtNote('manual')
-    }
-  }
-  // 캡처는 읽기만 하고 저장하지 않는다. 읽은 수업은 확인 시트에서 고친 뒤 넣는다(#66)
-  const readCapture = async (e: ChangeEvent<HTMLInputElement>) => {
-    const image = e.target.files?.[0]
-    e.target.value = '' // 같은 파일을 다시 골라도 다시 읽게
-    if (!image) return
-    setEt({ state: 'reading' })
-    setEtNote(null)
-    try {
-      const classes = await readEverytimeCapture(image)
-      if (classes.length === 0) return setEt({ state: 'fail', message: '캡처에서 수업을 찾지 못했어요. 시간표 전체가 보이게 다시 찍어 주세요.' })
-      setEt({ state: 'idle' })
-      setCaptured(classes)
-    } catch (err) {
-      setEt({ state: 'fail', message: messageOf(err) })
-    }
-  }
   // 구글 팝업은 클릭 직후에 열려야 막히지 않는다. connectGoogle을 다른 await보다 먼저 부른다
   const linkGoogle = async () => {
     setGc({ state: 'reading' })
     try {
       const { count } = await connectGoogle()
-      setGc({ state: 'ok', message: `팀플 마감까지 약속 ${count}개를 가져왔어요` })
+      setGc({ state: 'idle' })
+      setGoogleDone(true)
+      showNotice(`팀플 마감까지 약속 ${count}개를 가져왔어요`)
     } catch (e) {
       setGc({ state: 'fail', message: messageOf(e) })
     }
   }
-  const etOn = classCount > 0 || et.state === 'ok'
-  const googleOn = googleCount > 0 || gc.state === 'ok' // 이번 주에 약속이 없어도 방금 연결했으면 켜짐
-  const linked = Number(etOn) + Number(googleOn)
-
-  const etNotes = (et.state === 'ok' || et.state === 'fail' || etNote) && (
-    <>
-      {note(et)}
-      {etNote === 'past' && (
-        <span className={styles.warn} role="alert">
-          지난 학기 시간표예요. 이번 학기 시간표 링크를 넣어 주세요.
-        </span>
-      )}
-      {etNote === 'manual' && (
-        <button type="button" className={`link ${styles.inline}`} onClick={() => onAdd('weekly')}>
-          수업 직접 넣기
-        </button>
-      )}
-    </>
-  )
 
   return (
     <>
@@ -112,36 +64,7 @@ export default function ScheduleLinks({ blocks, onAdd, title, showLock = true }:
       </div>
 
       <ul className={styles.list}>
-        <Row
-          dot={etOn ? 'on' : 'off'}
-          title="에브리타임 시간표"
-          value={et.state === 'reading' ? '읽는 중…' : classCount > 0 ? `수업 ${classCount}개` : '가져오기'}
-          on={etOn}
-          expanded={etOpen}
-          onPress={() => setEtOpen(!etOpen)}
-          note={etNotes}
-        >
-          {etOpen && (
-            <>
-              <div className={styles.input}>
-                <input
-                  className="field num"
-                  value={url}
-                  placeholder="에타 시간표 → 공유 → 링크 복사"
-                  aria-label="에브리타임 공유 링크"
-                  autoFocus
-                  onChange={(e) => setUrl(e.target.value)}
-                />
-                <button type="button" className="btn small primary" disabled={!url.trim() || et.state === 'reading'} onClick={loadEverytime}>
-                  불러오기
-                </button>
-              </div>
-              <button type="button" className={`link ${styles.inline}`} disabled={et.state === 'reading'} onClick={() => fileRef.current?.click()}>
-                캡처로 올리기
-              </button>
-            </>
-          )}
-        </Row>
+        <Row dot={etOn ? 'on' : 'off'} title="에브리타임 시간표" value={etOn ? `수업 ${classCount}개` : '가져오기'} on={etOn} onPress={() => setEtOpen(true)} />
 
         <Row
           dot={googleOn ? 'on' : 'off'}
@@ -149,20 +72,41 @@ export default function ScheduleLinks({ blocks, onAdd, title, showLock = true }:
           value={gc.state === 'reading' ? '연결 중…' : googleOn ? '연결됨' : '연결 안 됨'}
           on={googleOn}
           onPress={googleOn || gc.state === 'reading' ? undefined : linkGoogle}
-          note={note(gc)}
+          note={
+            gc.state === 'reading' ? (
+              <span className="meta">구글 창에서 허락하면 약속을 읽어 와요…</span>
+            ) : gc.state === 'fail' ? (
+              <span className={styles.bad} role="alert">
+                {gc.message}
+              </span>
+            ) : null
+          }
         />
 
         <Row dot="add" title="일정 추가" value={null} mark="" onPress={() => onAdd('once')} />
       </ul>
-      <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={readCapture} />
 
+      {etOpen && (
+        <EverytimeSheet
+          again={etOn}
+          onClose={() => setEtOpen(false)}
+          onCaptured={(classes) => {
+            setEtOpen(false)
+            setCaptured(classes)
+          }}
+          onManual={() => {
+            setEtOpen(false)
+            onAdd('weekly')
+          }}
+        />
+      )}
       {captured && (
         <CaptureSheet
           classes={captured}
           onClose={() => setCaptured(null)}
           onSaved={(result) => {
             setCaptured(null)
-            showLoaded(result)
+            showNotice(loadedMessage(result))
           }}
         />
       )}
@@ -176,35 +120,28 @@ export default function ScheduleLinks({ blocks, onAdd, title, showLock = true }:
   )
 }
 
-// 줄 아래 한 줄: 방금 성공·실패한 문구
-function note(r: Reading): ReactNode {
-  if (r.state === 'fail')
-    return (
-      <span className={styles.bad} role="alert">
-        {r.message}
-      </span>
-    )
-  if (r.state === 'ok') return <span role="status">{r.message}</span>
-  return null
-}
+const loadedMessage = ({ count, term }: LinkResult) => `${term ? `${term} ` : ''}수업 ${count}개를 가져왔어요`
 
 type RowProps = {
-  dot: 'on' | 'off' | 'add' // 왼쪽 표시: 채운 점(연결됨) · 빈 점(아직) · +(추가)
+  dot: 'on' | 'off' | 'add' // 왼쪽 표시: 체크(연결됨) · 빈 칸(아직) · +(추가)
   title: string
   value: string | null // 오른쪽 상태 글자
   on?: boolean // 연결돼 있으면 상태 글자를 포인트색으로
   mark?: string // 오른쪽 끝 표시. 기본 ›
-  expanded?: boolean
   onPress?: () => void // 없으면 누를 수 없는 줄(이미 연결됨)
-  note?: ReactNode
-  children?: ReactNode
+  note?: ReactNode // 줄 아래 한 줄: 진행·실패 문구
 }
 
-function Row({ dot, title, value, on = false, mark = '›', expanded, onPress, note, children }: RowProps) {
+function Row({ dot, title, value, on = false, mark = '›', onPress, note }: RowProps) {
   const inner = (
     <>
       <span className={styles.dot} data-k={dot} aria-hidden="true">
-        {dot === 'add' ? '+' : ''}
+        {dot === 'add' && '+'}
+        {dot === 'on' && (
+          <svg viewBox="0 0 12 12" width="12" height="12">
+            <path d="M2.5 6.2 5 8.6l4.5-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        )}
       </span>
       <span className={`strong ${styles.title}`}>{title}</span>
       {value && <span className={`${styles.value} ${on ? styles.on : ''}`}>{value}</span>}
@@ -216,14 +153,107 @@ function Row({ dot, title, value, on = false, mark = '›', expanded, onPress, n
   return (
     <li className={styles.item}>
       {onPress ? (
-        <button type="button" className={styles.row} aria-expanded={expanded} onClick={onPress}>
+        <button type="button" className={styles.row} onClick={onPress}>
           {inner}
         </button>
       ) : (
         <div className={styles.row}>{inner}</div>
       )}
       {note && <div className={styles.note}>{note}</div>}
-      {children && <div className={styles.full}>{children}</div>}
     </li>
+  )
+}
+
+type EverytimeSheetProps = {
+  again: boolean // 이미 연동됨: 수강 정정한 시간표로 바꾸기
+  onClose: () => void
+  onCaptured: (classes: CapturedClass[]) => void
+  onManual: () => void // 서버에 에타 연동이 없을 때 수업 직접 넣기로
+}
+
+// 에브리타임 불러오기 시트: 공유 링크 칸 + [캡처로 올리기]. 링크로 가져오면 닫고 아래 한 줄로 알린다.
+// 캡처는 읽기만 하고 저장하지 않는다. 읽은 수업은 확인 시트(CaptureSheet)에서 고친 뒤 넣는다(#66)
+function EverytimeSheet({ again, onClose, onCaptured, onManual }: EverytimeSheetProps) {
+  const [url, setUrl] = useState('')
+  const [et, setEt] = useState<Reading>({ state: 'idle' })
+  const [note, setNote] = useState<EtNote>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
+  const reading = et.state === 'reading'
+
+  const loadLink = async () => {
+    setEt({ state: 'reading' })
+    setNote(null)
+    try {
+      const result = await connectEverytime(url.trim())
+      if (result.termState === 'past') {
+        setEt({ state: 'idle' })
+        return setNote('past') // 지난 학기면 닫지 않고 이번 학기 링크를 다시 받는다
+      }
+      showNotice(loadedMessage(result))
+      onClose()
+    } catch (e) {
+      setEt({ state: 'fail', message: messageOf(e) })
+      if (e instanceof ApiError && e.code === 'EVERYTIME_NOT_CONFIGURED') setNote('manual')
+    }
+  }
+
+  const readCapture = async (e: ChangeEvent<HTMLInputElement>) => {
+    const image = e.target.files?.[0]
+    e.target.value = '' // 같은 파일을 다시 골라도 다시 읽게
+    if (!image) return
+    setEt({ state: 'reading' })
+    setNote(null)
+    try {
+      const classes = await readEverytimeCapture(image)
+      if (classes.length === 0) return setEt({ state: 'fail', message: '캡처에서 수업을 찾지 못했어요. 시간표 전체가 보이게 다시 찍어 주세요.' })
+      onCaptured(classes)
+    } catch (err) {
+      setEt({ state: 'fail', message: messageOf(err) })
+    }
+  }
+
+  return (
+    <Sheet
+      title={again ? '시간표 바꾸기' : '에브리타임 시간표'}
+      onClose={onClose}
+      actions={
+        <>
+          <button type="button" className="btn quiet" onClick={onClose}>
+            취소
+          </button>
+          <button type="button" className="btn primary" disabled={!url.trim() || reading} onClick={loadLink}>
+            {reading ? '읽는 중…' : '불러오기'}
+          </button>
+        </>
+      }
+    >
+      <input
+        className={`field num ${styles.url}`}
+        value={url}
+        placeholder="에타 시간표 → 공유 → 링크 복사"
+        aria-label="에브리타임 공유 링크"
+        autoFocus
+        onChange={(e) => setUrl(e.target.value)}
+      />
+      <button type="button" className={`btn block ${styles.capture}`} disabled={reading} onClick={() => fileRef.current?.click()}>
+        캡처로 올리기
+      </button>
+      <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={readCapture} />
+      {et.state === 'fail' && (
+        <p className={`${styles.msg} ${styles.bad}`} role="alert">
+          {et.message}
+        </p>
+      )}
+      {note === 'past' && (
+        <p className={`${styles.msg} ${styles.warn}`} role="alert">
+          지난 학기 시간표예요. 이번 학기 시간표 링크를 넣어 주세요.
+        </p>
+      )}
+      {note === 'manual' && (
+        <button type="button" className={`link ${styles.msg}`} onClick={onManual}>
+          수업 직접 넣기
+        </button>
+      )}
+    </Sheet>
   )
 }

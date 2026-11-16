@@ -3,6 +3,7 @@ import { useState, type ReactNode } from 'react'
 import { messageOf } from '../api/client.ts'
 import { addScheduleItem } from '../api/me.ts'
 import form from '../pages/Form.module.css'
+import FieldError, { type FormProblem } from './FieldError.tsx'
 import { WEEKDAYS, type Recurrence, type ScheduleItemInput } from '../types/me.ts'
 import styles from './ScheduleForm.module.css'
 import Segmented from './Segmented.tsx'
@@ -48,36 +49,41 @@ function WeeklyForm({ switcher, onSaved, onCancel }: FormProps) {
   const [title, setTitle] = useState('')
   const [kind, setKind] = useState<(typeof KINDS)[number]>('일정')
   const [days, setDays] = useState<Record<number, [number, number]>>({ 0: [18, 20] })
-  const [error, setError] = useState<string | null>(null)
+  const [problem, setProblem] = useState<FormProblem>(null)
   const [saving, setSaving] = useState(false)
   const picked = Object.keys(days).map(Number).sort()
 
+  const typeTitle = (value: string) => {
+    setTitle(value)
+    setProblem(null) // 쓰기 시작하면 "이름을 적어 주세요"를 걷는다
+  }
   const toggleDay = (d: number) => {
     if (d in days) {
-      if (picked.length === 1) return setError('요일을 하나는 골라야 해요.')
+      if (picked.length === 1) return setProblem({ at: 'days', message: '요일을 하나는 골라야 해요.' })
       setDays(Object.fromEntries(Object.entries(days).filter(([k]) => Number(k) !== d)))
     } else {
       setDays({ ...days, [d]: days[picked.at(-1) ?? 0] ?? [18, 20] }) // 마지막 요일 시간을 그대로 가져온다
     }
-    setError(null)
+    setProblem(null)
   }
   const setTime = (d: number, i: 0 | 1, h: number) => setDays({ ...days, [d]: i === 0 ? [h, days[d][1]] : [days[d][0], h] })
 
   const save = async () => {
+    if (!title.trim()) return setProblem({ at: 'title', message: '이름을 적어 주세요.' })
     const bad = picked.find((d) => days[d][1] <= days[d][0])
-    if (bad !== undefined) return setError(`${WEEKDAYS[bad]}요일 끝나는 시간이 시작보다 늦어야 해요.`)
+    if (bad !== undefined) return setProblem({ at: 'time', message: `${WEEKDAYS[bad]}요일 끝나는 시간이 시작보다 늦어야 해요.` })
     const input: ScheduleItemInput = {
       recurrence: 'weekly',
-      title: title.trim() || kind,
+      title: title.trim(),
       kind: kind === '수업' ? 'class' : 'event',
       days: picked.map((d) => ({ weekday: d, startHour: days[d][0], endHour: days[d][1] })),
     }
     setSaving(true)
     try {
       await addScheduleItem(input)
-      onSaved(`매주 ${picked.map((d) => WEEKDAYS[d]).join('·')}요일에 넣었어요. 에이전트가 이 시간은 빼고 조율해요.`)
+      onSaved(`매주 ${picked.map((d) => WEEKDAYS[d]).join('·')}요일에 넣었어요`)
     } catch (e) {
-      setError(messageOf(e))
+      setProblem({ at: 'end', message: messageOf(e) })
       setSaving(false)
     }
   }
@@ -86,9 +92,10 @@ function WeeklyForm({ switcher, onSaved, onCancel }: FormProps) {
     <Sheet title="일정 추가" onClose={onCancel} actions={<Actions saving={saving} onCancel={onCancel} onSave={save} />}>
       {switcher}
       <label className={form.label}>
-        이름 (나만 보여요)
-        <input className="field" value={title} maxLength={20} placeholder="예: 카페 알바" onChange={(e) => setTitle(e.target.value)} />
+        이름
+        <input className="field" value={title} maxLength={20} placeholder="예: 카페 알바" onChange={(e) => typeTitle(e.target.value)} />
       </label>
+      <FieldError problem={problem} at="title" />
       <span className={form.label}>종류</span>
       <Segmented label="종류" options={KINDS} value={kind} onChange={setKind} />
       <span className={form.label}>요일 (매주 반복 · 복수 선택)</span>
@@ -99,7 +106,8 @@ function WeeklyForm({ switcher, onSaved, onCancel }: FormProps) {
           </button>
         ))}
       </div>
-      <span className={form.label}>시간 (요일마다 달라도 돼요)</span>
+      <FieldError problem={problem} at="days" />
+      <span className={form.label}>시간</span>
       {picked.map((d) => (
         <div key={d} className={styles.dayTime}>
           <b>{WEEKDAYS[d]}</b>
@@ -110,11 +118,8 @@ function WeeklyForm({ switcher, onSaved, onCancel }: FormProps) {
           </div>
         </div>
       ))}
-      {error && (
-        <p className={form.error} role="alert">
-          {error}
-        </p>
-      )}
+      <FieldError problem={problem} at="time" />
+      <FieldError problem={problem} at="end" />
     </Sheet>
   )
 }
@@ -125,18 +130,23 @@ function OnceForm({ switcher, onSaved, onCancel }: FormProps) {
   const [title, setTitle] = useState('')
   const [date, setDate] = useState(today)
   const [time, setTime] = useState<[number, number]>([18, 20])
-  const [error, setError] = useState<string | null>(null)
+  const [problem, setProblem] = useState<FormProblem>(null)
   const [saving, setSaving] = useState(false)
+  const typeTitle = (value: string) => {
+    setTitle(value)
+    setProblem(null)
+  }
 
   const save = async () => {
-    if (!date || date < today) return setError('오늘이나 그 뒤 날짜를 골라 주세요.')
-    if (time[1] <= time[0]) return setError('끝나는 시간이 시작보다 늦어야 해요.')
+    if (!title.trim()) return setProblem({ at: 'title', message: '이름을 적어 주세요.' })
+    if (!date || date < today) return setProblem({ at: 'date', message: '오늘이나 그 뒤 날짜를 골라 주세요.' })
+    if (time[1] <= time[0]) return setProblem({ at: 'time', message: '끝나는 시간이 시작보다 늦어야 해요.' })
     setSaving(true)
     try {
-      await addScheduleItem({ recurrence: 'once', title: title.trim() || '일정', date, startHour: time[0], endHour: time[1] })
-      onSaved(`${dayjs(date).format('M/D')} ${time[0]}–${time[1]}시에 넣었어요. 에이전트가 이 시간은 빼고 조율해요.`)
+      await addScheduleItem({ recurrence: 'once', title: title.trim(), date, startHour: time[0], endHour: time[1] })
+      onSaved(`${dayjs(date).format('M/D')} ${time[0]}–${time[1]}시에 넣었어요`)
     } catch (e) {
-      setError(messageOf(e))
+      setProblem({ at: 'end', message: messageOf(e) })
       setSaving(false)
     }
   }
@@ -145,24 +155,23 @@ function OnceForm({ switcher, onSaved, onCancel }: FormProps) {
     <Sheet title="일정 추가" onClose={onCancel} actions={<Actions saving={saving} onCancel={onCancel} onSave={save} />}>
       {switcher}
       <label className={form.label}>
-        이름 (나만 보여요)
-        <input className="field" value={title} maxLength={20} placeholder="예: 동아리 MT" onChange={(e) => setTitle(e.target.value)} />
+        이름
+        <input className="field" value={title} maxLength={20} placeholder="예: 동아리 MT" onChange={(e) => typeTitle(e.target.value)} />
       </label>
+      <FieldError problem={problem} at="title" />
       <label className={form.label}>
         날짜
         <input className="field num" type="date" min={today} value={date} onChange={(e) => setDate(e.target.value)} />
       </label>
+      <FieldError problem={problem} at="date" />
       <span className={form.label}>시간</span>
       <div className={form.range}>
         <HourSelect label="시작" value={time[0]} onChange={(h) => setTime([h, time[1]])} />
         <span>–</span>
         <HourSelect label="끝" value={time[1]} onChange={(h) => setTime([time[0], h])} />
       </div>
-      {error && (
-        <p className={form.error} role="alert">
-          {error}
-        </p>
-      )}
+      <FieldError problem={problem} at="time" />
+      <FieldError problem={problem} at="end" />
     </Sheet>
   )
 }

@@ -1,0 +1,43 @@
+/* 화면 맨 아래(하단 탭 바로 위)에 잠깐 뜨는 한 줄: 글 | 되돌리기 */
+.toast {
+  position: absolute;
+  left: var(--sp);
+  right: var(--sp);
+  bottom: var(--gap-2);
+  z-index: 10;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  padding: var(--gap-3) var(--sp);
+  border-radius: var(--r);
+  background: var(--text);
+  color: var(--white);
+  font-size: var(--fs-body);
+  animation: toast-in 0.2s ease-out;
+}
+
+.undo {
+  flex: none;
+  min-height: 32px;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  color: color-mix(in srgb, var(--point) 45%, var(--white));
+  font-size: var(--fs-body);
+  font-weight: 700;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast {
+    animation: none;
+  }
+}

@@ -149,7 +149,9 @@
   font-weight: 600;
 }
 
-.meetFoot {
-  margin-top: 10px;
+/* 응답 줄 | 조율 결과 보기: 위 회의 정보에 붙이고, 글과 버튼의 아랫면을 맞춘다 */
+.meetFoot:global(.row-between) {
+  align-items: flex-end;
   gap: 8px;
+  margin-top: 2px;
 }

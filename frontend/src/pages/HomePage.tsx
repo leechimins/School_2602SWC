@@ -113,7 +113,14 @@ function MyTasks({ tasks }: { tasks: Task[] }) {
 
   return (
     <section className="sec">
-      <h2>내 할 일</h2>
+      <div className="row-between">
+        <h2>내 할 일</h2>
+        {tasks.length > 0 && (
+          <Link to={PATHS.tasks} className="btn small">
+            팀 할 일 보기
+          </Link>
+        )}
+      </div>
       {tasks.length === 0 ? (
         <EmptyState
           title="아직 할 일이 없어요"
@@ -130,9 +137,6 @@ function MyTasks({ tasks }: { tasks: Task[] }) {
               <ul className={styles.list}>{g.tasks.map(row)}</ul>
             </div>
           ))}
-          <Link to={PATHS.tasks} className="link">
-            팀 할 일 보기
-          </Link>
         </>
       )}
     </section>

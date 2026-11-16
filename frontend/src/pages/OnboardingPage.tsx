@@ -12,6 +12,7 @@ import { useApi } from '../hooks/useApi.ts'
 import { useClock } from '../hooks/useClock.ts'
 import { useCurrentUser } from '../hooks/useCurrentUser.ts'
 import { toIsoDate } from '../lib/date.ts'
+import { showNotice } from '../lib/notice.ts'
 import { PATHS } from '../lib/paths.ts'
 import type { Preferences, Recurrence } from '../types/me.ts'
 import form from './Form.module.css'
@@ -115,7 +116,6 @@ function LinkStep({ onPrev, onNext }: StepProps) {
   const today = toIsoDate(useClock())
   const week = useApi(() => getMyWeek(user.roomId, today), [user.roomId, user.id, today])
   const [adding, setAdding] = useState<Recurrence | null>(null)
-  const [notice, setNotice] = useState<string | null>(null)
   const linked = week.status === 'ready' && week.data.blocks.some((b) => b.source !== null)
 
   return (
@@ -141,14 +141,8 @@ function LinkStep({ onPrev, onNext }: StepProps) {
             blocks={week.data.blocks}
             onAdd={(recurrence) => {
               setAdding(recurrence)
-              setNotice(null)
             }}
           />
-        )}
-        {notice && (
-          <p className={`meta ${styles.notice}`} role="status">
-            {notice}
-          </p>
         )}
         {adding && (
           <ScheduleForm
@@ -156,7 +150,7 @@ function LinkStep({ onPrev, onNext }: StepProps) {
             onCancel={() => setAdding(null)}
             onSaved={(message) => {
               setAdding(null)
-              setNotice(message)
+              showNotice(message)
             }}
           />
         )}

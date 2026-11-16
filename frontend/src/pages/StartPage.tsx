@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { messageOf } from '../api/client.ts'
 import { createRoom, getRoom } from '../api/rooms.ts'
 import { refreshIdentity, signOut } from '../api/session.ts'
+import FieldError, { type FormProblem } from '../components/FieldError.tsx'
 import RetryBox from '../components/RetryBox.tsx'
 import Screen from '../components/Screen.tsx'
 import Segmented from '../components/Segmented.tsx'
@@ -52,25 +53,25 @@ function RoomForm({ initial, onCreated }: { initial: RoomInput; onCreated: (room
     dueDate: initial.dueDate,
     memberCount: initial.memberCount,
   })
-  const [error, setError] = useState<string | null>(null)
+  const [problem, setProblem] = useState<FormProblem>(null)
   const [saving, setSaving] = useState(false)
   const set = <K extends keyof RoomInput>(key: K, value: RoomInput[K]) => setInput((prev) => ({ ...prev, [key]: value }))
 
-  const problem = !input.name.trim()
-    ? '과제 제목을 써 주세요.'
+  const invalid: FormProblem = !input.name.trim()
+    ? { at: 'name', message: '과제 제목을 써 주세요.' }
     : input.startDate > input.dueDate
-      ? '마감일이 시작일보다 빨라요.'
+      ? { at: 'dates', message: '마감일이 시작일보다 빨라요.' }
       : null
 
   const submit = async () => {
-    if (problem) return setError(problem)
+    if (invalid) return setProblem(invalid)
     setSaving(true)
     try {
       const room = await createRoom({ ...input, name: input.name.trim(), description: input.description.trim() })
       await refreshIdentity() // 실서버: 내 방 번호를 다시 받는다. 처음 온 사람은 이제야 방이 생겼다
       onCreated(room)
     } catch (e) {
-      setError(messageOf(e))
+      setProblem({ at: 'end', message: messageOf(e) })
       setSaving(false)
     }
   }
@@ -92,6 +93,7 @@ function RoomForm({ initial, onCreated }: { initial: RoomInput; onCreated: (room
           과제 제목 (방 이름)
           <input className="field" value={input.name} maxLength={40} onChange={(e) => set('name', e.target.value)} />
         </label>
+        <FieldError problem={problem} at="name" />
         <label className={form.label}>
           과제 설명
           <textarea
@@ -109,6 +111,7 @@ function RoomForm({ initial, onCreated }: { initial: RoomInput; onCreated: (room
           <span>–</span>
           <input className="field num" type="date" aria-label="마감일" value={input.dueDate} onChange={(e) => set('dueDate', e.target.value)} />
         </div>
+        <FieldError problem={problem} at="dates" />
         <span className={form.label}>팀원 수</span>
         <Segmented
           label="팀원 수"
@@ -117,11 +120,7 @@ function RoomForm({ initial, onCreated }: { initial: RoomInput; onCreated: (room
           format={(n) => `${n}명`}
           onChange={(n) => set('memberCount', n)}
         />
-        {error && (
-          <p className={form.error} role="alert">
-            {error}
-          </p>
-        )}
+        <FieldError problem={problem} at="end" />
       </section>
       <p className={`meta ${form.hint}`}>방을 만든 사람이 팀장이 되고, 회의 잡기는 팀장만 할 수 있어요.</p>
       <p className={`meta ${form.hint}`}>

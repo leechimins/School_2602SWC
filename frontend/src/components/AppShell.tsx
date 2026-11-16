@@ -3,7 +3,7 @@ import { Outlet, useLocation, useNavigationType } from 'react-router-dom'
 import { justBooted } from '../lib/boot.ts'
 import { visit } from '../lib/trail.ts'
 import TabBar from './TabBar.tsx'
-import WriteFailNotice from './WriteFailNotice.tsx'
+import Toast from './Toast.tsx'
 import styles from './AppShell.module.css'
 
 type Props = {
@@ -19,7 +19,7 @@ export default function AppShell({ tabs = true }: Props) {
     <div className={`${styles.app} ${entering ? styles.enter : ''}`}>
       <div className={styles.screen}>
         <Outlet />
-        <WriteFailNotice />
+        <Toast />
       </div>
       {tabs && <TabBar />}
     </div>

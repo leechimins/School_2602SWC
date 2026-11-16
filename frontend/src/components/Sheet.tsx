@@ -9,7 +9,7 @@ type Props = {
   onClose: () => void // Esc·바깥 누름
 }
 
-// 아래에서 올라오는 시트. 한 줄 입력·확인은 ConfirmSheet, 여러 칸을 고치는 폼은 이것을 쓴다.
+// 아래에서 올라오는 시트. 한 줄 입력은 InputSheet, 여러 칸을 고치는 폼은 이것을 쓴다.
 // 열 때만 그린다: {open && <Sheet ... />}
 export default function Sheet({ title, children, actions, onClose }: Props) {
   const ref = useRef<HTMLDialogElement>(null)

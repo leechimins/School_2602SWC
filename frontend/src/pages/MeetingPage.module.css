@@ -16,9 +16,23 @@
   color: var(--muted);
 }
 
+/* 주제 아래 요약: 구분선으로 나눠 한 카드에 둔다 */
+.minutes {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+/* 원문 펼치기: 버튼 대신 작은 글자 링크 */
+.rawToggle:global(.link) {
+  min-height: 28px;
+  margin-top: 6px;
+  font-size: var(--fs-meta);
+}
+
 /* 원문: 말한 사람 | 말 */
 .lines {
-  margin: 6px 0 0;
+  margin: 0;
   padding: 0;
   list-style: none;
 }
@@ -27,8 +41,13 @@
   display: grid;
   grid-template-columns: 34px 1fr;
   gap: 8px;
-  padding: 6px;
-  border-radius: var(--r-s);
+  padding: 2px 0;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.whole {
+  grid-column: 1 / -1;
 }
 
 .line b {

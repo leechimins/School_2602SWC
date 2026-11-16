@@ -37,10 +37,6 @@
   color: var(--point-ink);
 }
 
-.mine > :global(.meta) {
-  flex: none;
-}
-
 .other {
   display: grid;
   grid-template-columns: 28px 40px auto 1fr;
@@ -57,6 +53,7 @@
 /* 판단 근거 카드 맨 위: 판단 에이전트의 말. 노랑 글자로 AI가 한 말임을 보인다 */
 .judgeHead {
   margin: 0;
+  text-align: center;
   color: var(--sub-ink);
   font-size: 12px;
   font-weight: 700;

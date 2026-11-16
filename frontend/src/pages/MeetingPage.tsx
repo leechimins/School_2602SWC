@@ -5,7 +5,7 @@ import { getRoom } from '../api/rooms.ts'
 import { addTask, changeTaskStatus } from '../api/tasks.ts'
 import AddTaskCard from '../components/AddTaskCard.tsx'
 import Badge from '../components/Badge.tsx'
-import ConfirmSheet from '../components/ConfirmSheet.tsx'
+import ConfirmDialog from '../components/ConfirmDialog.tsx'
 import EmptyState from '../components/EmptyState.tsx'
 import RetryBox from '../components/RetryBox.tsx'
 import Screen from '../components/Screen.tsx'
@@ -17,12 +17,13 @@ import { useCurrentUser } from '../hooks/useCurrentUser.ts'
 import { useSummarize } from '../hooks/useSummarize.ts'
 import { formatDayLabel, formatMD, formatTimeRange } from '../lib/date.ts'
 import { attendeeNames } from '../lib/meeting.ts'
+import { showNotice } from '../lib/notice.ts'
 import { PATHS, pathTo } from '../lib/paths.ts'
 import type { MeetingDetail, Minutes } from '../types/meeting.ts'
 import type { Member } from '../types/room.ts'
 import styles from './MeetingPage.module.css'
 
-// 회의록: 주제 한 줄 → 원문(펼쳐 보기) → 요약(결정·논의·보류) → 회의에서 끝난 일 → 업무 배정 검토(할 일 제안) → 필요 없어 보이는 일.
+// 회의록: 주제 한 줄 + 요약(결정·논의·보류) + 원문(펼쳐 보기)을 한 카드에 → 회의에서 끝난 일 → 업무 배정 검토(할 일 제안) → 필요 없어 보이는 일.
 // 할 일 제안은 여기서만 보이고, 확정해야 할 일 탭에 들어간다.
 export default function MeetingPage() {
   const { meetingId = '' } = useParams()
@@ -55,17 +56,19 @@ function MeetingBody({ meeting: m, members }: { meeting: MeetingDetail; members:
           <span>{m.mode}</span>
           {attendees.length > 0 && <span>참석 {attendees.join(' · ')}</span>}
         </p>
+        {m.minutes && <MinutesGroups minutes={m.minutes} />}
         {recorded && (
-          <button type="button" className="btn small block" aria-expanded={showRaw} onClick={() => setShowRaw(!showRaw)}>
-            {showRaw ? '원문 접기' : `원문 전체 보기 (${m.transcript.length}줄)`}
+          <button type="button" className={`link ${styles.rawToggle}`} aria-expanded={showRaw} onClick={() => setShowRaw(!showRaw)}>
+            {showRaw ? '원문 접기' : `원문 보기 (${m.transcript.length}줄)`}
           </button>
         )}
         {showRaw && (
           <ol className={styles.lines}>
             {m.transcript.map((line) => (
               <li key={line.seq} className={styles.line}>
-                <b>{line.speakerName ?? '—'}</b>
-                <span>{line.text}</span>
+                {line.speakerName && <b>{line.speakerName}</b>}
+                {/* 말한 사람을 못 찾은 줄은 이름 칸 없이 말이 한 줄 전체를 쓴다 */}
+                <span className={line.speakerName ? undefined : styles.whole}>{line.text}</span>
               </li>
             ))}
           </ol>
@@ -80,10 +83,8 @@ function MeetingBody({ meeting: m, members }: { meeting: MeetingDetail; members:
             action={{ label: '회의 기록하기', to: pathTo.record(m.id) }}
           />
         </section>
-      ) : m.minutes ? (
-        <MinutesCard minutes={m.minutes} />
       ) : (
-        <SummarizeCard meetingId={m.id} />
+        !m.minutes && <SummarizeCard meetingId={m.id} />
       )}
 
       {m.doneTasks.length > 0 && (
@@ -118,11 +119,12 @@ const MINUTE_GROUPS = [
   ['보류', 'pendings'],
 ] as const
 
-function MinutesCard({ minutes }: { minutes: Minutes }) {
+// 주제 아래 구분선 다음에 이어 붙는 요약. 카드를 따로 두지 않는다
+function MinutesGroups({ minutes }: { minutes: Minutes }) {
   const groups = MINUTE_GROUPS.filter(([, key]) => minutes[key].length > 0)
   if (groups.length === 0) return null
   return (
-    <section className="sec">
+    <div className={styles.minutes}>
       {groups.map(([label, key]) => (
         <div key={key} className={styles.group}>
           <b>{label}</b>
@@ -133,7 +135,7 @@ function MinutesCard({ minutes }: { minutes: Minutes }) {
           ))}
         </div>
       ))}
-    </section>
+    </div>
   )
 }
 
@@ -170,9 +172,20 @@ function SummarizeCard({ meetingId }: { meetingId: string }) {
 function Review({ meeting: m, members }: { meeting: MeetingDetail; members: Member[] }) {
   const user = useCurrentUser()
   const [askingAll, setAskingAll] = useState(false)
-  const pending = m.suggestions.length
+  const [hidden, setHidden] = useState<string[]>([]) // 지웠지만 아직 되돌릴 수 있는 제안
+  const suggestions = m.suggestions.filter((g) => !hidden.includes(g.id))
+  const pending = suggestions.length
   const total = pending + m.tasks.length
-  const confirm = (ids: string[]) => confirmSuggestions(user.roomId, ids)
+  const confirm = (ids: string[]) =>
+    confirmSuggestions(user.roomId, ids).then(() => showNotice(ids.length > 1 ? `할 일 ${ids.length}개를 확정했어요` : '할 일로 확정했어요'))
+  // 제안 삭제는 묻지 않는다: 바로 숨기고 스낵바가 끝나면 실제로 지운다. [되돌리기]면 다시 보인다
+  const dismiss = (id: string) => {
+    setHidden((ids) => [...ids, id])
+    showNotice('제안을 삭제했어요', {
+      undo: () => setHidden((ids) => ids.filter((x) => x !== id)),
+      onExpire: () => void dismissSuggestion(user.roomId, id),
+    })
+  }
 
   return (
     <>
@@ -202,14 +215,14 @@ function Review({ meeting: m, members }: { meeting: MeetingDetail; members: Memb
           <p className="meta">이 회의에서 뽑은 할 일이 없어요. 필요하면 아래에서 직접 추가하세요.</p>
         </section>
       )}
-      {m.suggestions.map((g) => (
+      {suggestions.map((g) => (
         <SuggestionCard
           key={g.id}
           suggestion={g}
           members={members}
           onEdit={(patch) => editSuggestion(user.roomId, g.id, patch)}
           onConfirm={() => confirm([g.id])}
-          onDismiss={() => dismissSuggestion(user.roomId, g.id)}
+          onDismiss={() => dismiss(g.id)}
         />
       ))}
       {m.tasks.map((t) => (
@@ -224,7 +237,7 @@ function Review({ meeting: m, members }: { meeting: MeetingDetail; members: Memb
           </p>
         </article>
       ))}
-      <AddTaskCard label="+ 직접 추가" members={members} onAdd={(input) => addTask(user.roomId, input, m.id)} />
+      <AddTaskCard members={members} onAdd={(input) => addTask(user.roomId, input, m.id).then(() => showNotice('할 일을 추가했어요'))} />
       {pending > 0 && (
         <p className={`meta ${styles.foot}`}>
           확정 전 제안은 할 일 탭에 보이지 않아요.
@@ -232,14 +245,12 @@ function Review({ meeting: m, members }: { meeting: MeetingDetail; members: Memb
       )}
 
       {askingAll && (
-        <ConfirmSheet
-          title={`할 일 ${pending}개를 모두 확정할까요?`}
-          body="할 일 탭에 들어가요. 담당자가 없는 일은 '담당자 없음'으로 들어가요."
+        <ConfirmDialog
+          title={`할 일 ${pending}개를 확정할까요?`}
           okLabel="모두 확정"
-          irreversible={false}
-          onClose={({ ok }) => {
+          onClose={(ok) => {
             setAskingAll(false)
-            if (ok) confirm(m.suggestions.map((g) => g.id))
+            if (ok) confirm(suggestions.map((g) => g.id))
           }}
         />
       )}

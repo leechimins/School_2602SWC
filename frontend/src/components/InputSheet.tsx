@@ -1,21 +1,19 @@
 import { useEffect, useRef, useState } from 'react'
-import styles from './ConfirmSheet.module.css'
+import styles from './InputSheet.module.css'
 
-export type ConfirmResult = { ok: boolean; value: string }
+export type InputResult = { ok: boolean; value: string }
 
 type Props = {
-  title: string // "이 할 일을 삭제할까요?"
+  title: string // "회의 주제 입력"
   body?: string // 무엇을 하는지. 제목으로 충분하면 비운다
-  okLabel: string // 하는 일 이름: "삭제", "막힘으로 바꾸기"
-  danger?: boolean // 삭제류는 빨간 버튼
-  irreversible?: boolean // "되돌릴 수 없습니다" 안내
+  okLabel: string // 하는 일 이름: "기록 시작", "막힘으로 바꾸기"
   input?: { label: string; placeholder: string; required?: string } // 막힌 이유·피드백 한 줄. required는 비웠을 때 보일 안내
-  onClose: (result: ConfirmResult) => void
+  onClose: (result: InputResult) => void
 }
 
-// 다시 묻기 창: 아래에서 올라오는 시트. 되돌릴 수 없는 동작(삭제·발송)과 한 줄 입력이 필요한 동작에 쓴다.
-// 물을 때만 그린다: {asking && <ConfirmSheet ... onClose={...} />}
-export default function ConfirmSheet({ title, body, okLabel, danger = false, irreversible = true, input, onClose }: Props) {
+// 입력 시트: 한 줄 입력이 필요한 동작(회의 주제·막힌 이유·거절 이유)에 쓴다. 아래에서 올라와 키보드와 함께 보인다.
+// 입력 없이 묻기만 할 때는 ConfirmDialog. 물을 때만 그린다: {asking && <InputSheet ... onClose={...} />}
+export default function InputSheet({ title, body, okLabel, input, onClose }: Props) {
   const ref = useRef<HTMLDialogElement>(null)
   const [value, setValue] = useState('')
   const [missing, setMissing] = useState(false)
@@ -36,7 +34,6 @@ export default function ConfirmSheet({ title, body, okLabel, danger = false, irr
     <dialog ref={ref} className={styles.sheet} onCancel={() => close(false)}>
       <h2 className={styles.title}>{title}</h2>
       {body && <p>{body}</p>}
-      {irreversible && <p className="meta">되돌릴 수 없습니다.</p>}
       {input && (
         <input
           className={`field ${styles.input}`}
@@ -59,7 +56,7 @@ export default function ConfirmSheet({ title, body, okLabel, danger = false, irr
         <button type="button" className="btn quiet" onClick={() => close(false)}>
           취소
         </button>
-        <button type="button" className={`btn ${danger ? 'danger' : 'primary'}`} onClick={() => close(true)}>
+        <button type="button" className="btn primary" onClick={() => close(true)}>
           {okLabel}
         </button>
       </div>

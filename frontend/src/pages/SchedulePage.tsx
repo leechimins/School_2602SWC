@@ -6,7 +6,7 @@ import { getRoom } from '../api/rooms.ts'
 import { getSchedule } from '../api/scheduling.ts'
 import AiMark from '../components/AiMark.tsx'
 import Badge from '../components/Badge.tsx'
-import ConfirmSheet from '../components/ConfirmSheet.tsx'
+import InputSheet from '../components/InputSheet.tsx'
 import DateBlock from '../components/DateBlock.tsx'
 import EmptyState from '../components/EmptyState.tsx'
 import Icon from '../components/Icon.tsx'
@@ -227,10 +227,9 @@ function RecordNow({ todayMeeting }: { todayMeeting: MeetingBrief | null }) {
         </p>
       )}
       {asking && (
-        <ConfirmSheet
-          title="지금 회의를 기록할까요?"
+        <InputSheet
+          title="회의 주제 입력"
           okLabel="기록 시작"
-          irreversible={false}
           input={{ label: '회의 주제', placeholder: '예: 발표 순서 정하기', required: '회의 주제를 적어 주세요.' }}
           onClose={({ ok, value }) => {
             setAsking(false)

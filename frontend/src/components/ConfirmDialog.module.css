@@ -1,0 +1,33 @@
+/* 앱 틀 가운데 작은 창: 제목 | 취소 · 하는 일 */
+.dialog {
+  width: calc(100% - 48px);
+  max-width: 320px;
+  padding: 22px 18px 16px;
+  border: 0;
+  border-radius: var(--r-l);
+  background: var(--card);
+  color: var(--text);
+  text-align: center;
+}
+
+.dialog::backdrop {
+  background: rgb(0 0 0 / 0.45);
+}
+
+.title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.45;
+  word-break: keep-all;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.actions > :global(.btn) {
+  flex: 1;
+}

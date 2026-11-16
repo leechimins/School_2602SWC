@@ -1,4 +1,4 @@
-/* ConfirmSheet와 같은 모양. 폼이 길면 본문만 스크롤된다 */
+/* InputSheet와 같은 모양. 폼이 길면 본문만 스크롤된다 */
 .sheet {
   width: 100%;
   max-width: var(--app-width);

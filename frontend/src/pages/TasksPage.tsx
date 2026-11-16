@@ -11,6 +11,7 @@ import { AssigneeSelect } from '../components/TaskFields.tsx'
 import TaskRow from '../components/TaskRow.tsx'
 import { useApi } from '../hooks/useApi.ts'
 import { useCurrentUser } from '../hooks/useCurrentUser.ts'
+import { showNotice } from '../lib/notice.ts'
 import { PATHS } from '../lib/paths.ts'
 import type { Id } from '../types/common.ts'
 import type { Member } from '../types/room.ts'
@@ -40,7 +41,7 @@ function TeamTaskList({ data, members }: { data: TeamTasks; members: Member[] })
   const user = useCurrentUser()
   const [filter, setFilter] = useState<Filter>('전체')
   const [editingId, setEditingId] = useState<Id | null>(null)
-  const add = <AddTaskCard label="+ 할 일 추가" members={members} onAdd={(input) => addTask(user.roomId, input)} />
+  const add = <AddTaskCard members={members} onAdd={(input) => addTask(user.roomId, input).then(() => showNotice('할 일을 추가했어요'))} />
 
   if (data.tasks.length === 0) {
     return (
@@ -78,7 +79,7 @@ function TeamTaskList({ data, members }: { data: TeamTasks; members: Member[] })
           task={task}
           members={members}
           onSave={(patch) => editTask(user.roomId, task.id, patch)}
-          onDelete={() => dismissTask(user.roomId, task.id)}
+          onDelete={() => dismissTask(user.roomId, task.id).then(() => showNotice('할 일을 삭제했어요'))}
           onClose={() => setEditingId(null)}
         />
       ) : (
@@ -130,7 +131,7 @@ function TeamTaskList({ data, members }: { data: TeamTasks; members: Member[] })
       </div>
       {groups.map((g) => (
         <section key={g.id ?? 'none'} className="sec">
-          <span className="cat">
+          <span className={`cat ${styles.cat}`}>
             {nameOf(g.id)}
             {g.id === user.id && ' (나)'} <span className="n num">{g.tasks.length}</span>
           </span>

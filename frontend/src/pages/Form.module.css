@@ -61,8 +61,9 @@
   margin: 10px 18px 0;
 }
 
+/* 폼 안내 한 줄(FieldError). 입력 창(InputSheet)의 안내와 같은 간격 */
 .error {
-  margin-top: var(--gap-2);
+  margin-top: 6px;
   color: var(--danger);
   font-size: var(--fs-meta);
 }

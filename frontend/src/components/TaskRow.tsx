@@ -4,7 +4,7 @@ import { TASK_STATUS_TONE } from '../lib/tones.ts'
 import { TASK_STATUSES, type Task, type TaskStatus } from '../types/task.ts'
 import Badge from './Badge.tsx'
 import badge from './Badge.module.css'
-import ConfirmSheet from './ConfirmSheet.tsx'
+import InputSheet from './InputSheet.tsx'
 import styles from './TaskRow.module.css'
 
 type Props = {
@@ -125,11 +125,10 @@ export default function TaskRow({ task, onStatusChange, onEdit, meetingDone = fa
       </div>
       {children}
       {ui.askingBlocked && (
-        <ConfirmSheet
+        <InputSheet
           title="막힘으로 바꿀까요?"
           body="팀원에게 바로 알려요. 막힌 이유도 한 줄 남길 수 있어요."
           okLabel="막힘으로 바꾸기"
-          irreversible={false}
           input={{ label: '막힌 이유', placeholder: '예: 인터뷰 녹취가 아직 안 왔어요' }}
           onClose={({ ok, value }) => {
             send({ type: 'blocked/close' })

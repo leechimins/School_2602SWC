@@ -7,6 +7,7 @@ import { renameMe, signOut } from '../api/session.ts'
 import AgentQuote from '../components/AgentQuote.tsx'
 import Avatar from '../components/Avatar.tsx'
 import Badge from '../components/Badge.tsx'
+import ConfirmDialog from '../components/ConfirmDialog.tsx'
 import Icon from '../components/Icon.tsx'
 import PrefForm from '../components/PrefForm.tsx'
 import RetryBox from '../components/RetryBox.tsx'
@@ -22,6 +23,7 @@ import { useApi } from '../hooks/useApi.ts'
 import { useClock } from '../hooks/useClock.ts'
 import { useCurrentUser } from '../hooks/useCurrentUser.ts'
 import { formatRange, toIsoDate } from '../lib/date.ts'
+import { showNotice } from '../lib/notice.ts'
 import { PATHS } from '../lib/paths.ts'
 import type { Preferences, Recurrence, WeekBlock } from '../types/me.ts'
 import form from './Form.module.css'
@@ -36,7 +38,7 @@ export default function MePage() {
   const navigate = useNavigate()
   const [week, setWeek] = useState<(typeof WEEKS)[number]>('이번 주')
   const [adding, setAdding] = useState<Recurrence | null>(null) // 열린 일정 추가 시트
-  const [notice, setNotice] = useState<string | null>(null)
+  const [askingLogout, setAskingLogout] = useState(false)
   const [editingPrefs, setEditingPrefs] = useState(false)
   const [editingBlock, setEditingBlock] = useState<WeekBlock | null>(null)
   const [editingName, setEditingName] = useState(false)
@@ -49,7 +51,6 @@ export default function MePage() {
 
   const openAdd = (recurrence: Recurrence) => {
     setAdding(recurrence)
-    setNotice(null)
   }
 
   const logout = async () => {
@@ -102,11 +103,6 @@ export default function MePage() {
         {shown.status === 'error' && <RetryBox message={shown.message} onRetry={shown.reload} />}
         {shown.status === 'ready' && <WeekGrid blocks={shown.data.blocks} onEdit={setEditingBlock} />}
         {editingBlock && <ScheduleEditSheet block={editingBlock} onClose={() => setEditingBlock(null)} />}
-        {notice && (
-          <p className={`meta ${styles.notice}`} role="status">
-            {notice}
-          </p>
-        )}
       </section>
       {adding && (
         <ScheduleForm
@@ -114,16 +110,26 @@ export default function MePage() {
           onCancel={() => setAdding(null)}
           onSaved={(message) => {
             setAdding(null)
-            setNotice(message)
+            showNotice(message)
           }}
         />
       )}
 
       {room.status === 'error' && <RetryBox message={room.message} onRetry={room.reload} />}
       {room.status === 'ready' && <TeamSection room={room.data} />}
-      <button type="button" className="btn del block" onClick={logout}>
+      <button type="button" className="btn del block" onClick={() => setAskingLogout(true)}>
         로그아웃
       </button>
+      {askingLogout && (
+        <ConfirmDialog
+          title="로그아웃할까요?"
+          okLabel="로그아웃"
+          onClose={(ok) => {
+            setAskingLogout(false)
+            if (ok) logout()
+          }}
+        />
+      )}
     </Screen>
   )
 }
@@ -141,6 +147,7 @@ function NameSheet({ current, onClose }: { current: string; onClose: () => void 
     setError(null)
     try {
       await renameMe(trimmed)
+      showNotice('이름을 바꿨어요')
       onClose()
     } catch (e) {
       setError(messageOf(e))
@@ -198,6 +205,7 @@ function PrefSheet({ initial, onClose }: { initial: Preferences; onClose: () => 
     setError(null)
     try {
       await savePreferences(draft, 'me') // 저장되면 새 값으로 다시 불러와 위 에이전트 말이 바뀐다
+      showNotice('좋아하는 방식을 저장했어요')
       onClose()
     } catch (e) {
       setError(messageOf(e))
