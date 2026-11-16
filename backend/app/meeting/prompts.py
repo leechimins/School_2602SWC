@@ -45,13 +45,17 @@ def when(start_at, end_at) -> str:
     )
 
 
-def yield_step(total: int) -> str:
-    """누적 양보는 숫자로 내보내지 않는다(명세 권장 규칙 3). 단계로만 말한다."""
-    if total <= 0:
-        return "아직 없음"
-    if total <= 2:
+def yield_step(balance: float) -> str:
+    """양보 잔고를 말로. 숫자로 내보내지 않는다(명세 권장 규칙 3). 단계로만 말한다.
+
+    잔고는 "남보다 얼마나 더 참았나"다(agent_loop.yield_balances). 1.5 이상이면
+    회의 한 번을 많이 참은 것과 비슷하다.
+    """
+    if balance >= 1.5:
+        return "많이 맞춰 줌"
+    if balance > 0.25:
         return "조금 맞춰 줌"
-    return "많이 맞춰 줌"
+    return "아직 없음"
 
 
 @dataclass(frozen=True)

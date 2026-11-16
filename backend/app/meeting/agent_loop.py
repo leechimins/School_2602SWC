@@ -70,7 +70,7 @@ def run_rounds(db: Session, scheduling: Scheduling) -> Iterator[Utterance]:
     """
     assert scheduling.id is not None
     names = member_names(db, scheduling.room_id)
-    yields = yield_totals(db, scheduling.room_id)
+    yields = yield_balances(db, scheduling.room_id)
     members = sorted(names)
 
     # **이어 돌기.** 사람이 합의된 회의를 거절하면(rerun.reopen) 같은 조율을
@@ -374,6 +374,58 @@ def yield_totals(db: Session, room_id: int) -> dict[int, int]:
     """
     rows = db.exec(select(Membership).where(Membership.room_id == room_id)).all()
     return {m.user_id: m.yield_total for m in rows}
+
+
+def yield_balances(
+    db: Session, room_id: int, exclude_meeting_id: int | None = None
+) -> dict[int, float]:
+    """방 사람들의 양보 잔고. 후보 순서와 판단 에이전트의 말이 이걸 본다.
+
+    참으면 쌓이고 배려를 받으면 쓴다. 확정·완료된 회의마다 참석자 각자:
+        잔고 += 그 회의에서 받은 양보 점수 − 참석자 평균 양보 점수
+    남보다 더 참았으면 +, 덜 참았으면(배려를 받았으면) −. 팀 합은 늘 0이다.
+
+    yield_total(쌓이기만 하는 누적)을 쓰지 않는 이유: 한 학기 회의가 10번을
+    넘으면 전원이 가중 상한에 닿아 차이가 사라진다(docs/benchmark.md).
+
+    DB에 따로 두지 않고 기록(yield_entry · meeting_response)에서 계산한다.
+    음수·소수를 담으려면 membership 열을 바꿔야 해서다. 회의 수가 학기에
+    수십 건이라 매번 계산해도 가볍다.
+    """
+    balances = {uid: 0.0 for uid in yield_totals(db, room_id)}
+    meeting_ids = list(
+        db.exec(
+            select(Meeting.id).where(
+                Meeting.room_id == room_id,
+                col(Meeting.status).in_([MeetingStatus.CONFIRMED, MeetingStatus.DONE]),
+                # 설명(why.py)은 "그 회의를 고를 때"의 잔고를 봐야 해서 그 회의를 뺀다
+                Meeting.id != (exclude_meeting_id or 0),
+            )
+        ).all()
+    )
+    if not meeting_ids:
+        return balances
+    attendees: dict[int, set[int]] = {}
+    for meeting_id, user_id in db.exec(
+        select(MeetingResponse.meeting_id, MeetingResponse.user_id).where(
+            col(MeetingResponse.meeting_id).in_(meeting_ids),
+            MeetingResponse.state != ResponseState.DECLINED,
+        )
+    ).all():
+        attendees.setdefault(meeting_id, set()).add(user_id)
+    points: dict[int, dict[int, int]] = {}
+    for meeting_id, user_id, p in db.exec(
+        select(YieldEntry.meeting_id, YieldEntry.user_id, YieldEntry.points).where(
+            col(YieldEntry.meeting_id).in_(meeting_ids)
+        )
+    ).all():
+        points.setdefault(meeting_id, {})[user_id] = p
+    for meeting_id, people in attendees.items():
+        got = points.get(meeting_id, {})
+        mean = sum(got.get(uid, 0) for uid in people) / len(people)
+        for uid in people:
+            balances[uid] = balances.get(uid, 0.0) + got.get(uid, 0) - mean
+    return balances
 
 
 def _scored(
