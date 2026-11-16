@@ -11,10 +11,10 @@ import { withJosa } from '../lib/korean.ts'
 import { PATHS } from '../lib/paths.ts'
 import styles from './ActivityPage.module.css'
 
-const TABS = ['한 일', '양보'] as const
+const TABS = ['조율 기록', '양보'] as const
 type Tab = (typeof TABS)[number]
 
-// 에이전트 기록: 에이전트가 무엇을 왜 했는지(한 일)와 누가 시간을 맞춰 줬는지(양보).
+// 에이전트 기록: 에이전트가 무엇을 왜 했는지(조율 기록)와 누가 시간을 맞춰 줬는지(양보).
 // 알림 화면 아래(/notifications/activity)와 My 탭 팀원 묶음의 "양보 기록 보기"(/me/activity?tab=yield)에서 들어온다. 주소가 둘이라 들어온 탭이 그대로 켜진다.
 // 알림은 "먼저 챙길 것"만 두고, 쌓이는 기록은 여기서 본다.
 export default function ActivityPage() {
@@ -22,7 +22,7 @@ export default function ActivityPage() {
   const res = useApi(() => getActivity(user.roomId), [user.roomId, user.id])
   // 탭은 주소(?tab=yield)에 둔다. My의 "양보 기록 보기"가 양보 탭으로 바로 연다
   const [params, setParams] = useSearchParams()
-  const tab: Tab = params.get('tab') === 'yield' ? '양보' : '한 일'
+  const tab: Tab = params.get('tab') === 'yield' ? '양보' : '조율 기록'
   const setTab = (t: Tab) => setParams(t === '양보' ? { tab: 'yield' } : {}, { replace: true })
   const fromMe = useLocation().pathname.startsWith(PATHS.me)
 
@@ -32,10 +32,10 @@ export default function ActivityPage() {
         <Segmented label="기록 종류" options={TABS} value={tab} onChange={setTab} />
       </div>
       {res.status === 'error' && <RetryBox message={res.message} onRetry={res.reload} />}
-      {res.status === 'ready' && tab === '한 일' && (
+      {res.status === 'ready' && tab === '조율 기록' && (
         <section className="sec">
           {res.data.agentLog.length === 0 ? (
-            <EmptyState title="아직 에이전트가 한 일이 없어요" description="회의를 잡으면 에이전트가 한 일을 여기 남겨요." />
+            <EmptyState title="아직 조율 기록이 없어요" description="회의를 잡으면 에이전트가 무엇을 왜 했는지 여기 남겨요." />
           ) : (
             res.data.agentLog.map((a) => (
               // 무엇을 했나(제안·다시 조율·확정) 아래에 왜 그랬는지 한 줄

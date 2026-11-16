@@ -12,7 +12,7 @@ import { PATHS, pathTo } from '../lib/paths.ts'
 import type { Notice } from '../types/notification.ts'
 import styles from './NotificationsPage.module.css'
 
-// 알림(홈 오른쪽 위 종): 챙길 일(늦음 → 막힘 → 완료 → 회의). 에이전트 기록(한 일·양보)은 아래 줄로 따로 연다.
+// 알림(홈 오른쪽 위 종): 챙길 일(늦음 → 막힘 → 완료 → 회의). 에이전트 기록(조율 기록·양보)은 아래 줄로 따로 연다.
 // 이동 버튼을 누르거나 "모두 읽음"을 누르면 읽음으로 바뀌고 홈 종의 숫자가 줄어든다.
 export default function NotificationsPage() {
   const user = useCurrentUser()

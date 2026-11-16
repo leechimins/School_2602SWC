@@ -74,7 +74,7 @@ export default function MePage() {
         </div>
         {prefs.status === 'ready' && (
           <button type="button" className={`btn small ${styles.prefBtn}`} onClick={() => setEditingPrefs(true)}>
-            좋아하는 방식 바꾸기
+            선호 시간 변경하기
           </button>
         )}
       </div>
