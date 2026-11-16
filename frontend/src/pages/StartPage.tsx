@@ -134,7 +134,8 @@ function RoomForm({ initial, onCreated }: { initial: RoomInput; onCreated: (room
   )
 }
 
-// 만든 뒤: 초대 코드를 보내고 내 조건 알려 주기(온보딩)로 넘어간다
+// 만든 뒤: 초대 코드를 보내고 내 조건 알려 주기(온보딩)로 넘어간다.
+// 홈으로 바로 가는 버튼은 두지 않는다: 팀장이 온보딩을 모르고 건너뛰게 된다. 건너뛰기는 온보딩의 "나중에 하기"로 한다
 function Created({ room }: { room: Room }) {
   const [copied, setCopied] = useState(false)
   const copy = async () => {
@@ -151,10 +152,7 @@ function Created({ room }: { room: Room }) {
       title="방을 만들었어요"
       dock={
         <div className="btn-row">
-          <Link to={PATHS.home} className="btn quiet">
-            홈으로
-          </Link>
-          <Link to={PATHS.onboarding} className="btn primary">
+          <Link to={PATHS.onboarding} replace className="btn primary">
             다음: 내 조건 알려 주기
           </Link>
         </div>
