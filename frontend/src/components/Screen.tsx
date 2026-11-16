@@ -16,11 +16,13 @@ type Props = {
   hero?: ReactNode
   /** 탭 바로 위에 붙는 하단 고정 영역 (주요 행동 버튼) */
   dock?: ReactNode
+  /** 하단 고정 영역을 흰 판 없이 버튼만 띄운다(버튼 하나뿐인 폼) */
+  bareDock?: boolean
   children: ReactNode
 }
 
 // 화면 한 장의 틀: 상단 제목줄 → 스크롤되는 본문 → 하단 고정 영역
-export default function Screen({ title, backTo, onBack, aux, hero, dock, children }: Props) {
+export default function Screen({ title, backTo, onBack, aux, hero, dock, bareDock = false, children }: Props) {
   const navigate = useNavigate()
   // 왔던 화면으로 간다(lib/trail.ts). 누를 때 꺼내야 방금 바뀐 주소까지 반영된다
   const goBack = () => {
@@ -49,7 +51,8 @@ export default function Screen({ title, backTo, onBack, aux, hero, dock, childre
         {children}
       </main>
       {dock && (
-        <div className={styles.dock} data-dock>
+        // 흰 판이 있을 때만 data-dock: 탭 바가 그 판에 선 하나로 이어 붙는다(TabBar.module.css)
+        <div className={bareDock ? styles.bare : styles.dock} data-dock={bareDock ? undefined : true}>
           {dock}
         </div>
       )}

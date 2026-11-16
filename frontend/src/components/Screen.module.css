@@ -54,3 +54,8 @@
   border-radius: 20px 20px 0 0;
   box-shadow: 0 -4px 18px rgb(60 60 160 / 0.08);
 }
+
+/* 흰 판 없는 하단 영역: 보라 버튼만 본문 바탕 위에 뜬다 */
+.bare {
+  padding: 8px 12px 12px;
+}

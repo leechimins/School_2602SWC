@@ -85,6 +85,7 @@ function SchedulingForm({ room }: { room: Room }) {
     <Screen
       title="회의 잡기"
       backTo={PATHS.home}
+      bareDock
       dock={
         <div className="btn-row">
           <button type="button" className="btn primary" disabled={starting} onClick={start}>

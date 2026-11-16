@@ -37,10 +37,6 @@
   color: var(--point-ink);
 }
 
-.mine > :global(.meta) {
-  flex: none;
-}
-
 .other {
   display: grid;
   grid-template-columns: 28px 40px auto 1fr;
@@ -57,6 +53,7 @@
 /* 판단 근거 카드 맨 위: 판단 에이전트의 말. 노랑 글자로 AI가 한 말임을 보인다 */
 .judgeHead {
   margin: 0;
+  text-align: center;
   color: var(--sub-ink);
   font-size: 12px;
   font-weight: 700;
@@ -100,4 +97,20 @@
 .center {
   margin-top: var(--gap-2);
   text-align: center;
+}
+
+/* 조정안 의견을 보낸 뒤: 뱃지 | 남긴 말 (말은 연한 말풍선) */
+.sent {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+}
+
+.sentText {
+  min-width: 0;
+  padding: 6px 12px;
+  border-radius: 14px;
+  background: var(--soft);
+  font-size: var(--fs-body);
 }

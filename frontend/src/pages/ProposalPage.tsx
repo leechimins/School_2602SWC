@@ -10,6 +10,7 @@ import Screen from '../components/Screen.tsx'
 import { useApi } from '../hooks/useApi.ts'
 import { useCurrentUser } from '../hooks/useCurrentUser.ts'
 import { formatSlot } from '../lib/date.ts'
+import { showNotice } from '../lib/notice.ts'
 import { PATHS, pathTo } from '../lib/paths.ts'
 import { BURDEN_LABEL, BURDEN_TONE } from '../lib/tones.ts'
 import type { Id } from '../types/common.ts'
@@ -82,7 +83,6 @@ function Reasons({ proposal: p, viewerId }: { proposal: Proposal; viewerId: Id }
   const others = p.responders.filter((r) => r.userId !== viewerId)
   return (
     <section className="sec">
-      <h2>판단 근거</h2>
       <p className={styles.judgeHead}>⚖ 판단 에이전트 (중립)</p>
       <p className={styles.judgeSay}>{p.rationale}</p>
       <div className={styles.mine}>
@@ -93,7 +93,6 @@ function Reasons({ proposal: p, viewerId }: { proposal: Proposal; viewerId: Id }
             내 불편 <span className={`num ${styles.score}`}>{p.myScore}/5</span> · {p.myReason}
           </p>
         )}
-        <span className="meta">나만 보여요</span>
       </div>
       {others.map((r) => (
         <div key={r.userId} className={styles.other}>
@@ -144,11 +143,21 @@ function SettledFeedback({ proposal: p, roomId }: { proposal: Proposal; roomId: 
   const [sent, setSent] = useState(false)
   const send = () =>
     respondProposal(roomId, p.id, { accept: true, feedback: text.trim() || null }).then(
-      () => setSent(true),
+      () => {
+        setSent(true)
+        showNotice(text.trim() ? '의견을 남겼어요' : '확인했어요')
+      },
       (e: unknown) => setError(messageOf(e)),
     )
 
-  if (sent) return <p className="meta">의견을 남겼어요: “{text.trim()}”</p>
+  if (sent) {
+    return (
+      <div className={styles.sent}>
+        <Badge tone="ok">{text.trim() ? '의견 남김' : '확인함'}</Badge>
+        {text.trim() && <span className={styles.sentText}>{text.trim()}</span>}
+      </div>
+    )
+  }
 
   return (
     <>
