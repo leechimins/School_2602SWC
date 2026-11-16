@@ -2,7 +2,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 18px 4px;
+  padding: 10px 29px 4px; /* 카드 안 글자(12px 바깥 + 17px 안쪽)와 왼쪽 끝을 맞춘다 */
 }
 
 .name {
@@ -38,10 +38,4 @@
   border-radius: var(--r);
   background: none;
   color: var(--muted);
-}
-
-/* 프로필 줄 오른쪽 끝 */
-.prefBtn {
-  margin-left: auto;
-  flex-shrink: 0;
 }

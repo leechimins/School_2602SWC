@@ -18,11 +18,11 @@ export default function TeamSection({ room }: { room: Room }) {
           <h2>
             팀원{' '}
             <span className="meta num">
-              {room.joinedCount}/{room.memberCount} 들어옴
+              {room.joinedCount}/{room.memberCount}
             </span>
           </h2>
-          <Link to={`${PATHS.meActivity}?tab=yield`} className="btn small">
-            양보 기록 보기
+          <Link to={`${PATHS.meActivity}?tab=yield`} className={`link ${styles.headLink}`}>
+            양보 기록
           </Link>
         </div>
         <ul className={styles.list}>
@@ -38,7 +38,7 @@ export default function TeamSection({ room }: { room: Room }) {
               </span>
               <span className={styles.yield}>
                 <YieldSteps level={m.yieldLevel} />
-                <span className="meta">{m.yieldLevel}</span>
+                {m.yieldLevel !== '아직 없음' && <span className="meta">{m.yieldLevel}</span>}
               </span>
             </li>
           ))}

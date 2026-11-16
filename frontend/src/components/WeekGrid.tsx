@@ -21,10 +21,9 @@ function rangeOf(blocks: WeekBlock[]): [number, number] {
 type Look = 'class' | 'google' | 'manual' | 'meeting' | 'waiting'
 const lookOf = (b: WeekBlock): Look => (b.kind === 'event' ? (b.source === 'google' ? 'google' : 'manual') : b.kind)
 
+// 범례는 수업 · 팀 회의 · 회의 대기만. 구글·직접 넣은 일정은 칸에 제목이 보여서 따로 적지 않는다
 const LEGEND: [Look, string][] = [
   ['class', '수업'],
-  ['google', '캘린더'],
-  ['manual', '직접 추가'],
   ['meeting', '팀 회의'],
   ['waiting', '회의 대기'],
 ]

@@ -1,6 +1,7 @@
+/* 다른 카드(.sec)와 같은 바깥 여백·안쪽 여백이라 글자 왼쪽 끝이 맞는다 */
 .quote {
-  margin: 8px 12px 0;
-  padding: 10px 12px;
+  margin: 12px 12px 0;
+  padding: 15px 17px;
   border-radius: var(--r-l);
   background: var(--sub-soft);
 }
@@ -14,7 +15,7 @@
   font-weight: 700;
 }
 
-.quote > p:last-child {
+.quote > :last-child {
   margin-top: 2px;
   font-weight: 500;
 }
@@ -22,4 +23,11 @@
 .quote em {
   font-style: normal;
   font-weight: 700;
+}
+
+/* 제목 옆 "바꾸기": 다른 카드 제목 줄의 오른쪽 링크와 같은 크기 */
+.edit {
+  min-height: 0;
+  color: var(--sub-ink);
+  font-size: var(--fs-meta);
 }

@@ -5,10 +5,10 @@ import styles from './AgentQuote.module.css'
 // 방식은 고르지 않았으면(null) 상관없음과 같다. 세 경우 모두 한 문장이 나온다
 const MODE_TEXT = { 대면: '대면 회의', 비대면: '비대면 회의', 상관없음: '대면·비대면 모두' } as const
 
-type Props = { name: string; prefs: Preferences }
+type Props = { name: string; prefs: Preferences; onEdit?: () => void } // onEdit을 주면 제목 옆에 "바꾸기"
 
 // 내 에이전트가 조율에서 할 말. 조건 네 가지를 정해진 틀에 그대로 끼워 만든다(조건마다 한 문장, 고른 것만)
-export default function AgentQuote({ name, prefs }: Props) {
+export default function AgentQuote({ name, prefs, onEdit }: Props) {
   const { fromHour, toHour, mode, dayparts, avoid } = prefs
   const avoidText = avoid.trim().replace(/\.$/, '')
   // "화요일 오전은 어려워요"처럼 문장으로 썼으면 그대로, "화요일 오전"처럼 때만 썼으면 "…은 피하고 싶어요"를 붙인다
@@ -46,9 +46,14 @@ export default function AgentQuote({ name, prefs }: Props) {
 
   return (
     <div className={styles.quote}>
-      <p className={styles.head}>
+      <div className={`row-between ${styles.head}`}>
         <b>내 에이전트가 이렇게 말해요</b>
-      </p>
+        {onEdit && (
+          <button type="button" className={`link ${styles.edit}`} onClick={onEdit}>
+            바꾸기
+          </button>
+        )}
+      </div>
       <p>
         {sentences.length === 0 ? (
           '아직 고른 조건이 없어요. 조건이 없으면 비어 있는 시간 중에서 골라요.'

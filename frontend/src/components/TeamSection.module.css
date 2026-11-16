@@ -54,3 +54,10 @@
   font-weight: 800;
   letter-spacing: 0.08em;
 }
+
+/* 카드 제목 줄 오른쪽 링크: 다른 카드와 같은 크기 */
+.headLink {
+  min-height: 0;
+  margin-bottom: 6px; /* 왼쪽 제목(.sec h2)의 아래 여백만큼 내려 같은 줄에 */
+  font-size: var(--fs-meta);
+}

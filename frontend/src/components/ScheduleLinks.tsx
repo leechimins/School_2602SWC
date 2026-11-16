@@ -1,14 +1,14 @@
-import { useRef, useState, type ChangeEvent } from 'react'
+import { useRef, useState, type ChangeEvent, type CSSProperties, type ReactNode } from 'react'
 import { ApiError, messageOf } from '../api/client.ts'
 import { connectEverytime, connectGoogle, readEverytimeCapture } from '../api/me.ts'
 import type { CapturedClass, LinkResult, Recurrence, WeekBlock } from '../types/me.ts'
-import Badge from './Badge.tsx'
 import CaptureSheet from './CaptureSheet.tsx'
 import styles from './ScheduleLinks.module.css'
 
 type Props = {
   blocks: WeekBlock[] // 이번 주 내 시간표. 어디서 온 일정이 있는지로 연결 여부를 본다
-  onAdd: (recurrence: Recurrence) => void // "직접 추가"를 누르면 그 묶음(매주 반복·한 번만)의 추가 시트를 연다
+  onAdd: (recurrence: Recurrence) => void // 일정 추가 시트를 연다. 시트 안에서 한 번만·매주 반복을 바꿀 수 있다
+  title?: string // 주면 카드 제목 줄(제목 | 연결 수)을 그린다. My 탭이 쓴다
   showLock?: boolean // 바쁨/비어 있음 안내. My 탭에서는 끈다
 }
 
@@ -16,13 +16,15 @@ type Reading = { state: 'idle' } | { state: 'reading' } | { state: 'ok' | 'fail'
 // 에타 결과에만 붙는 덧말. past: 지난 학기 시간표라 이번 학기 링크를 다시 받는다 / manual: 서버에 연동이 없어 다시 하기 대신 직접 추가로
 type EtNote = 'past' | 'manual' | null
 
-// 내 일정 가져오기: 두 묶음 × 두 방식 [연동 / 직접 추가]. 묶음 제목이 카드 제목을 대신하고,
-// 연동이 먼저라 연동은 줄로, 직접 추가는 제목 오른쪽 작은 링크로 둔다
-//   반복 일정(매주)   — 에브리타임 공유 링크 또는 시간표 캡처(수업) / 직접 추가(알바처럼 매주 있는 일)
-//   일회성 일정(그날) — 구글 캘린더(약속)         / 직접 추가(그날만 있는 일)
-// 아직 아무것도 없으면 설명 문구 없이 제목과 버튼만 보인다
-export default function ScheduleLinks({ blocks, onAdd, showLock = true }: Props) {
+// 일정 가져오기: 위에 연결 수와 막대(연동 두 개 중 몇 개), 아래 설정 목록 세 줄.
+// 줄 왼쪽 점이 연결 상태다 — 채운 점 = 연결됨, 빈 점 = 아직. 줄 전체를 누른다
+//   에브리타임 시간표: 누르면 그 아래에 링크 칸 · 캡처로 올리기가 열린다
+//   구글 캘린더: 누르면 구글 연결 팝업. 연결되면 "연결됨"
+//   일정 추가: 누르면 시트(한 번만 / 매주 반복)
+// 성공·실패 문구는 그 줄 아래 한 줄로 보인다
+export default function ScheduleLinks({ blocks, onAdd, title, showLock = true }: Props) {
   const [url, setUrl] = useState('')
+  const [etOpen, setEtOpen] = useState(false)
   const [et, setEt] = useState<Reading>({ state: 'idle' })
   const [etNote, setEtNote] = useState<EtNote>(null)
   const [gc, setGc] = useState<Reading>({ state: 'idle' })
@@ -35,6 +37,8 @@ export default function ScheduleLinks({ blocks, onAdd, showLock = true }: Props)
   const showLoaded = ({ count, term, termState }: LinkResult) => {
     setEt({ state: 'ok', message: `${term ? `${term} ` : ''}수업 ${count}개를 가져왔어요` })
     if (termState === 'past') setEtNote('past')
+    setEtOpen(false)
+    setUrl('')
   }
   const loadEverytime = async () => {
     setEt({ state: 'reading' })
@@ -72,78 +76,85 @@ export default function ScheduleLinks({ blocks, onAdd, showLock = true }: Props)
       setGc({ state: 'fail', message: messageOf(e) })
     }
   }
+  const etOn = classCount > 0 || et.state === 'ok'
   const googleOn = googleCount > 0 || gc.state === 'ok' // 이번 주에 약속이 없어도 방금 연결했으면 켜짐
+  const linked = Number(etOn) + Number(googleOn)
+
+  const etNotes = (et.state === 'ok' || et.state === 'fail' || etNote) && (
+    <>
+      {note(et)}
+      {etNote === 'past' && (
+        <span className={styles.warn} role="alert">
+          지난 학기 시간표예요. 이번 학기 시간표 링크를 넣어 주세요.
+        </span>
+      )}
+      {etNote === 'manual' && (
+        <button type="button" className={`link ${styles.inline}`} onClick={() => onAdd('weekly')}>
+          수업 직접 넣기
+        </button>
+      )}
+    </>
+  )
 
   return (
     <>
-      <GroupHead title="반복 일정" onAdd={() => onAdd('weekly')} />
-      {/* 다른 줄처럼 이름 | 오른쪽 뱃지, 링크 칸은 그 아래 한 줄 전체 */}
-      <div className={styles.row}>
-        <div>
-          <p className="strong">에브리타임 시간표</p>
-          {classCount > 0 && <p className="meta">수업 {classCount}개 · 다시 넣으면 새로 바뀌어요</p>}
+      {title && (
+        <div className="row-between">
+          <h2>{title}</h2>
+          <span className={`num ${styles.count}`}>
+            <b>{linked}</b>/2 연결
+          </span>
         </div>
-        {classCount > 0 && <Badge tone="ok">가져옴</Badge>}
-        <div className={styles.full}>
-          <div className={styles.input}>
-            <input
-              className="field num"
-              value={url}
-              placeholder="에타 시간표 → 공유 → 링크 복사"
-              aria-label="에브리타임 공유 링크"
-              onChange={(e) => setUrl(e.target.value)}
-            />
-            <button type="button" className="btn small" disabled={!url.trim() || et.state === 'reading'} onClick={loadEverytime}>
-              불러오기
-            </button>
-          </div>
-          <button
-            type="button"
-            className={`link ${styles.capture}`}
-            disabled={et.state === 'reading'}
-            onClick={() => fileRef.current?.click()}
-          >
-            캡처로 올리기
-          </button>
-          <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={readCapture} />
-          {et.state === 'reading' && <p className={`meta ${styles.msg}`}>시간표를 읽는 중이에요…</p>}
-          {(et.state === 'ok' || et.state === 'fail') && (
-            <p className={`${styles.msg} ${et.state === 'fail' ? styles.bad : ''}`} role={et.state === 'fail' ? 'alert' : 'status'}>
-              {et.message}
-            </p>
-          )}
-          {etNote === 'past' && (
-            <p className={`${styles.msg} ${styles.warn}`} role="alert">
-              지난 학기 시간표예요. 이번 학기 시간표 링크를 넣어 주세요.
-            </p>
-          )}
-          {etNote === 'manual' && (
-            <button type="button" className={`link ${styles.msg}`} onClick={() => onAdd('weekly')}>
-              수업 직접 넣기
-            </button>
-          )}
-        </div>
+      )}
+      {/* 연결 막대: 연동 두 개 중 몇 개. 덜 찬 칸이 "아직 남았다"를 보여 준다 */}
+      <div className={styles.bar} role="img" aria-label={`연동 2개 중 ${linked}개 연결`}>
+        <i style={{ '--fill': `${(linked / 2) * 100}%` } as CSSProperties} />
       </div>
 
-      <GroupHead title="일회성 일정" onAdd={() => onAdd('once')} />
-      <div className={styles.row}>
-        <div>
-          <p className="strong">구글 캘린더</p>
-          {gc.state === 'reading' && <p className={`meta ${styles.msg}`}>구글 창에서 허락하면 약속을 읽어 와요…</p>}
-          {(gc.state === 'ok' || gc.state === 'fail') && (
-            <p className={`${styles.msg} ${gc.state === 'fail' ? styles.bad : ''}`} role={gc.state === 'fail' ? 'alert' : 'status'}>
-              {gc.message}
-            </p>
+      <ul className={styles.list}>
+        <Row
+          dot={etOn ? 'on' : 'off'}
+          title="에브리타임 시간표"
+          value={et.state === 'reading' ? '읽는 중…' : classCount > 0 ? `수업 ${classCount}개` : '가져오기'}
+          on={etOn}
+          expanded={etOpen}
+          onPress={() => setEtOpen(!etOpen)}
+          note={etNotes}
+        >
+          {etOpen && (
+            <>
+              <div className={styles.input}>
+                <input
+                  className="field num"
+                  value={url}
+                  placeholder="에타 시간표 → 공유 → 링크 복사"
+                  aria-label="에브리타임 공유 링크"
+                  autoFocus
+                  onChange={(e) => setUrl(e.target.value)}
+                />
+                <button type="button" className="btn small primary" disabled={!url.trim() || et.state === 'reading'} onClick={loadEverytime}>
+                  불러오기
+                </button>
+              </div>
+              <button type="button" className={`link ${styles.inline}`} disabled={et.state === 'reading'} onClick={() => fileRef.current?.click()}>
+                캡처로 올리기
+              </button>
+            </>
           )}
-        </div>
-        {googleOn ? (
-          <Badge tone="ok">켜짐</Badge>
-        ) : (
-          <button type="button" className="btn small" disabled={gc.state === 'reading'} onClick={linkGoogle}>
-            연결
-          </button>
-        )}
-      </div>
+        </Row>
+
+        <Row
+          dot={googleOn ? 'on' : 'off'}
+          title="구글 캘린더"
+          value={gc.state === 'reading' ? '연결 중…' : googleOn ? '연결됨' : '연결 안 됨'}
+          on={googleOn}
+          onPress={googleOn || gc.state === 'reading' ? undefined : linkGoogle}
+          note={note(gc)}
+        />
+
+        <Row dot="add" title="일정 추가" value={null} mark="" onPress={() => onAdd('once')} />
+      </ul>
+      <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={readCapture} />
 
       {captured && (
         <CaptureSheet
@@ -158,22 +169,61 @@ export default function ScheduleLinks({ blocks, onAdd, showLock = true }: Props)
 
       {showLock && (
         <p className={styles.lock}>
-          팀원에게는 <b>바쁨 / 비어 있음</b>만 보여요. 약속 이름은 아무도 못 봐요.
+          팀원에게는 <b>바쁨 / 비어 있음</b>만 보여요. 약속 이름은 나만 봐요.
         </p>
       )}
     </>
   )
 }
 
-// 묶음 제목(카드 제목 크기) | 오른쪽 "직접 추가". 연동이 먼저고 직접 추가는 보조라 제목 옆 작은 링크로 둔다.
-// 넣은 일정은 위 시간표에 보이므로 여기 다시 늘어놓지 않는다
-function GroupHead({ title, onAdd }: { title: string; onAdd: () => void }) {
+// 줄 아래 한 줄: 방금 성공·실패한 문구
+function note(r: Reading): ReactNode {
+  if (r.state === 'fail')
+    return (
+      <span className={styles.bad} role="alert">
+        {r.message}
+      </span>
+    )
+  if (r.state === 'ok') return <span role="status">{r.message}</span>
+  return null
+}
+
+type RowProps = {
+  dot: 'on' | 'off' | 'add' // 왼쪽 표시: 채운 점(연결됨) · 빈 점(아직) · +(추가)
+  title: string
+  value: string | null // 오른쪽 상태 글자
+  on?: boolean // 연결돼 있으면 상태 글자를 포인트색으로
+  mark?: string // 오른쪽 끝 표시. 기본 ›
+  expanded?: boolean
+  onPress?: () => void // 없으면 누를 수 없는 줄(이미 연결됨)
+  note?: ReactNode
+  children?: ReactNode
+}
+
+function Row({ dot, title, value, on = false, mark = '›', expanded, onPress, note, children }: RowProps) {
+  const inner = (
+    <>
+      <span className={styles.dot} data-k={dot} aria-hidden="true">
+        {dot === 'add' ? '+' : ''}
+      </span>
+      <span className={`strong ${styles.title}`}>{title}</span>
+      {value && <span className={`${styles.value} ${on ? styles.on : ''}`}>{value}</span>}
+      <span className={styles.mark} aria-hidden="true">
+        {onPress ? mark : ''}
+      </span>
+    </>
+  )
   return (
-    <div className={`row-between ${styles.group}`}>
-      <h2>{title}</h2>
-      <button type="button" className="link" onClick={onAdd}>
-        직접 추가
-      </button>
-    </div>
+    <li className={styles.item}>
+      {onPress ? (
+        <button type="button" className={styles.row} aria-expanded={expanded} onClick={onPress}>
+          {inner}
+        </button>
+      ) : (
+        <div className={styles.row}>{inner}</div>
+      )}
+      {note && <div className={styles.note}>{note}</div>}
+      {children && <div className={styles.full}>{children}</div>}
+    </li>
   )
 }

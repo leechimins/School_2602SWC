@@ -29,7 +29,8 @@ import styles from './MePage.module.css'
 
 const WEEKS = ['이번 주', '다음 주'] as const
 
-// My 탭: 내 에이전트가 할 말(+ 좋아하는 방식 바꾸기 시트) · 내 일정 가져오기 · 내 시간(주간 시간표) · 팀 · 로그아웃
+// My 탭: 내 에이전트가 할 말(제목 옆 바꾸기 → 좋아하는 방식 시트) · 일정 가져오기 · 내 시간표(주간) · 팀 · 로그아웃
+// 카드 제목 줄은 모두 같은 규칙: 왼쪽 제목 | 오른쪽 작은 글자(정보는 회색, 할 일은 링크) 하나
 export default function MePage() {
   const user = useCurrentUser()
   const now = useClock()
@@ -71,11 +72,6 @@ export default function MePage() {
           </p>
           {room.status === 'ready' && <p className="meta">{room.data.name}</p>}
         </div>
-        {prefs.status === 'ready' && (
-          <button type="button" className={`btn small ${styles.prefBtn}`} onClick={() => setEditingPrefs(true)}>
-            좋아하는 방식 바꾸기
-          </button>
-        )}
       </div>
 
       {editingName && <NameSheet current={user.name} onClose={() => setEditingName(false)} />}
@@ -83,19 +79,19 @@ export default function MePage() {
       {prefs.status === 'error' && <RetryBox message={prefs.message} onRetry={prefs.reload} />}
       {prefs.status === 'ready' && (
         <>
-          <AgentQuote name={user.name} prefs={prefs.data} />
+          <AgentQuote name={user.name} prefs={prefs.data} onEdit={() => setEditingPrefs(true)} />
           {editingPrefs && <PrefSheet initial={prefs.data} onClose={() => setEditingPrefs(false)} />}
         </>
       )}
 
       <section className="sec">
         {thisWeek.status === 'error' && <RetryBox message={thisWeek.message} onRetry={thisWeek.reload} />}
-        {thisWeek.status === 'ready' && <ScheduleLinks blocks={thisWeek.data.blocks} onAdd={openAdd} showLock={false} />}
+        {thisWeek.status === 'ready' && <ScheduleLinks title="일정 가져오기" blocks={thisWeek.data.blocks} onAdd={openAdd} showLock={false} />}
       </section>
 
       <section className="sec">
         <div className="row-between">
-          <h2>내 시간</h2>
+          <h2>내 시간표</h2>
           {shown.status === 'ready' && <span className="meta num">{formatRange(shown.data.weekStart, shown.data.weekEnd)}</span>}
         </div>
         <Segmented label="주" options={WEEKS} value={week} onChange={setWeek} />
