@@ -21,41 +21,26 @@
   margin: 0;
 }
 
-/* 이름 | 동작 줄 아래로 한 줄 전체를 쓰는 칸(에타 링크 입력·결과 글) */
-.full {
-  grid-column: 1 / -1;
+/* 설명 옆 "다시 불러오기": 설명 글과 같은 크기 (전역 .link보다 앞서게 함께 고른다) */
+.again:global(.link) {
+  min-height: 0;
+  font-size: inherit;
 }
 
-.input {
-  display: flex;
-  gap: 6px;
-  margin-top: 4px;
-}
-
-/* 링크 칸은 옆 버튼(.btn.small)과 같은 높이로 */
-.input :global(.field) {
-  flex: 1;
-  min-width: 0;
-  min-height: 34px;
-  padding: 0 12px;
-  font-size: 13px;
-}
-
-/* 링크 칸 아래: 캡처로 올리기 | 닫기 */
-.subActions {
-  display: flex;
-  justify-content: space-between;
-}
-
-.subActions :global(.link),
-.again {
-  min-height: 32px;
-  font-size: var(--fs-meta);
-}
-
-.subActions :global(.link.quiet) {
+/* 연동됨: 버튼과 같은 모양이지만 누를 수 없다 */
+.done:global(.btn) {
+  background: var(--soft);
   color: var(--muted);
-  font-weight: 500;
+  cursor: default;
+}
+
+/* 에타 시트: 링크 칸 | 그 아래 캡처로 올리기 */
+.url {
+  width: 100%;
+}
+
+.capture:global(.btn) {
+  margin-top: 8px;
 }
 
 /* 직접 추가: 매주 | 한 번만 */
