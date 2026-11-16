@@ -157,6 +157,59 @@ def complete_json_audio(
     return _parse(text)
 
 
+# 시간표 캡처 읽기(레인 B, #66). 이미지 한 장이라 받아적기보다 짧다.
+IMAGE_TIMEOUT_SEC = 35.0
+
+
+def complete_json_image(
+    prompt: str,
+    image: bytes,
+    *,
+    mime: str = "image/png",
+    max_tokens: int = 4_000,
+    reasoning_effort: str = "low",
+) -> dict | None:
+    """프롬프트와 이미지 한 장을 함께 보내고 JSON 객체를 받는다. 안 되면 None.
+
+    complete_json_audio와 같은 주소·키·끄는 스위치·실패 규칙을 쓴다. 이미지는
+    OpenAI 호환 규약의 image_url(data URL)로 보내고 저장하지 않는다.
+    """
+    key = _api_key()
+    if not enabled() or key is None:
+        return None
+
+    base = os.getenv("LLM_BASE_URL", DEFAULT_BASE_URL).rstrip("/")
+    data_url = f"data:{mime};base64,{base64.b64encode(image).decode('ascii')}"
+    try:
+        response = httpx.post(
+            f"{base}/chat/completions",
+            headers={"Authorization": f"Bearer {key}"},
+            json={
+                "model": os.getenv("LLM_MODEL", DEFAULT_MODEL),
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": prompt},
+                            {"type": "image_url", "image_url": {"url": data_url}},
+                        ],
+                    }
+                ],
+                "max_tokens": max_tokens,
+                # 표에 적힌 것을 옮기는 일이라 흔들림이 없어야 한다
+                "temperature": 0,
+                "reasoning_effort": reasoning_effort,
+            },
+            timeout=IMAGE_TIMEOUT_SEC,
+        )
+        response.raise_for_status()
+        text = response.json()["choices"][0]["message"]["content"]
+    except Exception:  # noqa: BLE001 - 무엇이 실패해도 앱은 돌아야 한다
+        return None
+
+    return _parse(text)
+
+
 def _parse(text: str) -> dict | None:
     """울타리를 벗기고 JSON 객체만 받는다. 배열이나 숫자는 거절한다."""
     if not text:
