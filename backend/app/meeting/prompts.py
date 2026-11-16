@@ -27,11 +27,18 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 
+from app.shared.base import KST
+
 _WEEKDAYS = "월화수목금토일"
 
 
 def when(start_at, end_at) -> str:
-    """11월 9일(월) 15:00–17:00"""
+    """11월 9일(월) 15:00–17:00 — 늘 한국 시간으로.
+
+    DB가 시각을 UTC로 돌려주는 곳(Render)이 있다. 바꾸지 않고 쓰면 12:00 회의가
+    발언에 03:00으로 나간다(화면의 "고른 시간"은 맞고 말만 9시간 틀린다).
+    """
+    start_at, end_at = start_at.astimezone(KST), end_at.astimezone(KST)
     return (
         f"{start_at.month}월 {start_at.day}일({_WEEKDAYS[start_at.weekday()]}) "
         f"{start_at:%H:%M}–{end_at:%H:%M}"
