@@ -112,6 +112,31 @@ class ResponderOut(SQLModel):
     responded_at: datetime | None = None
 
 
+class WhyPerson(SQLModel):
+    """한 사람이 고른 시간과 2순위에서 얼마나 불편한가. 숫자 없이 단계로만(명세 권장 규칙 3)."""
+
+    name: str
+    here: Burden | None = Field(description="고른 시간의 불편. 못 오면 null")
+    there: Burden | None = Field(description="2순위 시간의 불편. 못 오면 null")
+    reason_here: str = Field(description="고른 시간에 그렇게 느끼는 이유(slot_cost.reason)")
+
+
+class WhyOut(SQLModel):
+    """왜 이 시간인가. 고른 시간과 2순위를 같은 기준으로 비교한 결과(why.py). AI가 아니라 계산이다."""
+
+    chosen_start: datetime
+    chosen_end: datetime
+    runner_up_start: datetime
+    runner_up_end: datetime
+    rule: Literal["fewer_absent", "fewer_reject", "yield_first", "lower_total", "earlier", "rejected_before"] = Field(
+        description="처음 갈린 기준. fewer_absent 못 오는 사람이 적음 · fewer_reject 많이 불편한 사람이 적음 · "
+        "yield_first 그동안 많이 맞춰 준 사람을 챙김 · lower_total 팀 불편 합이 낮음 · earlier 같아서 이른 시간 · "
+        "rejected_before 2순위가 앞 라운드에서 거절됨"
+    )
+    summary: str = Field(description="화면에 그대로 띄울 한두 문장")
+    people: list[WhyPerson] = []
+
+
 class ProposalOut(SQLModel):
     """회의 하나. "회의 일정 조율 확인" 화면이 이걸로 그려진다.
 
@@ -147,6 +172,8 @@ class ProposalOut(SQLModel):
     feedback_only: bool = False
 
     responders: list[ResponderOut] = []
+    # 왜 이 시간인가(why.py). 조율 없이 만든 회의·후보가 하나뿐이면 null
+    why: WhyOut | None = None
 
 
 class RespondIn(SQLModel):

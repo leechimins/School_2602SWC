@@ -49,6 +49,7 @@ from app.meeting.schemas import (
 )
 from app.meeting import rerun, runner
 from app.meeting.agent_loop import REJECT_AT, award_yield, member_names, yield_totals
+from app.meeting.why import explain
 from app.meeting.scorer import yield_points
 from app.meeting.service import burden, start_scheduling
 from app.minutes.record import finished_ids
@@ -550,6 +551,7 @@ def read_proposal(
         # 길로 온다(브리프 11/5) — 전원 수락으로 확정된 회의도 같다.
         feedback_only=mine is not None and meeting.status == MeetingStatus.CONFIRMED,
         responders=responders,
+        why=explain(db, meeting),
     )
 
 

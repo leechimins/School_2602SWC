@@ -239,25 +239,31 @@ def total_cost(costs: Sequence[Cost]) -> float:
     return float(sum(c.score for c in costs))
 
 
-# 누적 양보가 높은 사람의 불편을 더 무겁게 센다. 0 → 1.0, 4 이상 → 2.0.
-# 숫자는 고른 값이고 조정할 수 있다. 저장되는 score는 건드리지 않고
+# 양보 잔고가 높은 사람(남보다 더 참아 온 사람)의 불편을 더 무겁게 센다.
+#   가중 불편 = 불편 × (1 + YIELD_WEIGHT_STEP × clamp(잔고, 0, YIELD_WEIGHT_CAP))
+# 잔고가 0 이하(배려를 받아 온 사람)는 1배다. 저장되는 score는 건드리지 않고
 # **순서만** 바꾼다 — 사람이 느끼는 불편을 시스템이 고쳐 쓰면 안 된다.
+# 두 값은 tools/benchmark.py 실험으로 정했다(docs/benchmark.md).
 # 양보 점수가 붙기 시작하는 불편. service.BURDEN_SOME_FROM과 같은 수다 —
 # "조금이라도 불편한데 와 준 것"이 양보라서 경계가 같다. service를
 # import하면 순환이 되므로 여기 둔다.
 BURDEN_SOME_FROM_SCORE = 2
 
-YIELD_WEIGHT_STEP = 0.25
+YIELD_WEIGHT_STEP = 1.0
 YIELD_WEIGHT_CAP = 4
 
 
 def yield_weighted_cost(
-    costs: Sequence[Cost], yield_totals: Mapping[int, int]
+    costs: Sequence[Cost],
+    yields: Mapping[int, float],
+    step: float = YIELD_WEIGHT_STEP,
+    cap: float = YIELD_WEIGHT_CAP,
 ) -> float:
     """후보를 고를 때 쓰는 값. 낮은 쪽이 먼저다.
 
     브리프: "현우는 지난 두 번의 회의에서 많이 맞춰 줬어요. 이번엔 현우
-    쪽을 먼저 챙겨…" — 그 판단이 이 한 줄이다.
+    쪽을 먼저 챙겨…" — 그 판단이 이 한 줄이다. yields는 양보 잔고
+    (agent_loop.yield_balances)다.
 
     **안 오는 사람은 세지 않는다.** 1명 불참안에서 그 사람의 5점까지 더하면
     후보마다 불참자가 다를 때 그 5점이 차이를 덮어 버린다. 못 오는 사람에게
@@ -268,8 +274,8 @@ def yield_weighted_cost(
     for cost in costs:
         if not cost.available:
             continue
-        earned = min(yield_totals.get(cost.user_id, 0), YIELD_WEIGHT_CAP)
-        total += cost.score * (1 + YIELD_WEIGHT_STEP * earned)
+        balance = min(max(yields.get(cost.user_id, 0.0), 0.0), cap)
+        total += cost.score * (1 + step * balance)
     return total
 
 
@@ -319,7 +325,7 @@ def best_for(
 
 def pick_order(
     scored: Sequence[tuple[tuple[datetime, datetime], list[Cost]]],
-    yield_totals: Mapping[int, int],
+    yield_totals: Mapping[int, float],
     reject_at: int | None = None,
 ) -> list[tuple[tuple[datetime, datetime], list[Cost]]]:
     """후보를 고를 순서로 늘어놓는다. 앞의 것이 먼저다.
