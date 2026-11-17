@@ -99,34 +99,26 @@
 }
 
 /* 새 회의 잡기(팀장만): 다음 회의와 따로 둔 한 줄 버튼. 아이콘 | 글자 | + */
-.newMeeting {
-  display: flex;
+/* 다음 회의 머리 오른쪽: 상태 뱃지 + 새 회의 잡기(+) */
+.headRight {
+  display: inline-flex;
   align-items: center;
-  gap: 12px;
-  color: var(--point-ink);
-  text-decoration: none;
+  gap: 8px;
 }
 
-.newMeeting > b {
-  flex: 1;
-  font-size: 15px;
-}
-
-.newIcon {
+.add {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 38px;
-  height: 38px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   background: var(--point-soft);
-}
-
-.plus {
+  color: var(--point);
   font-size: 24px;
   font-weight: 500;
   line-height: 1;
-  color: var(--point);
+  text-decoration: none;
 }
 
 /* 다음 회의(확정·확정 대기): 날짜 칸 | 주제·시간·시작까지 남은 시간, 아래에 응답 현황 + 조율 결과 버튼 */

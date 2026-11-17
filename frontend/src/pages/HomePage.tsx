@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from 'react'
+import { useState, type CSSProperties, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { messageOf } from '../api/client.ts'
 import { getHome, setAutoSchedule } from '../api/rooms.ts'
@@ -68,17 +68,6 @@ export default function HomePage() {
             <PeriodCard startDate={home.data.startDate} dueDate={home.data.dueDate} today={home.data.today} />
           </div>
           <NextMeeting home={home.data} />
-          {home.data.canStartScheduling && (
-            <Link to={PATHS.schedulingNew} className={`sec ${styles.newMeeting}`}>
-              <span className={styles.newIcon}>
-                <Icon name="calendar" />
-              </span>
-              <b>새 회의 잡기</b>
-              <span className={styles.plus} aria-hidden="true">
-                +
-              </span>
-            </Link>
-          )}
           {home.data.suggestion && <Suggestion s={home.data.suggestion} roomId={user.roomId} today={home.data.today} />}
           <MyTasks tasks={home.data.myTasks} />
           <AgentPanel home={home.data} roomId={user.roomId} onChanged={home.reload} />
@@ -153,13 +142,24 @@ function MyTasks({ tasks }: { tasks: Task[] }) {
 function NextMeeting({ home }: { home: Home }) {
   const { coordinating: c, nextMeeting: m } = home
   const now = useClock()
+  // 새 회의 잡기는 이 칸 머리의 + 하나. 팀장만, 조율이 도는 동안은 못 연다
+  const head = (badge?: ReactNode) => (
+    <div className="row-between">
+      <h2>다음 회의</h2>
+      <span className={styles.headRight}>
+        {badge}
+        {home.canStartScheduling && !c && (
+          <Link to={PATHS.schedulingNew} className={styles.add} aria-label="새 회의 잡기" title="새 회의 잡기">
+            +
+          </Link>
+        )}
+      </span>
+    </div>
+  )
   if (c) {
     return (
       <section className="sec">
-        <div className="row-between">
-          <h2>다음 회의</h2>
-          <Badge>조율 중</Badge>
-        </div>
+        {head(<Badge>조율 중</Badge>)}
         <p className="strong">{c.topic}</p>
         <p className="meta num">{formatRange(c.windowStart, c.windowEnd)} 사이 · 에이전트끼리 시간을 맞추는 중</p>
         <Link to={pathTo.scheduling(c.id)} className="btn small block">
@@ -171,7 +171,7 @@ function NextMeeting({ home }: { home: Home }) {
   if (!m) {
     return (
       <section className="sec">
-        <h2>다음 회의</h2>
+        {head()}
         <p className="strong">아직 잡힌 회의가 없어요</p>
         <p className="meta">
           {home.canStartScheduling ? '마감 전에 필요할 때 언제든 잡아요.' : '팀장이 회의를 잡으면 알려 드려요.'}
@@ -185,10 +185,7 @@ function NextMeeting({ home }: { home: Home }) {
   const answers = answerLine(m, home.joinedCount)
   return (
     <section className="sec">
-      <div className="row-between">
-        <h2>다음 회의</h2>
-        {started ? <Badge tone="here">진행 중</Badge> : <Badge tone={confirmed ? 'ok' : 'warn'}>{confirmed ? '확정' : '확정 대기'}</Badge>}
-      </div>
+      {head(started ? <Badge tone="here">진행 중</Badge> : <Badge tone={confirmed ? 'ok' : 'warn'}>{confirmed ? '확정' : '확정 대기'}</Badge>)}
       <div className={styles.meet}>
         <DateBlock at={m.startAt} />
         <div className={styles.meetBody}>
