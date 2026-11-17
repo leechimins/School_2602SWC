@@ -223,6 +223,8 @@ export type ServerHome = {
   unread_notifications: number
   can_start_scheduling: boolean
   suggestion?: { kind: MeetingSuggestion['kind']; reason: string; topic: string; window_start: string; window_end: string } | null
+  auto_schedule?: boolean
+  agent_log?: ServerActivity['agent_log']
   invite_code: string
   joined_count: number
   member_count: number
@@ -264,6 +266,8 @@ export const toHome = (r: ServerHome, roomName: string, me: { id: Id; name: stri
         windowEnd: r.suggestion.window_end,
       }
     : null,
+  autoSchedule: r.auto_schedule ?? false,
+  agentLog: (r.agent_log ?? []).map((a) => ({ id: id(a.id), at: a.at, what: a.what, why: a.why })),
   inviteCode: r.invite_code,
   joinedCount: r.joined_count,
   memberCount: r.member_count,

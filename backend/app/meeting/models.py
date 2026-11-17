@@ -13,7 +13,7 @@ preference, slot_cost, 그리고 membership.yield_total 넷이다. 라운드 조
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 
 from sqlalchemy import CheckConstraint, Index, UniqueConstraint, text
 from sqlmodel import Field, SQLModel
@@ -352,3 +352,20 @@ class PreferenceChange(SQLModel, table=True):
     reverted: bool = Field(default=False)
 
     created_at: datetime = ts(auto_now=True)
+
+
+class AgentSetting(SQLModel, table=True):
+    """팀장이 에이전트에게 어디까지 맡겼나. 방마다 한 행, 없으면 다 꺼진 것.
+
+    auto_schedule이 켜져 있으면 회의 제안(home/suggest.py)이 뜰 때 팀장을
+    기다리지 않고 에이전트가 조율을 시작한다(home/auto.py). 시간 확정은
+    여전히 각자 수락으로 한다 — 맡기는 것은 "시작"까지다.
+    """
+
+    __tablename__ = "agent_setting"
+
+    room_id: int = Field(foreign_key="room.id", ondelete="CASCADE", primary_key=True)
+    auto_schedule: bool = Field(default=False)
+    # 시연 시계 날짜. 하루에 한 번만 스스로 시작한다 — 후보가 없어 실패한
+    # 조율을 홈을 열 때마다 다시 여는 일을 막는다.
+    last_auto_on: date | None = None

@@ -11,6 +11,7 @@ from typing import Literal
 
 from sqlmodel import SQLModel
 
+from app.notice.router import AgentLogOut
 from app.shared.enums import MeetingStatus, ResponseState, SchedulingStatus, TaskState
 
 # 내 할 일을 묶는 다섯 갈래. 브리프: "기한 지남 / 오늘 / 내일 / 그 이후 / 완료".
@@ -101,7 +102,19 @@ class HomeOut(SQLModel):
     can_start_scheduling: bool = False
     # 회의가 필요한 이유가 생겼을 때 에이전트의 제안. 팀장이 아니면 늘 null.
     suggestion: Suggestion | None = None
+    # 팀장이 "알아서 조율까지"를 맡겨 뒀나(home/auto.py). 팀원도 본다.
+    auto_schedule: bool = False
+    # 에이전트가 한 일 최근 몇 줄. 전체는 GET /agent-log.
+    agent_log: list[AgentLogOut] = []
     # 방을 막 만든 직후 화면에 쓴다 — 초대 코드와 들어온 인원.
     invite_code: str
     joined_count: int
     member_count: int
+
+
+class AgentSettingIn(SQLModel):
+    auto_schedule: bool
+
+
+class AgentSettingOut(SQLModel):
+    auto_schedule: bool

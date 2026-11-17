@@ -182,3 +182,57 @@
   gap: 8px;
   margin-top: 10px;
 }
+
+/* 에이전트 칸: 맡기기 스위치 */
+.auto {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 8px 0 4px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--point-soft);
+  cursor: pointer;
+}
+
+.auto input {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  accent-color: var(--point);
+}
+
+.auto > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* 에이전트가 한 일: 무엇을·왜 | 언제 */
+.log {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+}
+
+.log li {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.log li:last-child {
+  border-bottom: 0;
+}
+
+.log p {
+  margin: 0;
+}
+
+.log li > span {
+  flex: none;
+}

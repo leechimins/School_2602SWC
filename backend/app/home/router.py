@@ -16,12 +16,22 @@ from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, col, func, select
 
+from app.home import auto
 from app.home.suggest import suggest
-from app.home.schemas import Coordinating, HomeOut, MyTask, NextMeeting, TaskBucket
+from app.home.schemas import (
+    AgentSettingIn,
+    AgentSettingOut,
+    Coordinating,
+    HomeOut,
+    MyTask,
+    NextMeeting,
+    TaskBucket,
+)
 from app.meeting.models import Meeting, MeetingResponse, Scheduling
 from app.minutes.models import Task
 from app.minutes.record import finished_ids
-from app.notice.models import Notification
+from app.notice.models import AgentLog, Notification
+from app.notice.router import AgentLogOut
 from app.shared import demo_clock
 from app.shared.auth import current_user_id, require_member
 from app.shared.db import session_dep
@@ -51,6 +61,8 @@ def read_home(
     now = demo_clock.now(db)
     today = now.date()
     leader = room.leader_user_id == user_id
+    # 맡겨 뒀으면 여기서 스스로 조율을 연다. 아래 coordinating이 바로 그걸 보여 준다.
+    auto.maybe_start(db, room, now)
 
     return HomeOut(
         today=today,
@@ -63,10 +75,45 @@ def read_home(
         unread_notifications=_unread(db, room_id, user_id),
         can_start_scheduling=leader,
         suggestion=suggest(db, room, now) if leader else None,
+        auto_schedule=auto.auto_on(db, room_id),
+        agent_log=_recent_log(db, room_id),
         invite_code=room.invite_code,
         joined_count=_joined(db, room_id),
         member_count=room.member_count,
     )
+
+
+@router.put("/agent-setting", response_model=AgentSettingOut)
+def put_agent_setting(
+    room_id: int,
+    body: AgentSettingIn,
+    user_id: int = Depends(current_user_id),
+    db: Session = Depends(session_dep),
+) -> AgentSettingOut:
+    """에이전트에게 조율 시작을 맡기거나 거둔다. 팀장만 — 조율 시작이 팀장 권한이다."""
+    require_member(db, room_id, user_id)
+    room = db.get(Room, room_id)
+    if room is None or room.leader_user_id != user_id:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            detail={"code": "FORBIDDEN", "message": "조율 맡기기는 팀장만 바꿀 수 있습니다."},
+        )
+    auto.set_auto(db, room_id, body.auto_schedule)
+    return AgentSettingOut(auto_schedule=body.auto_schedule)
+
+
+RECENT_LOG = 3
+
+
+def _recent_log(db: Session, room_id: int) -> list[AgentLogOut]:
+    """에이전트가 한 일 최근 몇 줄. 홈에서 에이전트가 혼자 일하고 있음이 보이게."""
+    logs = db.exec(
+        select(AgentLog)
+        .where(AgentLog.room_id == room_id)
+        .order_by(col(AgentLog.created_at).desc(), col(AgentLog.id).desc())
+        .limit(RECENT_LOG)
+    ).all()
+    return [AgentLogOut(id=l.id, at=l.created_at, what=l.what, why=l.why) for l in logs]  # type: ignore[arg-type]
 
 
 def _next_meeting(db: Session, room_id: int, user_id: int) -> NextMeeting | None:

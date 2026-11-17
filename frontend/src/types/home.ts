@@ -1,4 +1,5 @@
 import type { IsoDate } from './common.ts'
+import type { AgentLogEntry } from './notification.ts'
 import type { CoordinatingBrief, MeetingBrief } from './meeting.ts'
 import type { Task } from './task.ts'
 
@@ -23,6 +24,8 @@ export type Home = {
   unreadCount: number
   canStartScheduling: boolean // 회의 잡기 버튼은 팀장에게만
   suggestion: MeetingSuggestion | null
+  autoSchedule: boolean // 팀장이 조율 시작을 에이전트에게 맡겨 뒀나
+  agentLog: AgentLogEntry[] // 에이전트가 한 일 최근 몇 줄. 최신순
   inviteCode: string // 방 막 만든 직후에 보인다
   joinedCount: number
   memberCount: number

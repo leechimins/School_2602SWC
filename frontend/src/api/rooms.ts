@@ -44,3 +44,10 @@ export async function getHome(roomId: Id): Promise<Home> {
   const me = room.members.find((m) => m.is_me)
   return toHome(home, room.name, { id: String(me?.user_id ?? ''), name: me?.name ?? '' })
 }
+
+/** 조율 시작을 에이전트에게 맡기거나 거둔다(팀장만). 켜면 회의가 필요한 이유가 생길 때 에이전트가 먼저 조율을 연다 */
+export function setAutoSchedule(roomId: Id, on: boolean): Promise<void> {
+  return write(async () => {
+    await request(`/rooms/${roomId}/agent-setting`, { method: 'PUT', body: { auto_schedule: on } })
+  })
+}
