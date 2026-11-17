@@ -79,6 +79,12 @@ def test_기간은_마감을_넘지_않는다(client: TestClient, session: Sessi
     assert s is not None and (s["window_start"], s["window_end"]) == ("2026-12-09", "2026-12-11")
 
 
+def test_마감_당일엔_조용하다(client: TestClient, session: Session, 방: 팀, login) -> None:
+    demo_clock.set_clock(session, datetime(2026, 12, 11, 9, 0, tzinfo=KST))
+    login("지수")
+    assert _제안(client, 방) is None
+
+
 def test_마감이_지나면_조용하다(client: TestClient, session: Session, 방: 팀, login) -> None:
     demo_clock.set_clock(session, datetime(2026, 12, 12, 9, 0, tzinfo=KST))
     login("지수")

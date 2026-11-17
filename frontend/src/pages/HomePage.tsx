@@ -234,9 +234,14 @@ function snoozedToday(key: string, today: string): boolean {
 function AgentCard({ home, roomId, onChanged }: { home: Home; roomId: string; onChanged: () => void }) {
   const s = home.suggestion
   const key = s ? snoozeKey(roomId, s.kind) : ''
-  const [snoozed, setSnoozed] = useState(() => (s ? snoozedToday(key, home.today) : false))
-  const [on, setOn] = useState(home.autoSchedule)
-  const [busy, setBusy] = useState(false)
+  // 서버 값을 따라간다. 내가 막 바꾼 동안만 내 값(pending)을 보인다
+  const [laterKey, setLaterKey] = useState('')
+  const snoozed = !!s && (laterKey === key || snoozedToday(key, home.today))
+  // 내가 막 바꾼 값은 그때의 서버 값(base)과 함께 둔다. 다시 불러온 서버 값이 base와 달라지면 서버 값을 따른다
+  const [pending, setPending] = useState<{ value: boolean; base: boolean } | null>(null)
+  const mine = pending && pending.base === home.autoSchedule ? pending : null
+  const on = mine ? mine.value : home.autoSchedule
+  const busy = mine !== null
   const [error, setError] = useState<string | null>(null)
   const leader = home.canStartScheduling
   const showSuggest = s && !snoozed
@@ -249,20 +254,17 @@ function AgentCard({ home, roomId, onChanged }: { home: Home; roomId: string; on
     } catch {
       // 저장이 안 되면 이번 화면에서만 숨긴다
     }
-    setSnoozed(true)
+    setLaterKey(key)
   }
   const toggle = async (next: boolean) => {
-    setOn(next)
-    setBusy(true)
+    setPending({ value: next, base: home.autoSchedule })
     setError(null)
     try {
       await setAutoSchedule(roomId, next)
       onChanged()
     } catch (e) {
-      setOn(!next)
+      setPending(null)
       setError(messageOf(e))
-    } finally {
-      setBusy(false)
     }
   }
 
