@@ -142,17 +142,18 @@ function MyTasks({ tasks }: { tasks: Task[] }) {
 function NextMeeting({ home }: { home: Home }) {
   const { coordinating: c, nextMeeting: m } = home
   const now = useClock()
-  // 새 회의 잡기는 이 칸 머리의 + 하나. 팀장만, 조율이 도는 동안은 못 연다
-  const head = (badge?: ReactNode) => (
+  // 새 회의 잡기는 이 칸의 + 하나. 팀장만, 조율이 도는 동안은 못 연다
+  const add = home.canStartScheduling && !c && (
+    <Link to={PATHS.schedulingNew} className={styles.add} aria-label="새 회의 잡기" title="새 회의 잡기">
+      +
+    </Link>
+  )
+  const head = (badge: ReactNode) => (
     <div className="row-between">
       <h2>다음 회의</h2>
       <span className={styles.headRight}>
         {badge}
-        {home.canStartScheduling && !c && (
-          <Link to={PATHS.schedulingNew} className={styles.add} aria-label="새 회의 잡기" title="새 회의 잡기">
-            +
-          </Link>
-        )}
+        {add}
       </span>
     </div>
   )
@@ -171,11 +172,12 @@ function NextMeeting({ home }: { home: Home }) {
   if (!m) {
     return (
       <section className="sec">
-        {head()}
-        <p className="strong">아직 잡힌 회의가 없어요</p>
-        <p className="meta">
-          {home.canStartScheduling ? '마감 전에 필요할 때 언제든 잡아요.' : '팀장이 회의를 잡으면 알려 드려요.'}
-        </p>
+        <h2>다음 회의</h2>
+        <div className="row-between">
+          <p className="strong">아직 잡힌 회의가 없어요</p>
+          {add}
+        </div>
+        {!home.canStartScheduling && <p className="meta">팀장이 회의를 잡으면 알려 드려요.</p>}
       </section>
     )
   }
