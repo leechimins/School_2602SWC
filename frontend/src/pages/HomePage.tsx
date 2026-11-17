@@ -68,7 +68,6 @@ export default function HomePage() {
             <PeriodCard startDate={home.data.startDate} dueDate={home.data.dueDate} today={home.data.today} />
           </div>
           <NextMeeting home={home.data} />
-          {home.data.suggestion && <Suggestion s={home.data.suggestion} roomId={user.roomId} today={home.data.today} />}
           {home.data.canStartScheduling && (
             <Link to={PATHS.schedulingNew} className={`sec ${styles.newMeeting}`}>
               <span className={styles.newIcon}>
@@ -80,6 +79,7 @@ export default function HomePage() {
               </span>
             </Link>
           )}
+          {home.data.suggestion && <Suggestion s={home.data.suggestion} roomId={user.roomId} today={home.data.today} />}
           <MyTasks tasks={home.data.myTasks} />
           <AgentPanel home={home.data} roomId={user.roomId} onChanged={home.reload} />
         </>
@@ -291,7 +291,7 @@ function AgentPanel({ home, roomId, onChanged }: { home: Home; roomId: string; o
   return (
     <section className="sec" aria-label="에이전트">
       <div className="row-between">
-        <h2>에이전트가 한 일</h2>
+        <h2>에이전트 기록</h2>
         <Link to={PATHS.activity} className="btn small">
           전체 보기
         </Link>
