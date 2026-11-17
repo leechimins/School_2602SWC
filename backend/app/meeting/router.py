@@ -47,6 +47,8 @@ from app.meeting.schemas import (
     SchedulingStartIn,
     UtteranceOut,
 )
+from app.me import learn
+from app.me.schemas import PreferenceChangeOut
 from app.meeting import rerun, runner
 from app.meeting.agent_loop import REJECT_AT, award_yield, member_names, yield_totals
 from app.meeting.why import explain
@@ -557,6 +559,33 @@ def read_proposal(
 
 @router.post("/proposals/{meeting_id}/respond", response_model=RespondOut)
 def respond(
+    room_id: int,
+    meeting_id: int,
+    body: RespondIn,
+    user_id: int = Depends(current_user_id),
+    db: Session = Depends(session_dep),
+) -> RespondOut:
+    """수락·거절을 처리하고(_respond), 남긴 한 줄이 있으면 내 선호에 반영한다.
+
+    반영은 **답이 커밋된 뒤**에 한다. 모델 호출이 최대 20초라 회의 행 잠금을
+    쥔 채 부르면 다른 사람의 답이 그만큼 막힌다. 해석이 실패해도 답은 이미
+    저장돼 있다.
+    """
+    out = _respond(room_id, meeting_id, body, user_id, db)
+    if body.feedback and body.feedback.strip():
+        meeting = db.get(Meeting, meeting_id)
+        if meeting is not None:
+            change = learn.learn(
+                db, user_id, meeting_id, body.feedback, meeting.start_at, accepted=body.accept
+            )
+            if change is not None:
+                out.preference_change = PreferenceChangeOut.model_validate(
+                    change, from_attributes=True
+                )
+    return out
+
+
+def _respond(
     room_id: int,
     meeting_id: int,
     body: RespondIn,

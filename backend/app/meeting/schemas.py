@@ -13,6 +13,8 @@ from typing import Literal
 
 from sqlmodel import Field, SQLModel
 
+from app.me.schemas import PreferenceChangeOut
+
 from app.shared.enums import (
     Burden,
     MeetingStatus,
@@ -203,6 +205,8 @@ class RespondOut(SQLModel):
     # rounds_left는 그때 남은 라운드(1~2). 예산이 0이면 다시 돌지 않고 거짓이다.
     rerun: bool = False
     rounds_left: int = 0
+    # 남긴 한 줄이 내 선호를 바꿨으면 그 기록. 화면이 "다음부터 … · 되돌리기"로 띄운다.
+    preference_change: PreferenceChangeOut | None = None
 
 
 class MeetingBrief(SQLModel):
