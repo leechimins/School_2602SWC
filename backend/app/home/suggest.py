@@ -39,7 +39,8 @@ QUIET_DAYS = 7  # 이 안에 잡힌 회의가 있으면 조용히 있는다
 
 def suggest(db: Session, room: Room, now: datetime) -> Suggestion | None:
     today = now.date()
-    if room.due_date < today or _busy(db, room.id, now):  # type: ignore[arg-type]
+    # 마감 당일부터는 조용하다. 기간이 내일부터라 마감 안에 열 수 있는 날이 없다
+    if room.due_date <= today or _busy(db, room.id, now):  # type: ignore[arg-type]
         return None
     tomorrow = today + timedelta(days=1)
 

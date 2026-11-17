@@ -97,3 +97,17 @@ def test_끄면_다시_제안만_한다(client: TestClient, session: Session, �
     _맡기기(client, 방, on=False)
     assert _홈(client, 방)["auto_schedule"] is False
     assert _조율들(session, 방) == []
+
+
+def test_자동_조율이_터져도_홈은_뜬다(
+    client: TestClient, session: Session, 방: 팀, login, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def 터짐(*args: object, **kwargs: object) -> None:
+        raise RuntimeError("캘린더가 죽었다")
+
+    monkeypatch.setattr("app.home.auto.start_scheduling", 터짐)
+    login("지수")
+    _맡기기(client, 방)
+    res = client.get(f"{API}/rooms/{방.rid}/home")
+    assert res.status_code == 200 and res.json()["auto_schedule"] is True
+    assert _조율들(session, 방) == []

@@ -11,6 +11,7 @@ room/router.py에 끼워 넣지 않은 것도 같은 이유다. 그 파일은 �
 
 from __future__ import annotations
 
+import logging
 from datetime import timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -40,6 +41,7 @@ from app.shared.enums import MeetingStatus, ResponseState, SchedulingStatus, Tas
 from app.shared.models import Membership, Room
 
 router = APIRouter(prefix="/rooms/{room_id}", tags=["home"])
+log = logging.getLogger(__name__)
 
 
 @router.get("/home", response_model=HomeOut)
@@ -63,7 +65,12 @@ def read_home(
     today = now.date()
     leader = room.leader_user_id == user_id
     # 맡겨 뒀으면 여기서 스스로 조율을 연다. 아래 coordinating이 바로 그걸 보여 준다.
-    auto.maybe_start(db, room, now)
+    # 무엇이 터져도 홈은 떠야 한다. 자동 조율은 다음에 홈을 열 때 다시 시도한다.
+    try:
+        auto.maybe_start(db, room, now)
+    except Exception:
+        db.rollback()
+        log.exception("자동 조율 시작 실패 room=%s", room_id)
 
     return HomeOut(
         today=today,
