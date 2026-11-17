@@ -365,6 +365,18 @@ def test_남의_할_일과_확정_전_제안은_안_나온다(
     assert 제목 == ["내 것"]
 
 
+def test_삭제한_할_일은_안_나온다(
+    client: TestClient, session: Session, 방: 팀, login
+) -> None:
+    """할 일 탭에서 삭제(필요 없음)하면 홈에서도 빠진다. 남아 있으면 눌렀을 때 404가 난다."""
+    _할일(session, 방, "삭제한 것", dropped=True)
+    _할일(session, 방, "내 것")
+    login("지수")
+
+    제목 = [t["title"] for t in client.get(f"{API}/rooms/{방.rid}/home").json()["my_tasks"]]
+    assert 제목 == ["내 것"]
+
+
 # ── 알림 ────────────────────────────────────────────────────────────
 
 
