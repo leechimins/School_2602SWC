@@ -308,10 +308,7 @@ function AgentCard({ home, roomId, onChanged }: { home: Home; roomId: string; on
 
       {leader && (
         <label className={styles.auto}>
-          <span>
-            <span className="strong">조율까지 맡기기</span>
-            <span className="meta">필요하면 에이전트가 먼저 조율을 열어요</span>
-          </span>
+          <span className="strong">자동 회의 조율</span>
           <input
             type="checkbox"
             role="switch"

@@ -223,12 +223,6 @@
   cursor: pointer;
 }
 
-.auto > span {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
 .switch {
   flex: none;
   appearance: none;
