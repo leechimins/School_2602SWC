@@ -67,9 +67,8 @@ export default function HomePage() {
             <img className={styles.somsom} src="/brand/somsom-face.webp" alt="" />
             <PeriodCard startDate={home.data.startDate} dueDate={home.data.dueDate} today={home.data.today} />
           </div>
-          {home.data.suggestion && <Suggestion s={home.data.suggestion} roomId={user.roomId} today={home.data.today} />}
-          <AgentPanel home={home.data} roomId={user.roomId} onChanged={home.reload} />
           <NextMeeting home={home.data} />
+          {home.data.suggestion && <Suggestion s={home.data.suggestion} roomId={user.roomId} today={home.data.today} />}
           {home.data.canStartScheduling && (
             <Link to={PATHS.schedulingNew} className={`sec ${styles.newMeeting}`}>
               <span className={styles.newIcon}>
@@ -82,6 +81,7 @@ export default function HomePage() {
             </Link>
           )}
           <MyTasks tasks={home.data.myTasks} />
+          <AgentPanel home={home.data} roomId={user.roomId} onChanged={home.reload} />
         </>
       )}
     </Screen>
