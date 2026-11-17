@@ -30,6 +30,7 @@ from app.home.schemas import (
 from app.meeting.models import Meeting, MeetingResponse, Scheduling
 from app.minutes.models import Task
 from app.minutes.record import finished_ids
+from app.minutes.tasks import live_tasks
 from app.notice.models import AgentLog, Notification
 from app.notice.router import AgentLogOut
 from app.shared import demo_clock
@@ -189,15 +190,10 @@ def _my_tasks(db: Session, room_id: int, user_id: int, today: object) -> list[My
 
     AI가 제안만 하고 아직 확정 안 된 것(confirmed=false)은 빼다. 홈은
     "지금 무엇을 봐야 하는지"를 보여 주는 자리고, 확정 전 제안은 회의록에서
-    팀이 함께 고르는 것이라 내 할 일이 아니다.
+    팀이 함께 고르는 것이라 내 할 일이 아니다. "필요 없음"으로 삭제한 것도
+    뺀다. 범위는 할 일 목록과 같은 live_tasks를 쓴다.
     """
-    rows = db.exec(
-        select(Task).where(
-            Task.room_id == room_id,
-            Task.assignee_user_id == user_id,
-            col(Task.confirmed).is_(True),
-        )
-    ).all()
+    rows = db.exec(live_tasks(room_id).where(Task.assignee_user_id == user_id)).all()
 
     out: list[MyTask] = []
     for task in rows:
