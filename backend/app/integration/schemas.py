@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from pydantic import model_validator
 from sqlmodel import Field, SQLModel
 
 from app.integration.timetable import TermState
@@ -58,3 +59,46 @@ class IntegrationOut(SQLModel):
             "past여도 저장은 되고 조율에서 안 셀 뿐이라, 화면에서 이번 학기 링크를 넣으라고 안내한다"
         ),
     )
+
+
+# ── 시간표 캡처 (#66) ───────────────────────────────────────────────
+
+
+class CaptureClass(SQLModel):
+    """캡처에서 읽은(또는 사람이 고친) 수업 한 칸. 요일 하나에 한 칸."""
+
+    title: str = Field(min_length=1, max_length=60, description="과목명")
+    weekday: int = Field(ge=0, le=6, description="0=월 … 6=일")
+    start_min: int = Field(ge=0, le=1435, description="시작. 0시부터 분, 5분 단위")
+    end_min: int = Field(ge=5, le=1440, description="끝. 0시부터 분, 5분 단위")
+
+    @model_validator(mode="after")
+    def _order(self) -> CaptureClass:
+        self.title = " ".join(self.title.split())
+        if not self.title:
+            raise ValueError("과목명을 채워 주세요.")
+        if self.start_min >= self.end_min:
+            raise ValueError("끝나는 시간을 시작보다 늦게 맞춰 주세요.")
+        return self
+
+
+class CapturePreviewOut(SQLModel):
+    """AI가 캡처에서 읽은 수업. 저장하지 않았다 — 사람이 확인·수정해 확정해야 들어간다."""
+
+    classes: list[CaptureClass] = Field(description="읽은 수업. 못 읽었으면 빈 목록")
+    year: int | None = Field(default=None, description="캡처 위쪽 학기 글씨의 연도. 확정할 때 그대로 돌려보낸다")
+    semester: str | None = Field(default=None, description="'1'·'2' 또는 그 밖의 학기 글자. 확정할 때 그대로 돌려보낸다")
+    term: str | None = Field(default=None, description="화면에 띄울 학기(예: '2024년 2학기')")
+
+
+class CaptureSaveIn(SQLModel):
+    """사람이 확인·수정한 수업 목록. 이전 에브리타임 수업을 이것으로 바꾼다."""
+
+    classes: list[CaptureClass] = Field(min_length=1, max_length=50, description="넣을 수업")
+    year: int | None = Field(
+        default=None,
+        ge=2000,
+        le=2100,
+        description="미리보기의 year. 없으면 오늘(시연 시계)이 속한 학기로 본다",
+    )
+    semester: str | None = Field(default=None, max_length=10, description="미리보기의 semester")

@@ -127,8 +127,10 @@
 | MyPage | 일정 지우기 | DELETE | `/me/schedule/items/{id}` | A | Medium |  | 미착수 | 미착수 |
 | MyPage | 묶인 일정 고치기 | PUT | `/me/schedule/groups/{id}` | A | Low | 요일마다 다른 시간 | 미착수 | 미착수 |
 | MyPage | 묶인 일정 지우기 | DELETE | `/me/schedule/groups/{id}` | A | Low |  | 미착수 | 미착수 |
-| MyPage | 에브리타임 연결 | POST | `/me/integrations/everytime` | B | Low | 링크 붙여넣기. 사람 확인 단계 없음. 다시 보내면 다시 불러오기. 약 2~4초. 연동이 서버에 없으면 503 `EVERYTIME_NOT_CONFIGURED`(직접 입력 안내). 응답 `term_state`(`current`·`past`·`upcoming`·null) — `past`면 저장은 되고 조율에서 안 세니 이번 학기 링크 안내 | **완료** | 미착수 |
+| MyPage | 에브리타임 연결 | POST | `/me/integrations/everytime` | B | Low | 링크 붙여넣기. 사람 확인 단계 없음. 다시 보내면 다시 불러오기. 약 2~4초. 연동이 서버에 없으면 503 `EVERYTIME_NOT_CONFIGURED`(직접 입력 안내). 응답 `term_state`(`current`·`past`·`upcoming`·null) — `past`면 저장은 되고 조율에서 안 세니 이번 학기 링크 안내. 비공개 시간표 링크는 수업 0개가 아니라 400 `EVERYTIME_LINK_INVALID`(#66) | **완료** | 미착수 |
 | MyPage | 에브리타임 끊기 | DELETE | `/me/integrations/everytime` | B | Low | 에브리타임 수업만 지움 | **완료** | 미착수 |
+| MyPage | 에브리타임 캡처 읽기 | POST | `/me/integrations/everytime/capture/preview` | B | Low | 본문 = 이미지(png·jpeg·webp, 5MB). **저장 안 함.** 응답 `classes`(title·weekday·start_min·end_min)·`year`·`semester`·`term`. 시각은 격자를 픽셀로 재서 5분 단위, 과목명·학기는 AI. 에브리타임 화면 아님 400 `NOT_EVERYTIME`, 지난 학기 400 `CAPTURE_PAST_TERM`, 형식·크기 400 `IMAGE_INVALID`·`IMAGE_TOO_LARGE`, AI 실패 503 `CAPTURE_READ_FAILED`. 약 9초 | **완료** | 완료 |
+| MyPage | 에브리타임 캡처 확정 | POST | `/me/integrations/everytime/capture` | B | Low | 사람이 고친 `classes`(1~50개)로 에브리타임 수업을 바꿈(링크로 넣은 것도). 응답은 링크 연결과 같음(`account`는 "시간표 캡처"). `year`·`semester`를 안 보내면 오늘 학기로 저장 | **완료** | 완료 |
 | MyPage | 구글 캘린더 연결 | POST | `/me/integrations/google-calendar` | B | Low | 읽기 권한만. 팀 전체 빼는 2순위. 약속은 제목 없이 "바쁨" | **완료** | 미착수 |
 | MyPage | 구글 캘린더 끊기 | DELETE | `/me/integrations/google-calendar` | B | Low | “ | **완료** | 미착수 |
 | MyPage | 구글 캘린더 동기화 | POST | `/me/integrations/google-calendar/sync` | B | Low | “ | **완료** | 미착수 |

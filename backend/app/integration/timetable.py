@@ -76,6 +76,14 @@ def term_range(table: Timetable) -> tuple[date | None, date | None]:
     return date(table.year, fm, fd), date(table.year, tm, td)
 
 
+def term_containing(today: date) -> tuple[int | None, str | None]:
+    """오늘이 속한 1·2학기. 방학이면 (None, None). 학기 글씨가 없는 캡처에 붙인다."""
+    for semester, ((fm, fd), (tm, td)) in _TERMS.items():
+        if date(today.year, fm, fd) <= today <= date(today.year, tm, td):
+            return today.year, semester
+    return None, None
+
+
 def term_state(table: Timetable, today: date) -> TermState | None:
     """학기를 모르면 None. 방학 중에 다음 학기 시간표를 미리 넣으면 UPCOMING."""
     start, end = term_range(table)
