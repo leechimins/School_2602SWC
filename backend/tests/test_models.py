@@ -98,9 +98,9 @@ def a_meeting(session: Session, room: Room, **kw) -> Meeting:
     return row
 
 
-def test_테이블_22개가_생긴다(session: Session) -> None:
+def test_테이블_23개가_생긴다(session: Session) -> None:
     names = set(SQLModel.metadata.tables)
-    assert len(names) == 22, sorted(names)
+    assert len(names) == 23, sorted(names)
     assert "scheduling_note" not in names, "11/3에 뺀 테이블이 살아 있다"
     # 레인이 갈리는 접점 세 곳이 다 있어야 A가 돌아간다.
     assert {"user", "room", "membership", "meeting", "demo_state"} <= names

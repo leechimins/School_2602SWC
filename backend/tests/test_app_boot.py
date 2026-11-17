@@ -43,7 +43,7 @@ def test_앱만_띄워도_테이블이_전부_등록된다() -> None:
         "print(len(SQLModel.metadata.tables))\n"
     )
     assert done.returncode == 0, done.stderr
-    assert int(done.stdout.strip()) == 22
+    assert int(done.stdout.strip()) == 23
 
 
 def test_앱만_띄워도_FK_지도가_그려진다() -> None:
