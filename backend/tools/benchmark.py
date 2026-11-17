@@ -265,7 +265,7 @@ STEPS = (0.0, 0.1, 0.25, 0.5, 1.0)
 CAPS = (2, 4, 8)
 
 
-def experiment(n_teams: int, seed: int, meeting_counts: Sequence[int] = (5, 20)) -> str:
+def experiment(n_teams: int, seed: int, meeting_counts: Sequence[int] = (5, 14, 20)) -> str:
     rng = random.Random(seed)
     weeks = max(meeting_counts)
     teams = [make_team(rng, weeks) for _ in range(n_teams)]
