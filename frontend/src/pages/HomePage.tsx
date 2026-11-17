@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react'
+import { useState, type CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
 import { getHome } from '../api/rooms.ts'
 import { changeTaskStatus } from '../api/tasks.ts'
@@ -24,7 +24,7 @@ import {
 } from '../lib/date.ts'
 import { answerLine } from '../lib/meeting.ts'
 import { PATHS, pathTo } from '../lib/paths.ts'
-import type { Home } from '../types/home.ts'
+import type { Home, MeetingSuggestion } from '../types/home.ts'
 import type { Task } from '../types/task.ts'
 import styles from './HomePage.module.css'
 
@@ -65,6 +65,7 @@ export default function HomePage() {
             <img className={styles.somsom} src="/brand/somsom-face.webp" alt="" />
             <PeriodCard startDate={home.data.startDate} dueDate={home.data.dueDate} today={home.data.today} />
           </div>
+          {home.data.suggestion && <Suggestion s={home.data.suggestion} roomId={user.roomId} today={home.data.today} />}
           <NextMeeting home={home.data} />
           {home.data.canStartScheduling && (
             <Link to={PATHS.schedulingNew} className={`sec ${styles.newMeeting}`}>
@@ -212,6 +213,52 @@ function NextMeeting({ home }: { home: Home }) {
             조율 결과 보기
           </Link>
         )}
+      </div>
+    </section>
+  )
+}
+
+// "나중에"를 누르면 같은 이유로는 그날 다시 띄우지 않는다. 서버에 쓰지 않는다(브라우저마다 따로)
+const snoozeKey = (roomId: string, kind: string) => `ttak:suggest:${roomId}:${kind}`
+function snoozedToday(key: string, today: string): boolean {
+  try {
+    return localStorage.getItem(key) === today
+  } catch {
+    return false
+  }
+}
+
+// 에이전트가 먼저 꺼내는 제안: 왜 지금인지 한 줄 + 주제·기간을 채운 조율 화면으로. 시작은 팀장이 누른다
+function Suggestion({ s, roomId, today }: { s: MeetingSuggestion; roomId: string; today: string }) {
+  const key = snoozeKey(roomId, s.kind)
+  const [hidden, setHidden] = useState(() => snoozedToday(key, today))
+  if (hidden) return null
+  const later = () => {
+    try {
+      localStorage.setItem(key, today)
+    } catch {
+      // 저장이 안 되면 이번 화면에서만 숨긴다
+    }
+    setHidden(true)
+  }
+  const query = new URLSearchParams({ topic: s.topic, from: s.windowStart, to: s.windowEnd })
+  return (
+    <section className={`sec ${styles.suggest}`} aria-label="에이전트 제안">
+      <p className={styles.suggestWho}>
+        <img src="/brand/somsom-face.webp" alt="" />
+        에이전트 제안
+      </p>
+      <p className="strong">{s.reason}</p>
+      <p className="meta num">
+        {s.topic} · {formatRange(s.windowStart, s.windowEnd)} 사이
+      </p>
+      <div className={styles.suggestActions}>
+        <button type="button" className="btn small" onClick={later}>
+          나중에
+        </button>
+        <Link to={`${PATHS.schedulingNew}?${query}`} className="btn small primary">
+          조율 시작하기
+        </Link>
       </div>
     </section>
   )

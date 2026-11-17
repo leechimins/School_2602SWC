@@ -1,6 +1,6 @@
 import dayjs from 'dayjs'
 import type { Id, MeetingMode } from '../types/common.ts'
-import type { Home } from '../types/home.ts'
+import type { Home, MeetingSuggestion } from '../types/home.ts'
 import { DAYPARTS, type MyWeek, type Preferences, type ScheduleSource, type WeekBlock } from '../types/me.ts'
 import type {
   CoordinatingBrief,
@@ -222,6 +222,7 @@ export type ServerHome = {
   my_tasks: ServerHomeTask[]
   unread_notifications: number
   can_start_scheduling: boolean
+  suggestion?: { kind: MeetingSuggestion['kind']; reason: string; topic: string; window_start: string; window_end: string } | null
   invite_code: string
   joined_count: number
   member_count: number
@@ -254,6 +255,15 @@ export const toHome = (r: ServerHome, roomName: string, me: { id: Id; name: stri
   })),
   unreadCount: r.unread_notifications,
   canStartScheduling: r.can_start_scheduling,
+  suggestion: r.suggestion
+    ? {
+        kind: r.suggestion.kind,
+        reason: r.suggestion.reason,
+        topic: r.suggestion.topic,
+        windowStart: r.suggestion.window_start,
+        windowEnd: r.suggestion.window_end,
+      }
+    : null,
   inviteCode: r.invite_code,
   joinedCount: r.joined_count,
   memberCount: r.member_count,

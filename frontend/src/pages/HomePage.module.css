@@ -155,3 +155,30 @@
   gap: 8px;
   margin-top: 2px;
 }
+
+/* 에이전트 제안: 포인트색 왼쪽 띠로 "먼저 말을 건 것"을 다른 카드와 구분한다 */
+.suggest {
+  border-left: 3px solid var(--point);
+}
+
+.suggestWho {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--point-ink);
+}
+
+.suggestWho img {
+  width: 22px;
+  height: 22px;
+}
+
+.suggestActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}

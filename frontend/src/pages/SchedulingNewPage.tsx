@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import type { Dayjs } from 'dayjs'
 import { messageOf } from '../api/client.ts'
 import { getRoom } from '../api/rooms.ts'
@@ -55,7 +55,18 @@ export default function SchedulingNewPage() {
 function SchedulingForm({ room }: { room: Room }) {
   const navigate = useNavigate()
   const now = useClock()
-  const [input, setInput] = useState<SchedulingInput>(() => defaultInput(now))
+  const [params] = useSearchParams()
+  // 홈의 에이전트 제안에서 오면 주제·기간이 채워져 온다. 날짜 모양이 아니면 기본값
+  const [input, setInput] = useState<SchedulingInput>(() => {
+    const base = defaultInput(now)
+    const day = (v: string | null) => (v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null)
+    return {
+      ...base,
+      topic: (params.get('topic') ?? '').slice(0, 100),
+      windowStart: day(params.get('from')) ?? base.windowStart,
+      windowEnd: day(params.get('to')) ?? base.windowEnd,
+    }
+  })
   const [problem, setProblem] = useState<FormProblem>(null)
   const [starting, setStarting] = useState(false)
   const set = <K extends keyof SchedulingInput>(key: K, value: SchedulingInput[K]) =>

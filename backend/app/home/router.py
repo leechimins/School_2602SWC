@@ -16,6 +16,7 @@ from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, col, func, select
 
+from app.home.suggest import suggest
 from app.home.schemas import Coordinating, HomeOut, MyTask, NextMeeting, TaskBucket
 from app.meeting.models import Meeting, MeetingResponse, Scheduling
 from app.minutes.models import Task
@@ -47,7 +48,9 @@ def read_home(
 
     # 시연 시계다. real_now()가 아니다 — 시연에서 날짜를 앞으로 옮겨
     # 디데이와 늦음 뱃지를 보여 준다.
-    today = demo_clock.now(db).date()
+    now = demo_clock.now(db)
+    today = now.date()
+    leader = room.leader_user_id == user_id
 
     return HomeOut(
         today=today,
@@ -58,7 +61,8 @@ def read_home(
         coordinating=_coordinating(db, room_id),
         my_tasks=_my_tasks(db, room_id, user_id, today),
         unread_notifications=_unread(db, room_id, user_id),
-        can_start_scheduling=room.leader_user_id == user_id,
+        can_start_scheduling=leader,
+        suggestion=suggest(db, room, now) if leader else None,
         invite_code=room.invite_code,
         joined_count=_joined(db, room_id),
         member_count=room.member_count,

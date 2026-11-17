@@ -61,6 +61,18 @@ class MyTask(SQLModel):
     blocked: bool = False
 
 
+class Suggestion(SQLModel):
+    """에이전트가 먼저 꺼내는 "회의 잡을까요?" 한 장(home/suggest.py). 팀장에게만."""
+
+    kind: Literal["blocked", "late", "deadline", "gap"]
+    # 왜 지금인지 한 줄
+    reason: str
+    # 조율 화면에 미리 채울 주제와 기간(날짜)
+    topic: str
+    window_start: date
+    window_end: date
+
+
 class HomeOut(SQLModel):
     """홈 탭 한 화면.
 
@@ -87,6 +99,8 @@ class HomeOut(SQLModel):
 
     # 새 회의 잡기 버튼을 보일지(명세 권장 규칙 4). 홈에만 있는 버튼이다.
     can_start_scheduling: bool = False
+    # 회의가 필요한 이유가 생겼을 때 에이전트의 제안. 팀장이 아니면 늘 null.
+    suggestion: Suggestion | None = None
     # 방을 막 만든 직후 화면에 쓴다 — 초대 코드와 들어온 인원.
     invite_code: str
     joined_count: int
