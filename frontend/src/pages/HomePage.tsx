@@ -26,7 +26,7 @@ import {
 } from '../lib/date.ts'
 import { answerLine } from '../lib/meeting.ts'
 import { PATHS, pathTo } from '../lib/paths.ts'
-import type { Home, MeetingSuggestion } from '../types/home.ts'
+import type { Home } from '../types/home.ts'
 import type { Task } from '../types/task.ts'
 import styles from './HomePage.module.css'
 
@@ -68,9 +68,8 @@ export default function HomePage() {
             <PeriodCard startDate={home.data.startDate} dueDate={home.data.dueDate} today={home.data.today} />
           </div>
           <NextMeeting home={home.data} />
-          {home.data.suggestion && <Suggestion s={home.data.suggestion} roomId={user.roomId} today={home.data.today} />}
+          <AgentCard home={home.data} roomId={user.roomId} onChanged={home.reload} />
           <MyTasks tasks={home.data.myTasks} />
-          <AgentPanel home={home.data} roomId={user.roomId} onChanged={home.reload} />
         </>
       )}
     </Screen>
@@ -142,8 +141,8 @@ function MyTasks({ tasks }: { tasks: Task[] }) {
 function NextMeeting({ home }: { home: Home }) {
   const { coordinating: c, nextMeeting: m } = home
   const now = useClock()
-  // 새 회의 잡기는 이 칸의 + 하나. 팀장만, 조율이 도는 동안은 못 연다
-  const add = home.canStartScheduling && !c && (
+  // 새 회의 잡기는 이 칸의 + 하나. 팀장만, 조율 중이거나 수락을 기다리는 회의가 있으면 못 연다
+  const add = home.canStartScheduling && !c && m?.status !== 'proposed' && (
     <Link to={PATHS.schedulingNew} className={styles.add} aria-label="새 회의 잡기" title="새 회의 잡기">
       +
     </Link>
@@ -230,48 +229,28 @@ function snoozedToday(key: string, today: string): boolean {
   }
 }
 
-// 에이전트가 먼저 꺼내는 제안: 왜 지금인지 한 줄 + 주제·기간을 채운 조율 화면으로. 시작은 팀장이 누른다
-function Suggestion({ s, roomId, today }: { s: MeetingSuggestion; roomId: string; today: string }) {
-  const key = snoozeKey(roomId, s.kind)
-  const [hidden, setHidden] = useState(() => snoozedToday(key, today))
-  if (hidden) return null
-  const later = () => {
-    try {
-      localStorage.setItem(key, today)
-    } catch {
-      // 저장이 안 되면 이번 화면에서만 숨긴다
-    }
-    setHidden(true)
-  }
-  const query = new URLSearchParams({ topic: s.topic, from: s.windowStart, to: s.windowEnd })
-  return (
-    <section className={`sec ${styles.suggest}`} aria-label="에이전트 제안">
-      <p className={styles.suggestWho}>
-        <img src="/brand/somsom-face.webp" alt="" />
-        에이전트 제안
-      </p>
-      <p className="strong">{s.reason}</p>
-      <p className="meta num">
-        {s.topic} · {formatRange(s.windowStart, s.windowEnd)} 사이
-      </p>
-      <div className={styles.suggestActions}>
-        <button type="button" className="btn small" onClick={later}>
-          나중에
-        </button>
-        <Link to={`${PATHS.schedulingNew}?${query}`} className="btn small primary">
-          조율 시작하기
-        </Link>
-      </div>
-    </section>
-  )
-}
-
-// 에이전트 칸: 팀장이 조율 시작을 맡기는 스위치와, 에이전트가 혼자 한 일 최근 몇 줄.
-// 켜면 홈을 다시 불러 그 자리에서 조건을 본다 — 이유가 있으면 바로 "조율 중"이 뜬다
-function AgentPanel({ home, roomId, onChanged }: { home: Home; roomId: string; onChanged: () => void }) {
+// 에이전트 카드 하나: 머리(에이전트 · 기록 보기) → 지금 할 말(제안, 없으면 최근 기록 한 줄) → 맡기기 스위치(팀장).
+// 제안의 "나중에"는 그날 같은 이유로 다시 띄우지 않는다(브라우저마다 따로). 시작은 팀장이 누른다
+function AgentCard({ home, roomId, onChanged }: { home: Home; roomId: string; onChanged: () => void }) {
+  const s = home.suggestion
+  const key = s ? snoozeKey(roomId, s.kind) : ''
+  const [snoozed, setSnoozed] = useState(() => (s ? snoozedToday(key, home.today) : false))
   const [on, setOn] = useState(home.autoSchedule)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const leader = home.canStartScheduling
+  const showSuggest = s && !snoozed
+  const last = home.agentLog[0]
+  if (!leader && !showSuggest && !last) return null
+
+  const later = () => {
+    try {
+      localStorage.setItem(key, home.today)
+    } catch {
+      // 저장이 안 되면 이번 화면에서만 숨긴다
+    }
+    setSnoozed(true)
+  }
   const toggle = async (next: boolean) => {
     setOn(next)
     setBusy(true)
@@ -288,39 +267,66 @@ function AgentPanel({ home, roomId, onChanged }: { home: Home; roomId: string; o
   }
 
   return (
-    <section className="sec" aria-label="에이전트">
+    <section className={`sec ${styles.agent}`} aria-label="에이전트">
       <div className="row-between">
-        <h2>에이전트 기록</h2>
-        <Link to={PATHS.activity} className="btn small">
-          전체 보기
+        <p className={styles.agentWho}>
+          <img src="/brand/somsom-face.webp" alt="" />
+          에이전트
+        </p>
+        <Link to={PATHS.activity} className={styles.agentMore}>
+          기록 보기
         </Link>
       </div>
-      {home.canStartScheduling ? (
-        <label className={styles.auto}>
-          <input type="checkbox" checked={on} disabled={busy} onChange={(e) => toggle(e.target.checked)} />
-          <span>
-            <span className="strong">회의가 필요하면 조율까지 맡기기</span>
-            <span className="meta">이유가 생기면 에이전트가 먼저 조율을 시작해요. 확정은 모두의 수락으로 해요.</span>
-          </span>
-        </label>
+
+      {showSuggest ? (
+        <>
+          <p className={styles.agentSay}>{s.reason}</p>
+          <p className="meta num">
+            {s.topic} · {formatRange(s.windowStart, s.windowEnd)} 사이
+          </p>
+          <div className={styles.suggestActions}>
+            <button type="button" className="btn small" onClick={later}>
+              나중에
+            </button>
+            <Link
+              to={`${PATHS.schedulingNew}?${new URLSearchParams({ topic: s.topic, from: s.windowStart, to: s.windowEnd })}`}
+              className="btn small primary"
+            >
+              조율 시작하기
+            </Link>
+          </div>
+        </>
       ) : (
-        home.autoSchedule && <p className="meta">팀장이 조율 시작을 에이전트에게 맡겨 뒀어요.</p>
+        last && (
+          <>
+            <p className={styles.agentSay}>{last.what}</p>
+            {last.why && <p className={`meta ${styles.clamp}`}>{last.why}</p>}
+            <p className="meta num">{formatStamp(last.at)}</p>
+          </>
+        )
       )}
-      {error && <p className="meta" role="alert">{error}</p>}
-      {home.agentLog.length === 0 ? (
-        <p className="meta">아직 한 일이 없어요.</p>
-      ) : (
-        <ul className={styles.log}>
-          {home.agentLog.map((a) => (
-            <li key={a.id}>
-              <div>
-                <p className="strong">{a.what}</p>
-                {a.why && <p className="meta">{a.why}</p>}
-              </div>
-              <span className="meta num">{formatStamp(a.at)}</span>
-            </li>
-          ))}
-        </ul>
+
+      {leader && (
+        <label className={styles.auto}>
+          <span>
+            <span className="strong">조율까지 맡기기</span>
+            <span className="meta">필요하면 에이전트가 먼저 조율을 열어요</span>
+          </span>
+          <input
+            type="checkbox"
+            role="switch"
+            className={styles.switch}
+            checked={on}
+            disabled={busy}
+            onChange={(e) => toggle(e.target.checked)}
+          />
+        </label>
+      )}
+      {!leader && home.autoSchedule && <p className="meta">팀장이 조율 시작을 에이전트에게 맡겨 뒀어요.</p>}
+      {error && (
+        <p className="meta" role="alert">
+          {error}
+        </p>
       )}
     </section>
   )
