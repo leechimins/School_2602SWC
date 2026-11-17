@@ -99,6 +99,11 @@
 }
 
 /* 새 회의 잡기(팀장만): 다음 회의와 따로 둔 한 줄 버튼. 아이콘 | 글자 | + */
+/* 다음 회의가 없을 때 그 한 줄은 흐리게 */
+.none {
+  color: var(--muted);
+}
+
 /* 다음 회의 머리 오른쪽: 상태 뱃지 + 새 회의 잡기(+) */
 .headRight {
   display: inline-flex;
@@ -169,10 +174,14 @@
 }
 
 .suggestActions {
-  display: flex;
-  justify-content: flex-end;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 8px;
-  margin-top: 10px;
+  margin-top: 12px;
+}
+
+.suggestActions > * {
+  justify-content: center;
 }
 
 /* 에이전트 칸: 맡기기 스위치 */

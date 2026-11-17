@@ -174,7 +174,7 @@ function NextMeeting({ home }: { home: Home }) {
       <section className="sec">
         <h2>다음 회의</h2>
         <div className="row-between">
-          <p className="strong">아직 잡힌 회의가 없어요</p>
+          <p className={`strong ${styles.none}`}>아직 잡힌 회의가 없어요</p>
           {add}
         </div>
         {!home.canStartScheduling && <p className="meta">팀장이 회의를 잡으면 알려 드려요.</p>}
