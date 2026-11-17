@@ -13,9 +13,9 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, select
 
-from app.me import avoid
+from app.me import avoid, learn
 from app.me.models import Preference
-from app.me.schemas import OnboardingIn, PreferenceOut, PreferencePatch
+from app.me.schemas import OnboardingIn, PreferenceChangeOut, PreferenceOut, PreferencePatch
 from app.shared.auth import current_user_id
 from app.shared.base import real_now
 from app.shared.db import session_dep
@@ -156,3 +156,27 @@ def update_preferences(
 
     _reject_reversed_range(pref)
     return _save(db, pref)
+
+
+@router.get("/preference-changes", response_model=list[PreferenceChangeOut])
+def list_preference_changes(
+    user_id: int = Depends(current_user_id),
+    db: Session = Depends(session_dep),
+) -> list[PreferenceChangeOut]:
+    """피드백이 바꾼 내 선호, 최근 10개. 되돌린 것도 남는다(reverted)."""
+    return [
+        PreferenceChangeOut.model_validate(c, from_attributes=True)
+        for c in learn.recent(db, user_id)
+    ]
+
+
+@router.post("/preference-changes/{change_id}/undo", response_model=PreferenceChangeOut)
+def undo_preference_change(
+    change_id: int,
+    user_id: int = Depends(current_user_id),
+    db: Session = Depends(session_dep),
+) -> PreferenceChangeOut:
+    """바뀌기 전 값으로 되돌린다. 두 번 눌러도 그대로. 그 뒤 또 바뀌었으면 409."""
+    return PreferenceChangeOut.model_validate(
+        learn.undo(db, user_id, change_id), from_attributes=True
+    )

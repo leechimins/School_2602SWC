@@ -103,3 +103,21 @@ class PreferenceOut(SQLModel):
     avoid_end_min: int | None = None
     # 아직 온보딩을 안 한 사람은 행이 없어서 null이다.
     updated_at: datetime | None = None
+
+
+class PreferenceChangeOut(SQLModel):
+    """피드백 한 줄이 바꾼 것. 화면의 "다음부터 … · 되돌리기" 한 줄이다.
+
+    before·after는 사람이 읽는 값이다 — 피하는 시간은 원문, 시간대는
+    "forenoon,afternoon", 대면/비대면은 "offline". null은 "없었음".
+    """
+
+    id: int
+    meeting_id: int | None = None
+    field: Literal["avoid", "dayparts", "mode_pref"]
+    summary: str
+    source_text: str
+    before: str | None = None
+    after: str | None = None
+    reverted: bool = False
+    created_at: datetime
